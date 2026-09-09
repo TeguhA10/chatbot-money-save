@@ -123,6 +123,84 @@ class WebhookController extends Controller
             return $this->handleAddCategory($user, trim($matches[1]));
         }
 
+        if (preg_match('/^pengeluaran hari ini$/i', $messageText, $matches)) {
+            return $this->handleTransactionList(
+                $user,
+                'EXPENSE',
+                'today'
+            );
+        }
+
+        if (preg_match('/^pemasukan hari ini$/i', $messageText, $matches)) {
+            return $this->handleTransactionList(
+                $user,
+                'INCOME',
+                'today'
+            );
+        }
+
+        if (preg_match('/^pengeluaran bulan ini$/i', $messageText, $matches)) {
+            return $this->handleTransactionList(
+                $user,
+                'EXPENSE',
+                'month'
+            );
+        }
+
+        if (preg_match('/^pemasukan bulan ini$/i', $messageText, $matches)) {
+            return $this->handleTransactionList(
+                $user,
+                'INCOME',
+                'month'
+            );
+        }
+
+        // ---------------------------------------------------------------------
+        // Update Transaction
+        //
+        // Example:
+        // ubah transaksi a82f31c2 75000 makan siang
+        // ---------------------------------------------------------------------
+
+        if (
+            preg_match(
+                '/^ubah transaksi\s+([a-f0-9-]+)\s+([0-9.,]+)\s+(.+)$/i',
+                $messageText,
+                $matches
+            )
+        ) {
+            $transactionId = trim($matches[1]);
+            $amountText     = trim($matches[2]);
+            $description    = trim($matches[3]);
+
+            $amount = $this->parseAmount($amountText);
+
+            if ($amount <= 0) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nominal tidak valid. Contoh: `ubah transaksi a82f31c2 75000 makan siang`']);
+            }
+
+            return $this->handleTransactionUpdate(
+                $user,
+                $transactionId,
+                $amount,
+                $description
+            );
+        }
+
+        // Delete Transaction
+        if (
+            preg_match(
+                '/^hapus transaksi\s+([a-f0-9-]+)$/i',
+                $messageText,
+                $matches
+            )
+        ) {
+            return $this->handleTransactionDelete(
+                $user,
+                trim($matches[1])
+            );
+        }
+
         // Help / menu
         if (preg_match('/^(bantuan|help|menu|\?)$/i', $messageText)) {
             return response()->json([
@@ -147,6 +225,239 @@ class WebhookController extends Controller
     // ---------------------------------------------------------------------------
     // Command Handlers
     // ---------------------------------------------------------------------------
+
+    private function handleTransactionList(
+        User $user,
+        string $type,
+        ?string $period
+    ): JsonResponse {
+        $transactions = $this->financeService->getTransactions(
+            $user,
+            $type,
+            $period,
+            10
+        );
+
+        $typeTitle = $type === 'EXPENSE'
+            ? 'Pengeluaran'
+            : 'Pemasukan';
+
+        $emoji = $type === 'EXPENSE'
+            ? '💸'
+            : '💰';
+
+        if ($period === 'today') {
+            $periodTitle = 'Hari Ini';
+        } elseif ($period === 'month') {
+            $periodTitle = now()->translatedFormat('F Y');
+        } else {
+            $periodTitle = 'Terbaru';
+        }
+
+        $text = "{$emoji} *{$typeTitle} - {$periodTitle}*\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+
+        if ($transactions->isEmpty()) {
+            $text .= "📭 Belum ada " . strtolower($typeTitle) . ".\n";
+            $text .= "━━━━━━━━━━━━━━━━━\n";
+            $text .= "💰 Saldo: "
+                . $this->formatRupiah(
+                    $this->financeService->getBalance($user)
+                );
+
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
+        }
+
+        foreach ($transactions as $index => $transaction) {
+            $number = $index + 1;
+
+            $category = $transaction->category
+                ? $transaction->category->icon
+                    . ' '
+                    . $transaction->category->name
+                : '📦 Lain-lain';
+
+            $shortId = substr(
+                (string) $transaction->id,
+                0,
+                8
+            );
+
+            $text .= "*{$number}. {$category}*\n";
+
+            if ($transaction->description !== '') {
+                $text .= "   📝 {$transaction->description}\n";
+            }
+
+            $text .= "   💵 "
+                . $this->formatRupiah($transaction->amount)
+                . "\n";
+
+            $text .= "   🕐 "
+                . $transaction->transaction_date->format('d/m/Y H:i')
+                . "\n";
+
+            $text .= "   🆔 `{$shortId}`\n\n";
+        }
+
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "💰 Saldo: "
+            . $this->formatRupiah(
+                $this->financeService->getBalance($user)
+            )
+            . "\n\n";
+
+        $text .= "_Gunakan:_\n";
+        $text .= "`ubah transaksi ID nominal keterangan`\n";
+        $text .= "`hapus transaksi ID`";
+
+        return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
+    }
+
+
+    // =========================================================================
+    // Update
+    // =========================================================================
+
+    private function handleTransactionUpdate(
+        User $user,
+        string $transactionId,
+        int $amount,
+        string $description
+    ): JsonResponse {
+        try {
+            $transaction = $this->financeService
+                ->findTransactionById(
+                    $user,
+                    $transactionId
+                );
+
+            if (!$transaction) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => "❌ Transaksi dengan ID `{$transactionId}` tidak ditemukan."]);
+            }
+
+            $result = $this->financeService->updateTransaction(
+                $user,
+                $transaction->id,
+                $amount,
+                $description
+            );
+
+            if (!$result) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '❌ Transaksi tidak ditemukan atau sudah tidak aktif.']);
+            }
+
+            $updated = $result['transaction'];
+
+            $typeLabel = $updated->type === 'EXPENSE'
+                ? 'Pengeluaran'
+                : 'Pemasukan';
+
+            $category = $updated->category
+                ? $updated->category->icon
+                    . ' '
+                    . $updated->category->name
+                : '📦 Lain-lain';
+
+            $text = "✅ *Transaksi Berhasil Diubah*\n";
+            $text .= "━━━━━━━━━━━━━━━━━\n";
+            $text .= "📝 Keterangan: {$updated->description}\n";
+            $text .= "🏷️ Kategori: {$category}\n";
+            $text .= "💵 {$typeLabel}: "
+                . $this->formatRupiah($updated->amount)
+                . "\n";
+            $text .= "━━━━━━━━━━━━━━━━━\n";
+            $text .= "💰 Saldo Baru: "
+                . $this->formatRupiah($result['new_balance']);
+
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
+
+        } catch (\RuntimeException $e) {
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            Log::error(
+                'Webhook: Transaction update failed',
+                [
+                    'user' => $user->jid,
+                    'transaction_id' => $transactionId,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Gagal mengubah transaksi. Silakan coba lagi.']);
+        }
+    }
+
+    // =========================================================================
+    // Delete / Void
+    // =========================================================================
+
+    private function handleTransactionDelete(
+        User $user,
+        string $transactionId
+    ): JsonResponse {
+        try {
+            $transaction = $this->financeService
+                ->findTransactionById(
+                    $user,
+                    $transactionId
+                );
+
+            if (!$transaction) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => "❌ Transaksi dengan ID `{$transactionId}` tidak ditemukan."]);
+            }
+
+            $result = $this->financeService->voidTransaction(
+                $user,
+                $transaction->id
+            );
+
+            if (!$result) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '❌ Transaksi tidak ditemukan atau sudah dihapus.']);
+            }
+
+            $voided = $result['voided'];
+
+            $typeLabel = $voided->type === 'EXPENSE'
+                ? 'Pengeluaran'
+                : 'Pemasukan';
+
+            $text = "🗑️ *Transaksi Berhasil Dihapus*\n";
+            $text .= "━━━━━━━━━━━━━━━━━\n";
+
+            if ($voided->description !== '') {
+                $text .= "📝 {$voided->description}\n";
+            }
+
+            $text .= "💵 {$typeLabel}: "
+                . $this->formatRupiah($voided->amount)
+                . "\n";
+
+            $text .= "━━━━━━━━━━━━━━━━━\n";
+            $text .= "💰 Saldo Baru: "
+                . $this->formatRupiah($result['new_balance']);
+
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
+
+        } catch (\RuntimeException $e) {
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ ' . $e->getMessage()]);
+        } catch (\Throwable $e) {
+            Log::error(
+                'Webhook: Transaction delete failed',
+                [
+                    'user' => $user->jid,
+                    'transaction_id' => $transactionId,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Gagal menghapus transaksi. Silakan coba lagi.']);
+        }
+    }
+
+    // =========================================================================
+    // Balance
+    // =========================================================================
 
     private function handleBalanceInquiry(User $user): JsonResponse
     {
@@ -333,57 +644,114 @@ class WebhookController extends Controller
     private function buildWelcomeMessage(User $user): string
     {
         $name = $user->display_name ?: 'Sobat';
-        return "👋 Halo *{$name}*! Selamat datang di *WA Finance Bot* 💰\n\n"
-            . "Bot ini membantu kamu catat keuangan harian langsung dari WhatsApp!\n\n"
+
+        return "👋 Halo *{$name}*! Selamat datang "
+            . "di *WA Finance Bot* 💰\n\n"
+            . "Bot ini membantu kamu catat keuangan "
+            . "harian langsung dari WhatsApp!\n\n"
             . "*Cara Pakai:*\n"
             . "  📤 _keluar 25000 makan siang_\n"
             . "  📥 _masuk 500000 gaji_\n"
             . "  💰 _saldo_\n"
+            . "  📤 _pengeluaran hari ini_\n"
+            . "  📤 _pengeluaran bulan ini_\n"
+            . "  📥 _pemasukan hari ini_\n"
+            . "  📥 _pemasukan bulan ini_\n"
             . "  📊 _rekap bulan ini_\n"
             . "  📋 _export excel_\n"
-            . "  ↩️ _batal_ (untuk undo)\n\n"
+            . "  ↩️ _batal_\n\n"
             . "Ketik *bantuan* untuk panduan lengkap.\n\n"
             . "_Yuk mulai catat! 🚀_";
     }
 
     private function buildHelpMessage(): string
     {
-        return "📚 *Panduan Lengkap WA Finance Bot*\n\n"
+        return "📚 *Panduan WA Finance Bot*\n\n"
+
             . "*Catat Pengeluaran:*\n"
             . "  • `keluar 25000 makan siang`\n"
             . "  • `beli bensin 50rb`\n"
             . "  • `bayar listrik 150.000`\n"
             . "  • `-35k parkir`\n\n"
+
             . "*Catat Pemasukan:*\n"
             . "  • `masuk 500000 gaji`\n"
             . "  • `terima 250k bonus`\n"
             . "  • `+1.5jt freelance`\n\n"
-            . "*Cek Saldo & Laporan:*\n"
-            . "  • `saldo` — cek saldo terkini\n"
-            . "  • `rekap hari ini` — ringkasan hari ini\n"
-            . "  • `rekap bulan ini` — ringkasan bulan ini\n\n"
+
+            . "*Lihat Transaksi:*\n"
+            . "  • `pengeluaran hari ini`\n"
+            . "  • `pemasukan hari ini`\n"
+            . "  • `pengeluaran bulan ini`\n"
+            . "  • `pemasukan bulan ini`\n\n"
+
+            . "*Saldo & Laporan:*\n"
+            . "  • `saldo`\n"
+            . "  • `rekap hari ini`\n"
+            . "  • `rekap bulan ini`\n\n"
+
+            . "*Kelola Transaksi:*\n"
+            . "  • `ubah transaksi ID nominal keterangan`\n"
+            . "  • `hapus transaksi ID`\n"
+            . "  • `batal`\n\n"
+
             . "*Lainnya:*\n"
-            . "  • `batal` — batalkan transaksi terakhir\n"
-            . "  • `export excel` — unduh laporan Excel\n"
-            . "  • `kategori` — lihat daftar kategori\n"
-            . "  • `tambah kategori <nama>` — tambah kategori baru\n\n"
-            . "_Format nominal: 25000, 25.000, 25k, 25rb, 1.5jt_ 💡";
+            . "  • `export excel`\n"
+            . "  • `kategori`\n"
+            . "  • `tambah kategori <nama>`\n\n"
+
+            . "_Format nominal: "
+            . "25000, 25.000, 25k, 25rb, 1.5jt_ 💡";
     }
 
-    private function buildUnrecognizedMessage(string $message): string
-    {
-        return "🤔 Maaf, saya tidak mengerti maksud pesan:\n\"_{$message}_\"\n\n"
-            . "*Format transaksi yang bisa dipahami:*\n"
+    private function buildUnrecognizedMessage(
+        string $message
+    ): string {
+        return "🤔 Maaf, saya tidak mengerti "
+            . "maksud pesan:\n"
+            . "\"_{$message}_\"\n\n"
+
+            . "*Format transaksi:*\n"
             . "  📤 `keluar 25000 makan siang`\n"
-            . "  📥 `masuk 500000 gaji`\n"
-            . "  📤 `beli bensin 50rb`\n"
-            . "  📥 `+1.5jt bonus proyek`\n\n"
-            . "Atau ketik *bantuan* untuk panduan lengkap. 😊";
+            . "  📥 `masuk 500000 gaji`\n\n"
+
+            . "*Lihat transaksi:*\n"
+            . "  📤 `pengeluaran hari ini`\n"
+            . "  📤 `pengeluaran bulan ini`\n"
+            . "  📥 `pemasukan hari ini`\n"
+            . "  📥 `pemasukan bulan ini`\n\n"
+
+            . "Atau ketik *bantuan* untuk "
+            . "panduan lengkap. 😊";
     }
 
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
+
+        private function parseAmount(string $value): int
+    {
+        $value = strtolower(trim($value));
+        $value = str_replace(' ', '', $value);
+
+        if (preg_match('/^([\d.,]+)(jt|juta)$/i', $value, $m)) {
+            return (int) round(
+                (float) str_replace(',', '.', $m[1])
+                * 1_000_000
+            );
+        }
+
+        if (preg_match('/^([\d.,]+)(rb|ribu|k)$/i', $value, $m)) {
+            return (int) round(
+                (float) str_replace(',', '.', $m[1])
+                * 1_000
+            );
+        }
+
+        $numeric = preg_replace('/[^\d]/', '', $value);
+
+        return (int) ($numeric ?: 0);
+    }
 
     /**
      * Format integer Rupiah as human-readable currency string.

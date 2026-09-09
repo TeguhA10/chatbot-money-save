@@ -306,18 +306,30 @@ class TransactionParserService
         $lower = strtolower(trim($message));
 
         $commandPatterns = [
+            // Saldo
             '/^saldo$/i',
+
+            // Rekap / laporan
             '/^rekap/i',
             '/^laporan/i',
             '/^export/i',
+
+            // Transaksi
+            '/^pengeluaran/i',
+            '/^pemasukan/i',
+            '/^ubah transaksi/i',
+            '/^hapus transaksi/i',
             '/^batal$/i',
-            '/^hapus/i',
+
+            // Bantuan
             '/^bantuan$/i',
             '/^help$/i',
             '/^menu$/i',
             '/^start$/i',
             '/^hi$/i',
             '/^halo$/i',
+
+            // Kategori
             '/^kategori/i',
             '/^tambah kategori/i',
             '/^daftar kategori/i',

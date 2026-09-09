@@ -91,6 +91,255 @@ class FinanceService
         });
     }
 
+        // ---------------------------------------------------------------------------
+    // Transaction List
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Get latest transactions for a user.
+     *
+     * Important:
+     * - Uses LIMIT instead of loading the entire transaction history.
+     * - Only ACTIVE transactions are returned.
+     * - Supports EXPENSE / INCOME.
+     * - Supports today / current month filtering.
+     *
+     * @return Collection<int, Transaction>
+     */
+    public function getTransactions(
+        User $user,
+        ?string $type = null,
+        ?string $period = null,
+        int $limit = 10
+    ): Collection {
+        $limit = max(1, min($limit, 50));
+
+        $query = Transaction::query()
+            ->where('user_jid', $user->jid)
+            ->active()
+            ->with('category')
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        if ($type === 'EXPENSE') {
+            $query->expenses();
+        } elseif ($type === 'INCOME') {
+            $query->incomes();
+        }
+
+        if ($period === 'today') {
+            $query->forDate(now()->toDateString());
+        } elseif ($period === 'month') {
+            $query->forMonth(now()->year, now()->month);
+        }
+
+        return $query->limit($limit)->get();
+    }
+
+    /**
+     * Find a user's transaction using a UUID prefix.
+     *
+     * Example:
+     * a82f31c2
+     *
+     * The transaction is always scoped by user_jid.
+     *
+     * @throws \RuntimeException when transaction is ambiguous.
+     */
+    public function findTransactionById(User $user, string $id): ?Transaction
+    {
+        $id = trim($id);
+
+        if ($id === '') {
+            return null;
+        }
+
+        // Full UUID
+        if (strlen($id) >= 36) {
+            return Transaction::where('user_jid', $user->jid)
+                ->where('id', $id)
+                ->active()
+                ->first();
+        }
+
+        // UUID prefix
+        $matches = Transaction::where('user_jid', $user->jid)
+            ->where('id', 'like', $id . '%')
+            ->active()
+            ->limit(2)
+            ->get();
+
+        if ($matches->count() > 1) {
+            throw new \RuntimeException(
+                "ID transaksi '{$id}' tidak unik. Gunakan ID yang lebih panjang."
+            );
+        }
+
+        return $matches->first();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Transaction Update
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Update an existing ACTIVE transaction.
+     *
+     * Only amount and description are changed here.
+     * Type/category remain unchanged.
+     *
+     * After updating, the entire active ledger is recalculated so that
+     * balance_after snapshots remain correct.
+     */
+    public function updateTransaction(
+        User $user,
+        string $transactionId,
+        int $amount,
+        string $description
+    ): ?array {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException(
+                'Nominal transaksi harus lebih dari 0.'
+            );
+        }
+
+        return DB::transaction(function () use (
+            $user,
+            $transactionId,
+            $amount,
+            $description
+        ) {
+            User::where('jid', $user->jid)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $transaction = Transaction::where('user_jid', $user->jid)
+                ->where('id', $transactionId)
+                ->active()
+                ->lockForUpdate()
+                ->first();
+
+            if (!$transaction) {
+                return null;
+            }
+
+            $transaction->update([
+                'amount'      => $amount,
+                'description' => $description,
+            ]);
+
+            $newBalance = $this->recalculateUserLedger($user);
+
+            $transaction->refresh();
+
+            return [
+                'transaction' => $transaction,
+                'new_balance' => $newBalance,
+            ];
+        });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Transaction Delete / Void
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Void a specific transaction.
+     *
+     * We intentionally do NOT physically delete the database row.
+     * This preserves the financial audit trail.
+     */
+    public function voidTransaction(
+        User $user,
+        string $transactionId
+    ): ?array {
+        return DB::transaction(function () use ($user, $transactionId) {
+            User::where('jid', $user->jid)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $transaction = Transaction::where('user_jid', $user->jid)
+                ->where('id', $transactionId)
+                ->active()
+                ->lockForUpdate()
+                ->first();
+
+            if (!$transaction) {
+                return null;
+            }
+
+            $transaction->update([
+                'status' => 'VOIDED',
+            ]);
+
+            $newBalance = $this->recalculateUserLedger($user);
+
+            $transaction->refresh();
+
+            return [
+                'voided'      => $transaction,
+                'new_balance' => $newBalance,
+            ];
+        });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Ledger Recalculation
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Recalculate the user's entire ACTIVE ledger.
+     *
+     * This is required because balance_after is a snapshot.
+     *
+     * Example:
+     *
+     * +1.000.000 -> 1.000.000
+     * -200.000    ->   800.000
+     * -100.000    ->   700.000
+     *
+     * If the second transaction changes to -300.000:
+     *
+     * +1.000.000 -> 1.000.000
+     * -300.000    ->   700.000
+     * -100.000    ->   600.000
+     */
+    public function recalculateUserLedger(User $user): int
+    {
+        $balance = 0;
+
+        $transactions = Transaction::where('user_jid', $user->jid)
+            ->active()
+            ->orderBy('transaction_date')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($transactions as $transaction) {
+            if ($transaction->type === 'INCOME') {
+                $balance += (int) $transaction->amount;
+            } else {
+                $balance -= (int) $transaction->amount;
+            }
+
+            if ((int) $transaction->balance_after !== $balance) {
+                $transaction->update([
+                    'balance_after' => $balance,
+                ]);
+            }
+        }
+
+        User::where('jid', $user->jid)->update([
+            'current_balance' => $balance,
+        ]);
+
+        $user->current_balance = $balance;
+
+        return $balance;
+    }
+
     // ---------------------------------------------------------------------------
     // Undo / Void — FR-013
     // ---------------------------------------------------------------------------
