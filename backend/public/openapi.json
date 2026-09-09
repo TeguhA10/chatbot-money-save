@@ -1,0 +1,573 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WA Finance Tracker API",
+    "description": "REST API documentation for WhatsApp Personal Finance Tracker. Serves Vue 3 Web Dashboard and React Native Expo Mobile App, including WhatsApp Baileys Gateway Webhook.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Developer Support",
+      "email": "support@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8000/api/v1",
+      "description": "Local Development Server (v1)"
+    },
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Alternative Local Host (v1)"
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "WhatsApp OTP Authentication & Token Issuance" },
+    { "name": "Profile", "description": "User Profile & Real-time Balance" },
+    { "name": "Transactions", "description": "Financial Transaction CRUD & Void Management" },
+    { "name": "Categories", "description": "Default and Custom Category Management" },
+    { "name": "Analytics", "description": "Financial Insights, KPI Summaries, and Monthly Trends" },
+    { "name": "Export", "description": "Multi-Sheet Excel Spreadsheet Generation" },
+    { "name": "Webhook", "description": "Internal WhatsApp Baileys Socket Bridge Endpoint" }
+  ],
+  "paths": {
+    "/auth/request-otp": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request WhatsApp OTP",
+        "description": "Generates a 6-digit one-time password and queues it for delivery via WhatsApp chat.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone"],
+                "properties": {
+                  "phone": { "type": "string", "example": "6281234567890", "description": "WhatsApp phone number with country code" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP successfully generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Kode OTP telah dikirimkan ke WhatsApp Anda." }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Verify OTP & Obtain Access Token",
+        "description": "Validates 6-digit OTP code and returns Sanctum Bearer token for client sessions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone", "otp"],
+                "properties": {
+                  "phone": { "type": "string", "example": "6281234567890" },
+                  "otp": { "type": "string", "example": "123456", "minLength": 6, "maxLength": 6 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully, access token returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": { "type": "string", "example": "1|N1Wq..." },
+                        "user": { "$ref": "#/components/schemas/User" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid or expired OTP",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get Current User Profile & Balance",
+        "security": [{ "SanctumAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User profile details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "List User Transactions (Paginated)",
+        "security": [{ "SanctumAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["EXPENSE", "INCOME"] } },
+          { "name": "category_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "start_date", "in": "query", "schema": { "type": "string", "format": "date", "example": "2026-09-01" } },
+          { "name": "end_date", "in": "query", "schema": { "type": "string", "format": "date", "example": "2026-09-30" } },
+          { "name": "search", "in": "query", "schema": { "type": "string", "example": "makan siang" } },
+          { "name": "include_voided", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of transactions with pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": { "type": "array", "items": { "$ref": "#/components/schemas/Transaction" } },
+                        "pagination": { "$ref": "#/components/schemas/Pagination" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Create Manual Transaction",
+        "security": [{ "SanctumAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["type", "amount"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["EXPENSE", "INCOME"], "example": "EXPENSE" },
+                  "amount": { "type": "integer", "minimum": 1, "example": 25000, "description": "Nominal in Rupiah" },
+                  "category_id": { "type": "string", "format": "uuid", "nullable": true },
+                  "description": { "type": "string", "maxLength": 255, "example": "Makan siang nasi padang" },
+                  "transaction_date": { "type": "string", "format": "date-time", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transaction created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Transaction" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transactions/{id}": {
+      "delete": {
+        "tags": ["Transactions"],
+        "summary": "Void / Refund Transaction",
+        "description": "Marks the targeted transaction as VOIDED and atomically refunds the user's running balance.",
+        "security": [{ "SanctumAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction successfully voided and refunded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "status": { "type": "string", "example": "VOIDED" },
+                        "refunded_amount": { "type": "integer", "example": 25000 },
+                        "new_balance": { "type": "integer", "example": 1000000 }
+                      }
+                    },
+                    "message": { "type": "string", "example": "Transaksi berhasil dibatalkan." }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Transaction not found or already voided" }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "List User Categories (System + Custom)",
+        "security": [{ "SanctumAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of categories accessible to the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Categories"],
+        "summary": "Create Custom Category",
+        "security": [{ "SanctumAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "type"],
+                "properties": {
+                  "name": { "type": "string", "example": "Koleksi Buku" },
+                  "type": { "type": "string", "enum": ["EXPENSE", "INCOME"], "example": "EXPENSE" },
+                  "icon": { "type": "string", "example": "📚" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Category" }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "description": "Category name already exists" }
+        }
+      }
+    },
+    "/analytics/summary": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get Monthly KPI Summary",
+        "security": [{ "SanctumAuth": [] }],
+        "parameters": [
+          { "name": "month", "in": "query", "schema": { "type": "string", "example": "2026-09" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Executive KPI summary comparing current vs previous month",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "month": { "type": "string", "example": "2026-09" },
+                        "total_income": { "type": "integer", "example": 5000000 },
+                        "total_expense": { "type": "integer", "example": 1500000 },
+                        "net_savings": { "type": "integer", "example": 3500000 },
+                        "transaction_count": { "type": "integer", "example": 24 },
+                        "delta_expense_pct": { "type": "number", "example": -12.5 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/category-breakdown": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Category Spending Distribution (Donut Chart)",
+        "security": [{ "SanctumAuth": [] }],
+        "parameters": [
+          { "name": "month", "in": "query", "schema": { "type": "string", "example": "2026-09" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category breakdown with amounts and percentage shares",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/CategorySpending" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/monthly-trend": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "6-Month Financial Trend (Line/Bar Chart)",
+        "security": [{ "SanctumAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Historical 6-month income and expense comparison",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/MonthlyTrendItem" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/export/excel": {
+      "get": {
+        "tags": ["Export"],
+        "summary": "Download Multi-Sheet Excel Spreadsheet",
+        "description": "Streams binary .xlsx workbook containing Executive Dashboard tab and individual Monthly transaction tabs with automated formulas.",
+        "parameters": [
+          { "name": "user_jid", "in": "query", "required": false, "schema": { "type": "string", "example": "6281234567890@s.whatsapp.net" }, "description": "WhatsApp JID (when downloading from chat link)" },
+          { "name": "year", "in": "query", "required": false, "schema": { "type": "integer", "example": 2026 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary spreadsheet file stream (.xlsx)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized — neither Bearer token nor valid user_jid provided" }
+        }
+      }
+    },
+    "/../webhook/whatsapp": {
+      "post": {
+        "tags": ["Webhook"],
+        "summary": "WhatsApp Baileys Gateway Relay",
+        "description": "Receives chat payloads from Baileys daemon, performs idempotency check, executes financial command, and returns structured bot action.",
+        "security": [{ "GatewaySecret": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message_id", "from_jid", "message_text"],
+                "properties": {
+                  "message_id": { "type": "string", "example": "3EB0123456789ABCDEF" },
+                  "from_jid": { "type": "string", "example": "6281234567890@s.whatsapp.net" },
+                  "push_name": { "type": "string", "example": "Teguh AF" },
+                  "message_text": { "type": "string", "example": "keluar 25000 makan siang" },
+                  "timestamp": { "type": "integer", "example": 1725792000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bot action response (REPLY_TEXT, SEND_DOCUMENT, or IGNORE)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "action": { "type": "string", "enum": ["REPLY_TEXT", "SEND_DOCUMENT", "IGNORE"], "example": "REPLY_TEXT" },
+                    "reply_text": { "type": "string", "example": "✅ Catatan Pengeluaran Tersimpan\n..." },
+                    "file_url": { "type": "string", "nullable": true },
+                    "file_name": { "type": "string", "nullable": true },
+                    "mimetype": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SanctumAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Sanctum Token",
+        "description": "Enter your Sanctum personal access token (obtained from /auth/verify-otp)"
+      },
+      "GatewaySecret": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Gateway-Secret",
+        "description": "Shared secret key configured between Baileys Gateway and Laravel"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "jid": { "type": "string", "example": "6281234567890@s.whatsapp.net" },
+          "display_name": { "type": "string", "example": "Teguh AF" },
+          "current_balance": { "type": "integer", "example": 1465000, "description": "Current balance in integer Rupiah" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "a1b2c3d4-..." },
+          "name": { "type": "string", "example": "Makanan & Minuman" },
+          "type": { "type": "string", "enum": ["EXPENSE", "INCOME"], "example": "EXPENSE" },
+          "icon": { "type": "string", "example": "🍜" },
+          "is_default": { "type": "boolean", "example": true }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "type": { "type": "string", "enum": ["EXPENSE", "INCOME"], "example": "EXPENSE" },
+          "amount": { "type": "integer", "example": 25000 },
+          "description": { "type": "string", "example": "Makan siang" },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "balance_after": { "type": "integer", "example": 975000 },
+          "transaction_date": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["ACTIVE", "VOIDED"], "example": "ACTIVE" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 20 },
+          "total_items": { "type": "integer", "example": 42 },
+          "total_pages": { "type": "integer", "example": 3 }
+        }
+      },
+      "CategorySpending": {
+        "type": "object",
+        "properties": {
+          "category_id": { "type": "string", "format": "uuid" },
+          "category_name": { "type": "string", "example": "Makanan & Minuman" },
+          "icon": { "type": "string", "example": "🍜" },
+          "total_amount": { "type": "integer", "example": 750000 },
+          "percentage": { "type": "number", "example": 50.0 }
+        }
+      },
+      "MonthlyTrendItem": {
+        "type": "object",
+        "properties": {
+          "month": { "type": "string", "example": "2026-09" },
+          "income": { "type": "integer", "example": 5000000 },
+          "expense": { "type": "integer", "example": 1500000 }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "VALIDATION_ERROR" },
+              "message": { "type": "string", "example": "Parameter tidak valid." }
+            }
+          }
+        }
+      }
+    }
+  }
+}
