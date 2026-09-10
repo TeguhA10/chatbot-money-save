@@ -1,0 +1,9 @@
+services:
+  backend:
+    environment: { APP_ENV: production, APP_DEBUG: "false" }
+    deploy: { resources: { limits: { memory: 512M } } }
+  worker:
+    environment: { APP_ENV: production, APP_DEBUG: "false" }
+    deploy: { resources: { limits: { memory: 256M } } }
+  gateway:
+    deploy: { resources: { limits: { memory: 384M } } }

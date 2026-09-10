@@ -37,6 +37,7 @@ class Transaction extends Model
         'balance_after',
         'transaction_date',
         'status',
+        'encrypted_amount', 'encrypted_balance_after', 'key_version',
     ];
 
     protected $casts = [
@@ -44,6 +45,7 @@ class Transaction extends Model
         'balance_after'    => 'integer',
         'transaction_date' => 'datetime',
         'status'           => 'string',
+        'key_version' => 'integer',
     ];
 
     protected $attributes = [
@@ -122,5 +124,16 @@ class Transaction extends Model
     public function scopeIncomes(Builder $query): Builder
     {
         return $query->where('type', 'INCOME');
+    }
+
+    public function getAmountAttribute($value): int
+    {
+        if (!empty($this->attributes['encrypted_amount'])) return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_amount']);
+        return (int) $value;
+    }
+    public function getBalanceAfterAttribute($value): int
+    {
+        if (!empty($this->attributes['encrypted_balance_after'])) return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_balance_after']);
+        return (int) $value;
     }
 }

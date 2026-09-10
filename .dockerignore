@@ -1,0 +1,8 @@
+.git/
+**/node_modules/
+**/vendor/
+**/dist/
+**/.env*
+**/*.log
+auth_info_baileys/
+coverage/

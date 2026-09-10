@@ -301,7 +301,7 @@ class TransactionParserService
      * Check if the message looks like a bot command rather than a financial transaction.
      * Commands should NOT be parsed as default EXPENSE transactions.
      */
-    private function isCommandMessage(string $message): bool
+    public function isCommandMessage(string $message): bool
     {
         $lower = strtolower(trim($message));
 
@@ -342,5 +342,10 @@ class TransactionParserService
         }
 
         return false;
+    }
+
+    public function isCommand(string $message): bool
+    {
+        return $this->isCommandMessage($message);
     }
 }

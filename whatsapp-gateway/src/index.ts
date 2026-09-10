@@ -10,6 +10,7 @@ import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import { OutboundQueue, QueuedMessage } from './queue.js';
 import { WebhookClient } from './webhook-client.js';
+import { createServer } from 'node:http';
 
 type WAMessage = Parameters<Parameters<WASocket['ev']['on']>[1]>[0] extends { messages: (infer M)[] } ? M : any;
 
@@ -18,6 +19,8 @@ dotenv.config();
 const WEBHOOK_URL = process.env.LARAVEL_WEBHOOK_URL || 'http://127.0.0.1:8000/api/webhook/whatsapp';
 const WEBHOOK_SECRET = process.env.GATEWAY_WEBHOOK_SECRET || 'local_dev_secret_12345';
 const PAIRING_PHONE = process.env.PAIRING_PHONE_NUMBER ? process.env.PAIRING_PHONE_NUMBER.replace(/\D/g, '') : '';
+const AUTH_DIR = process.env.BAILEYS_AUTH_DIR || 'auth_info_baileys';
+const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3000);
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 const webhookClient = new WebhookClient(WEBHOOK_URL, WEBHOOK_SECRET);
@@ -40,7 +43,7 @@ const outboundQueue = new OutboundQueue(async (msg: QueuedMessage) => {
 });
 
 async function startGateway() {
-  const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version, isLatest } = await fetchLatestBaileysVersion();
 
   console.log(`[Gateway] Starting Baileys Gateway using WA v${version.join('.')} (Latest: ${isLatest})`);
@@ -84,7 +87,7 @@ async function startGateway() {
       console.log(`[Gateway] Connection closed. Reconnecting: ${shouldReconnect}`);
 
       if (shouldReconnect) {
-        setTimeout(startGateway, 3000);
+        setTimeout(startGateway, Math.min(30000, 3000));
       } else {
         console.log('[Gateway] Device logged out. Please delete auth_info_baileys/ and re-pair.');
       }
@@ -100,7 +103,7 @@ async function startGateway() {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      await handleIncomingMessage(msg);
+      void handleIncomingMessage(msg);
     }
   });
 }
@@ -144,6 +147,7 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
       jid: fromJid,
       type: 'TEXT',
       text: response.reply_text,
+      idempotencyKey: `${msg.key.id}:reply`,
     });
   } else if (response.action === 'SEND_DOCUMENT' && response.file_url) {
     outboundQueue.enqueue({
@@ -153,11 +157,14 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
       documentUrl: response.file_url,
       fileName: response.file_name,
       mimetype: response.mimetype,
+      idempotencyKey: `${msg.key.id}:document`,
     });
   }
 }
 
 // Start gateway daemon
+createServer((_request, response) => { response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify({ status: sock ? 'ready' : 'starting' })); }).listen(HEALTH_PORT);
+
 startGateway().catch((err) => {
   console.error('[Gateway] Fatal initialization error:', err);
 });

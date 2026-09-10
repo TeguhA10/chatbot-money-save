@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\MidtransWebhookController;
+use App\Http\Controllers\Api\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,8 +24,13 @@ use Illuminate\Support\Facades\Route;
 // ---------------------------------------------------------------------------
 // Webhook (Internal — called by Baileys gateway sidecar, not protected by Sanctum)
 // ---------------------------------------------------------------------------
-Route::post('/webhook/whatsapp', [WebhookController::class, 'handle'])
+Route::middleware('gateway')->post('/webhook/whatsapp', [WebhookController::class, 'handle'])
     ->name('api.webhook.whatsapp');
+Route::post('/webhook/midtrans', [MidtransWebhookController::class, 'handle'])->name('api.webhook.midtrans');
+Route::get('/health/live', [HealthController::class, 'live']);
+Route::get('/health/ready', [HealthController::class, 'ready']);
+Route::middleware('gateway')->get('/subscription/status', [SubscriptionController::class, 'status']);
+Route::middleware('gateway')->post('/subscription/purchase', [SubscriptionController::class, 'purchase']);
 
 // ---------------------------------------------------------------------------
 // Public Authentication Routes
@@ -43,8 +51,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [AuthController::class, 'profile'])->name('api.profile');
 
         // Transactions
-        Route::get('/transactions',     [TransactionController::class, 'index'])->name('api.transactions.index');
-        Route::post('/transactions',    [TransactionController::class, 'store'])->name('api.transactions.store');
+        Route::get('/transactions',         [TransactionController::class, 'index'])->name('api.transactions.index');
+        Route::post('/transactions',        [TransactionController::class, 'store'])->name('api.transactions.store');
+        Route::put('/transactions/{id}',    [TransactionController::class, 'update'])->name('api.transactions.update');
         Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('api.transactions.destroy');
 
         // Categories
@@ -60,4 +69,3 @@ Route::prefix('v1')->group(function () {
     // Excel Export (Accepts either Sanctum Bearer token or WhatsApp user_jid query parameter)
     Route::get('/export/excel', [ExportController::class, 'excel'])->name('api.export.excel');
 });
-

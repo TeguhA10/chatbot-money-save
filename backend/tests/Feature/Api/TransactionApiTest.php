@@ -111,7 +111,21 @@ class TransactionApiTest extends TestCase
         $list->assertStatus(200);
         $list->assertJsonPath('data.pagination.total_items', 2);
 
-        // 4. Void (Destroy) Transaction
+        // 4. Update Transaction (PUT)
+        $put = $this->putJson("/api/v1/transactions/{$expId}", [
+            'amount'      => 75000,
+            'description' => 'Nasi Padang + Ayam Bakar',
+        ], $this->authHeaders());
+        $put->assertStatus(200);
+        $put->assertJsonPath('success', true);
+        $put->assertJsonPath('data.transaction.amount', 75000);
+        $put->assertJsonPath('data.transaction.description', 'Nasi Padang + Ayam Bakar');
+        $put->assertJsonPath('data.new_balance', 925000);
+
+        $this->user->refresh();
+        $this->assertEquals(925000, $this->user->current_balance);
+
+        // 5. Void (Destroy) Transaction
         $del = $this->deleteJson("/api/v1/transactions/{$expId}", [], $this->authHeaders());
         $del->assertStatus(200);
         $del->assertJsonPath('success', true);

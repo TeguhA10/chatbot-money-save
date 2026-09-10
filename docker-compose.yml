@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env.production
+    environment:
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/storage/database.sqlite
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+    ports: ["8000:8000"]
+    volumes: ["backend_storage:/var/www/storage"]
+    depends_on: { redis: { condition: service_healthy } }
+    restart: unless-stopped
+  worker:
+    build: ./backend
+    env_file: ./backend/.env.production
+    command: php artisan queue:work --tries=3 --timeout=60
+    environment: { QUEUE_CONNECTION: redis, REDIS_HOST: redis }
+    volumes: ["backend_storage:/var/www/storage"]
+    depends_on: { redis: { condition: service_healthy } }
+    restart: unless-stopped
+  gateway:
+    build: ./whatsapp-gateway
+    env_file: ./whatsapp-gateway/.env.production
+    environment: { LARAVEL_WEBHOOK_URL: http://backend:8000/api/webhook/whatsapp, BAILEYS_AUTH_DIR: /data/auth_info_baileys }
+    volumes: ["baileys_auth:/data/auth_info_baileys"]
+    depends_on: { backend: { condition: service_started } }
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes: ["redis_data:/data"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, timeout: 5s, retries: 5 }
+    restart: unless-stopped
+volumes: { backend_storage: {}, baileys_auth: {}, redis_data: {} }

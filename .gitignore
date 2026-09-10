@@ -1,0 +1,12 @@
+/backend/vendor/
+/backend/node_modules/
+/whatsapp-gateway/node_modules/
+/whatsapp-gateway/dist/
+*.log
+.env
+.env.*
+!.env.example
+auth_info_baileys/
+storage/*.sqlite
+.DS_Store
+Thumbs.db

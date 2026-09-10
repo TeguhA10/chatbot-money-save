@@ -51,11 +51,17 @@
 
 | Perintah | Deskripsi | Format Respon Ringkas |
 |---|---|---|
-| `saldo` | Cek saldo aktif & ringkasan hari ini | Menampilkan saldo bersih, total pengeluaran hari ini, total pemasukan hari ini |
+| `saldo` | Cek saldo aktif & ringkasan | Menampilkan total saldo aktif terkini |
+| `pengeluaran hari ini` | Daftar transaksi pengeluaran hari ini | List hingga 10 pengeluaran hari ini dengan ID singkat 8-karakter |
+| `pengeluaran bulan ini` | Daftar transaksi pengeluaran bulan ini | List pengeluaran sepanjang bulan berjalan dengan ID singkat 8-karakter |
+| `pemasukan hari ini` | Daftar transaksi pemasukan hari ini | List hingga 10 pemasukan hari ini dengan ID singkat 8-karakter |
+| `pemasukan bulan ini` | Daftar transaksi pemasukan bulan ini | List pemasukan sepanjang bulan berjalan dengan ID singkat 8-karakter |
+| `ubah transaksi [ID] [nominal] [keterangan]` | Mengubah nominal & keterangan transaksi | Konfirmasi perubahan transaksi dan rekalkulasi saldo mutasi baru |
+| `hapus transaksi [ID]` | Membatalkan/menghapus transaksi berdasarkan ID | Konfirmasi penghapusan transaksi dan rekalkulasi saldo mutasi baru |
 | `rekap` / `rekap hari ini` | Rekap transaksi hari ini | Daftar list pengeluaran hari ini & totalnya |
-| `rekap bulan ini` | Rekap total pengeluaran & pemasukan bulan ini | Total masuk, total keluar, sisa surplus/defisit, dan top 3 pengeluaran terbesar |
+| `rekap bulan ini` | Rekap total pengeluaran & pemasukan bulan ini | Total masuk, total keluar, sisa surplus/defisit, dan rincian kategori |
 | `kategori` / `list kategori` | Menampilkan seluruh kategori aktif | Daftar kategori bawaan + kategori kustom buatan user |
-| `tambah kategori [nama]` | Menambahkan kategori pengeluaran baru | Konfirmasi penambahan kategori kustom baru |
+| `tambah kategori [nama]` | Menambahkan kategori baru | Konfirmasi penambahan kategori kustom baru |
 | `export excel` / `laporan excel` | Meminta file spreadsheet (.xlsx) | Dokumen Excel multi-sheet dikirim sebagai file attachment WA |
 | `batal` | Membatalkan transaksi terakhir | Transaksi terakhir di-void dan saldo dikembalikan |
-| `bantuan` / `help` | Menampilkan panduan cara mencatat | Menu panduan lengkap format pencatatan |
+| `bantuan` / `help` / `menu` | Menampilkan panduan cara mencatat | Menu panduan lengkap format pencatatan & pengelolaan |

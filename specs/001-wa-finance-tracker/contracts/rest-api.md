@@ -195,8 +195,48 @@ Menambah catatan transaksi manual langsung dari form Web atau Mobile App.
 
 ---
 
+### `PUT /transactions/:id`
+Memperbarui nominal amount dan deskripsi transaksi aktif, serta otomatis merekakulasi saldo berjalan (running balance) dan snapshot `balance_after` pada buku kas (ledger).
+
+**Headers**: `Authorization: Bearer <token>`
+
+**Request Body**:
+```json
+{
+  "amount": 75000,
+  "description": "Makan siang keluarga"
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "transaction": {
+      "id": "tx-12345",
+      "type": "EXPENSE",
+      "amount": 75000,
+      "description": "Makan siang keluarga",
+      "category": {
+        "id": "cat-food-01",
+        "name": "Makanan & Minuman",
+        "icon": "🍜"
+      },
+      "balance_after": 1390000,
+      "transaction_date": "2026-09-08T14:15:00Z",
+      "status": "ACTIVE"
+    },
+    "new_balance": 1390000
+  },
+  "message": "Transaksi berhasil diubah."
+}
+```
+
+---
+
 ### `DELETE /transactions/:id`
-Membatalkan (void) transaksi dan mengembalikan saldo secara otomatis.
+Membatalkan (void) transaksi tertentu dan merekakulasi saldo mutasi secara otomatis tanpa menghapus riwayat audit trail fisik.
 
 **Response (200 OK)**:
 ```json

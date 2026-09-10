@@ -6,10 +6,13 @@ use App\Models\ProcessedMessage;
 use App\Models\User;
 use App\Services\FinanceService;
 use App\Services\TransactionParserService;
+use App\Services\SubscriptionService;
+use App\Services\PinLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 /**
  * WebhookController
@@ -31,6 +34,8 @@ class WebhookController extends Controller
     public function __construct(
         private readonly FinanceService $financeService,
         private readonly TransactionParserService $parser,
+        private readonly SubscriptionService $subscriptions,
+        private readonly PinLifecycleService $pins,
     ) {}
 
     /**
@@ -78,15 +83,24 @@ class WebhookController extends Controller
 
         $isNewUser = $user->wasRecentlyCreated;
 
-        if ($isNewUser) {
-            return response()->json([
-                'action'     => 'REPLY_TEXT',
-                'reply_text' => $this->buildWelcomeMessage($user),
-            ]);
-        }
-
         // --- Command Routing ---
         $lowerText = strtolower($messageText);
+
+        if (preg_match('/^set pin\s+(\d{6})$/i', $messageText, $matches)) {
+            try { $code = $this->pins->setup($user, $matches[1]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"PIN aktif. Recovery Code (simpan sekali ini): `{$code}`. Kirim ulang transaksi Anda."]); }
+            catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
+        }
+        if (preg_match('/^reset pin\s+([A-Z0-9]{16})\s+(\d{6})$/i', $messageText, $matches)) {
+            try { $this->pins->reset($user, $matches[1], $matches[2]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'PIN berhasil direset.']); }
+            catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
+        }
+        if (preg_match('/^(kuota|status langganan)$/i', $messageText)) {
+            $status=$this->subscriptions->status($user); $tail=$status['tier']==='PREMIUM' ? 'Berlaku sampai: '.$status['expires_at']?->format('d M Y') : 'Sisa kuota gratis: '.$status['remaining'].' dari 100 pesan finansial';
+            return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"Status: *{$status['tier']}*\n{$tail}"]);
+        }
+        if (preg_match('/^(beli pro|langganan)$/i', $messageText)) {
+            return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Paket Pro Rp25.000 / 30 hari. Hubungi endpoint pembelian untuk memperoleh Snap link pembayaran.']);
+        }
 
         // Balance inquiry
         if (preg_match('/^saldo$/i', $messageText)) {
@@ -213,13 +227,16 @@ class WebhookController extends Controller
         $parsed = $this->parser->parse($messageText);
 
         if (!$parsed) {
+            if ($isNewUser) return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $this->buildWelcomeMessage($user)]);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->buildUnrecognizedMessage($messageText),
             ]);
         }
 
-        return $this->handleTransaction($user, $parsed);
+        if ($user->pin_status !== 'ACTIVE') return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Sebelum transaksi pertama, buat PIN 6 digit: `set pin 123456`.']);
+        if (!$this->subscriptions->canRecord($user)) return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Kuota gratis sudah habis. Ketik `beli pro` untuk lanjut tanpa batas.']);
+        return $this->handleTransaction($user, $parsed, $messageId);
     }
 
     // ---------------------------------------------------------------------------
@@ -594,18 +611,19 @@ class WebhookController extends Controller
         return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
     }
 
-    private function handleTransaction(User $user, array $parsed): JsonResponse
+    private function handleTransaction(User $user, array $parsed, string $messageId): JsonResponse
     {
         // Match category from hint
         $category = $this->financeService->matchCategory($user, $parsed['category_hint'], $parsed['type']);
 
         try {
-            $transaction = $this->financeService->recordTransaction($user, [
-                'type'        => $parsed['type'],
-                'amount'      => $parsed['amount'],
-                'description' => $parsed['description'],
-                'category_id' => $category?->id,
-            ]);
+            [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $category, $messageId) {
+                $transaction = $this->financeService->recordTransaction($user, [
+                    'type' => $parsed['type'], 'amount' => $parsed['amount'],
+                    'description' => $parsed['description'], 'category_id' => $category?->id,
+                ]);
+                return [$transaction, $this->subscriptions->consume($user, $messageId)];
+            });
 
             $user->refresh();
             $typeLabel    = $parsed['type'] === 'EXPENSE' ? '💸 Pengeluaran' : '💰 Pemasukan';
@@ -625,6 +643,7 @@ class WebhookController extends Controller
             $text .= "━━━━━━━━━━━━━━━━━\n";
             $text .= "💰 *Sisa Saldo*: " . $this->formatRupiah($user->current_balance) . "\n";
             $text .= "_Ketik \"batal\" jika ingin membatalkan transaksi ini._";
+            if ($user->tier === 'FREE' && $remaining <= 10) $text .= "\nSisa kuota gratis: {$remaining} pesan. Ketik `beli pro` untuk tanpa batas.";
 
             return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
 

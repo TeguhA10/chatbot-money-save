@@ -95,36 +95,72 @@ class TransactionController extends Controller
     }
 
     /**
+     * PUT /api/v1/transactions/{id}
+     * Update an active transaction's amount and description.
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'amount'      => 'required|integer|min:1',
+            'description' => 'required|string|max:255',
+        ]);
+
+        $result = $this->financeService->updateTransaction(
+            $user,
+            $id,
+            $validated['amount'],
+            $validated['description']
+        );
+
+        if (!$result) {
+            return response()->json([
+                'success' => false,
+                'error'   => [
+                    'code'    => 'NOT_FOUND',
+                    'message' => 'Transaksi tidak ditemukan atau sudah tidak aktif.',
+                ],
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'transaction' => $this->formatTransaction($result['transaction']->load('category')),
+                'new_balance' => $result['new_balance'],
+            ],
+            'message' => 'Transaksi berhasil diubah.',
+        ]);
+    }
+
+    /**
      * DELETE /api/v1/transactions/{id}
-     * Void a specific transaction and refund its balance impact.
+     * Void a specific transaction and refund its balance impact with ledger recalculation.
      */
     public function destroy(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
 
-        $transaction = Transaction::where('user_jid', $user->jid)
-            ->where('id', $id)
-            ->where('status', 'ACTIVE')
-            ->firstOrFail();
+        $result = $this->financeService->voidTransaction($user, $id);
 
-        // Use targeted void (not undoLast)
-        $amount = $transaction->amount;
-        $refund = $transaction->type === 'EXPENSE'
-            ? $user->current_balance + $amount
-            : $user->current_balance - $amount;
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($transaction, $refund, $user) {
-            $transaction->update(['status' => 'VOIDED']);
-            User::where('jid', $user->jid)->update(['current_balance' => $refund]);
-        });
+        if (!$result) {
+            return response()->json([
+                'success' => false,
+                'error'   => [
+                    'code'    => 'NOT_FOUND',
+                    'message' => 'Transaksi tidak ditemukan atau sudah dibatalkan.',
+                ],
+            ], 404);
+        }
 
         return response()->json([
             'success' => true,
             'data'    => [
-                'id'             => $transaction->id,
-                'status'         => 'VOIDED',
-                'refunded_amount' => $transaction->amount,
-                'new_balance'    => $refund,
+                'id'              => $result['voided']->id,
+                'status'          => 'VOIDED',
+                'refunded_amount' => $result['voided']->amount,
+                'new_balance'     => $result['new_balance'],
             ],
             'message' => 'Transaksi berhasil dibatalkan.',
         ]);

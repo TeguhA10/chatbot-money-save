@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\DB;
  */
 class FinanceService
 {
+    private readonly EncryptionService $encryption;
+
+    public function __construct(?EncryptionService $encryption = null)
+    {
+        $this->encryption = $encryption ?? app(EncryptionService::class);
+    }
     // ---------------------------------------------------------------------------
     // User Management
     // ---------------------------------------------------------------------------
@@ -65,24 +71,26 @@ class FinanceService
             $type   = $data['type'];
 
             // Calculate new balance
-            $newBalance = $type === 'INCOME'
-                ? $freshUser->current_balance + $amount
-                : $freshUser->current_balance - $amount;
+            $newBalance = $type === 'INCOME' ? $freshUser->current_balance + $amount : $freshUser->current_balance - $amount;
 
             // Persist transaction with balance snapshot
             $transaction = Transaction::create([
                 'user_jid'         => $freshUser->jid,
                 'category_id'      => $data['category_id'] ?? null,
                 'type'             => $type,
-                'amount'           => $amount,
+                // Plaintext legacy columns remain numeric zero for compatibility;
+                // every newly-created financial value lives only in AES-GCM envelopes.
+                'amount'           => 0,
                 'description'      => $data['description'] ?? '',
-                'balance_after'    => $newBalance,
+                'balance_after'    => 0,
+                'encrypted_amount' => $this->encryption->encryptForStorage($amount),
+                'encrypted_balance_after' => $this->encryption->encryptForStorage($newBalance),
                 'transaction_date' => now(),
                 'status'           => 'ACTIVE',
             ]);
 
             // Update balance atomically in the same transaction
-            $freshUser->update(['current_balance' => $newBalance]);
+            $freshUser->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
 
             // Sync the passed-in user instance
             $user->current_balance = $newBalance;
@@ -224,10 +232,7 @@ class FinanceService
                 return null;
             }
 
-            $transaction->update([
-                'amount'      => $amount,
-                'description' => $description,
-            ]);
+            $transaction->update(['amount' => 0, 'encrypted_amount' => $this->encryption->encryptForStorage($amount), 'description' => $description]);
 
             $newBalance = $this->recalculateUserLedger($user);
 
@@ -325,15 +330,11 @@ class FinanceService
             }
 
             if ((int) $transaction->balance_after !== $balance) {
-                $transaction->update([
-                    'balance_after' => $balance,
-                ]);
+                $transaction->update(['balance_after' => 0, 'encrypted_balance_after' => $this->encryption->encryptForStorage($balance)]);
             }
         }
 
-        User::where('jid', $user->jid)->update([
-            'current_balance' => $balance,
-        ]);
+        User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($balance)]);
 
         $user->current_balance = $balance;
 
@@ -377,7 +378,7 @@ class FinanceService
             $newBalance = $previousTransaction?->balance_after ?? 0;
 
             // Update user balance
-            User::where('jid', $user->jid)->update(['current_balance' => $newBalance]);
+            User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
             $user->current_balance = $newBalance;
 
             // Void the transaction
@@ -400,7 +401,7 @@ class FinanceService
      */
     public function getBalance(User $user): int
     {
-        return (int) User::where('jid', $user->jid)->value('current_balance');
+        return User::where('jid', $user->jid)->firstOrFail()->current_balance;
     }
 
     // ---------------------------------------------------------------------------

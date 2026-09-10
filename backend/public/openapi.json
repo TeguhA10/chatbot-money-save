@@ -230,6 +230,55 @@
       }
     },
     "/transactions/{id}": {
+      "put": {
+        "tags": ["Transactions"],
+        "summary": "Update Active Transaction",
+        "description": "Updates the amount and description of an active transaction, then recalculates the user's running balance and sequential ledger history.",
+        "security": [{ "SanctumAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "Transaction UUID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "description"],
+                "properties": {
+                  "amount": { "type": "integer", "minimum": 1, "example": 75000, "description": "New nominal amount in Rupiah" },
+                  "description": { "type": "string", "maxLength": 255, "example": "Makan siang keluarga" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction updated successfully and balance recalculated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "transaction": { "$ref": "#/components/schemas/Transaction" },
+                        "new_balance": { "type": "integer", "example": 925000 }
+                      }
+                    },
+                    "message": { "type": "string", "example": "Transaksi berhasil diubah." }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Transaction not found or not active" },
+          "422": { "description": "Validation error" }
+        }
+      },
       "delete": {
         "tags": ["Transactions"],
         "summary": "Void / Refund Transaction",

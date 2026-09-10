@@ -46,6 +46,9 @@ class User extends Authenticatable
         'display_name',
         'current_balance',
         'is_active',
+        'tier', 'subscription_expires_at', 'free_financial_message_count', 'pin_status',
+        'pin_hash', 'recovery_code_hash', 'encryption_salt', 'key_version',
+        'encrypted_current_balance', 'last_pin_verified_at',
     ];
 
     /**
@@ -55,6 +58,10 @@ class User extends Authenticatable
     protected $casts = [
         'current_balance' => 'integer',
         'is_active'       => 'boolean',
+        'subscription_expires_at' => 'datetime',
+        'last_pin_verified_at' => 'datetime',
+        'free_financial_message_count' => 'integer',
+        'key_version' => 'integer',
     ];
 
     /**
@@ -84,5 +91,18 @@ class User extends Authenticatable
     public function categories(): HasMany
     {
         return $this->hasMany(Category::class, 'user_jid', 'jid');
+    }
+
+    public function subscriptions(): HasMany { return $this->hasMany(Subscription::class, 'user_jid', 'jid'); }
+    public function paymentOrders(): HasMany { return $this->hasMany(PaymentOrder::class, 'user_jid', 'jid'); }
+    public function usageLogs(): HasMany { return $this->hasMany(UsageLog::class, 'user_jid', 'jid'); }
+    public function hasActivePremium(): bool { return $this->tier === 'PREMIUM' && $this->subscription_expires_at?->isFuture(); }
+
+    public function getCurrentBalanceAttribute($value): int
+    {
+        if (!empty($this->attributes['encrypted_current_balance'])) {
+            return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_current_balance']);
+        }
+        return (int) $value;
     }
 }
