@@ -46,6 +46,7 @@ class User extends Authenticatable
         'display_name',
         'current_balance',
         'is_active',
+        'blocked_reason',
         'tier', 'subscription_expires_at', 'free_financial_message_count', 'pin_status',
         'pin_hash', 'recovery_code_hash', 'encryption_salt', 'key_version',
         'encrypted_current_balance', 'last_pin_verified_at',
@@ -91,6 +92,38 @@ class User extends Authenticatable
     public function categories(): HasMany
     {
         return $this->hasMany(Category::class, 'user_jid', 'jid');
+    }
+
+    /**
+     * All wallets belonging to this user.
+     */
+    public function wallets(): HasMany
+    {
+        return $this->hasMany(Wallet::class, 'user_jid', 'jid');
+    }
+
+    /**
+     * All category budgets defined by this user.
+     */
+    public function budgets(): HasMany
+    {
+        return $this->hasMany(Budget::class, 'user_jid', 'jid');
+    }
+
+    /**
+     * All recurring schedules configured by this user.
+     */
+    public function recurringSchedules(): HasMany
+    {
+        return $this->hasMany(RecurringSchedule::class, 'user_jid', 'jid');
+    }
+
+    /**
+     * All financial goals set by this user.
+     */
+    public function financialGoals(): HasMany
+    {
+        return $this->hasMany(FinancialGoal::class, 'user_jid', 'jid');
     }
 
     public function subscriptions(): HasMany { return $this->hasMany(Subscription::class, 'user_jid', 'jid'); }

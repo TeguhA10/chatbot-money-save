@@ -29,12 +29,14 @@ class TransactionParserService
     private const EXPENSE_KEYWORDS = [
         'keluar', 'beli', 'bayar', 'pengeluaran', 'spend', 'habis',
         'belanja', 'jajan', 'bayarin', 'transfer keluar', 'kirim',
+        'modal', 'kulakan', 'kulak', 'bahan baku', 'hpp',
     ];
 
     /** Keywords that indicate an INCOME transaction */
     private const INCOME_KEYWORDS = [
         'masuk', 'terima', 'dapat', 'dapet', 'pemasukan', 'income',
         'honor', 'trf masuk', 'transfer masuk', 'nerima',
+        'jual', 'penjualan', 'omzet',
     ];
 
     // ---------------------------------------------------------------------------
@@ -128,6 +130,13 @@ class TransactionParserService
             return null;
         }
 
+        // Extract wallet tag if present (e.g., "via dana", "ke bca")
+        $walletTag = null;
+        if (preg_match('/\b(?:via|pakai|menggunakan|ke)\s+([a-zA-Z0-9_-]+)\b/i', $message, $wMatch)) {
+            $walletTag = trim($wMatch[1]);
+            $message = trim(preg_replace('/\b(?:via|pakai|menggunakan|ke)\s+[a-zA-Z0-9_-]+\b/i', '', $message));
+        }
+
         // 3. Extract description (words remaining after removing direction keyword + amount)
         $description = $this->extractDescription($message);
 
@@ -139,7 +148,127 @@ class TransactionParserService
             'amount'        => $amount,
             'description'   => $description,
             'category_hint' => $categoryHint,
+            'wallet_tag'    => $walletTag,
         ];
+    }
+
+    /**
+     * Parse add wallet command: "tambah dompet <nama> [saldo <nominal>]"
+     *
+     * @return array{name: string, initial_balance: int}|null
+     */
+    public function parseAddWallet(string $message): ?array
+    {
+        if (preg_match('/^(?:tambah|buat)\s+dompet\s+([a-zA-Z0-9_\-\s]+?)(?:\s+saldo\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?))?$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            $initialBalance = 0;
+            if (!empty($matches[2])) {
+                $initialBalance = $this->extractAmount($matches[2]) ?? 0;
+            }
+            if (!empty($name)) {
+                return [
+                    'name'            => $name,
+                    'initial_balance' => $initialBalance,
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse inter-wallet transfer command:
+     * "transfer <nominal> dari <asal> ke <tujuan>"
+     *
+     * @return array{amount: int, from_wallet: string, to_wallet: string}|null
+     */
+    public function parseTransfer(string $message): ?array
+    {
+        if (preg_match('/^(?:transfer|trf|tarik tunai)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+dari\s+([a-zA-Z0-9_\-\s]+?)\s+ke\s+([a-zA-Z0-9_\-\s]+)$/i', trim($message), $matches)) {
+            $amount = $this->extractAmount($matches[1]);
+            $fromWallet = trim($matches[2]);
+            $toWallet = trim($matches[3]);
+
+            if ($amount && $amount > 0 && !empty($fromWallet) && !empty($toWallet)) {
+                return [
+                    'amount'      => $amount,
+                    'from_wallet' => $fromWallet,
+                    'to_wallet'   => $toWallet,
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse recurring schedule command:
+     * "langganan <nama> <nominal> setiap tanggal <tgl> [via <wallet>]"
+     *
+     * @return array{description: string, amount: int, day_of_month: int, wallet_name: string|null, type: string}|null
+     */
+    public function parseRecurringSchedule(string $message): ?array
+    {
+        if (preg_match('/^(?:langganan|buat langganan)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+setiap\s+tanggal\s+(\d{1,2})(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            $amount = $this->extractAmount($matches[2]);
+            $dayOfMonth = (int) $matches[3];
+            $walletName = !empty($matches[4]) ? trim($matches[4]) : null;
+
+            if (!empty($name) && $amount && $amount > 0 && $dayOfMonth >= 1 && $dayOfMonth <= 31) {
+                return [
+                    'description'  => $name,
+                    'amount'       => $amount,
+                    'day_of_month' => $dayOfMonth,
+                    'wallet_name'  => $walletName,
+                    'type'         => 'EXPENSE',
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse goal creation command:
+     * "buat target <nama> <nominal>" or "target <nama> <nominal>"
+     *
+     * @return array{name: string, target_amount: int}|null
+     */
+    public function parseCreateGoal(string $message): ?array
+    {
+        if (preg_match('/^(?:buat\s+target|target)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            $amount = $this->extractAmount($matches[2]);
+            if (!empty($name) && $amount && $amount > 0) {
+                return [
+                    'name'          => $name,
+                    'target_amount' => $amount,
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse goal contribution command:
+     * "tambah tabungan <nominal> untuk <nama> [via <wallet>]"
+     *
+     * @return array{amount: int, goal_name: string, wallet_name: string|null}|null
+     */
+    public function parseGoalContribution(string $message): ?array
+    {
+        if (preg_match('/^(?:tambah\s+tabungan|tabung)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+untuk\s+(.+?)(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
+            $amount = $this->extractAmount($matches[1]);
+            $goalName = trim($matches[2]);
+            $walletName = !empty($matches[3]) ? trim($matches[3]) : null;
+
+            if ($amount && $amount > 0 && !empty($goalName)) {
+                return [
+                    'amount'      => $amount,
+                    'goal_name'   => $goalName,
+                    'wallet_name' => $walletName,
+                ];
+            }
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------------------
@@ -257,17 +386,17 @@ class TransactionParserService
      */
     private function extractDescription(string $message): string
     {
-        $cleaned = strtolower(trim($message));
+        $cleaned = trim($message);
 
         // Remove sign prefix
         $cleaned = preg_replace('/^[+-]\s*/', '', $cleaned) ?? $cleaned;
 
-        // Remove expense/income keywords at start
+        // Remove expense/income keywords at start (case-insensitive)
         $allKeywords = array_merge(self::EXPENSE_KEYWORDS, self::INCOME_KEYWORDS);
         usort($allKeywords, fn($a, $b) => strlen($b) - strlen($a)); // longest first
         foreach ($allKeywords as $kw) {
-            if (str_starts_with($cleaned, $kw)) {
-                $cleaned = ltrim(substr($cleaned, strlen($kw)));
+            if (preg_match('/^' . preg_quote($kw, '/') . '(?:\s+|$)/i', $cleaned, $m)) {
+                $cleaned = substr($cleaned, strlen($m[0]));
                 break;
             }
         }
@@ -298,6 +427,34 @@ class TransactionParserService
     }
 
     /**
+     * Public accessor to normalize and extract an amount from a string.
+     */
+    public function parseAmount(string $raw): ?int
+    {
+        return $this->extractAmount($raw);
+    }
+
+    /**
+     * Parse budget set command: "budget <category> <amount>" or "anggaran <category> <amount>"
+     *
+     * @return array{category: string, amount: int}|null
+     */
+    public function parseBudgetSet(string $message): ?array
+    {
+        if (preg_match('/^(?:budget|anggaran)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)$/i', trim($message), $matches)) {
+            $catName = trim($matches[1]);
+            $amount = $this->extractAmount($matches[2]);
+            if ($amount && $amount > 0 && !empty($catName)) {
+                return [
+                    'category' => $catName,
+                    'amount'   => $amount,
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
      * Check if the message looks like a bot command rather than a financial transaction.
      * Commands should NOT be parsed as default EXPENSE transactions.
      */
@@ -306,8 +463,36 @@ class TransactionParserService
         $lower = strtolower(trim($message));
 
         $commandPatterns = [
-            // Saldo
+            // Saldo & Dompet
             '/^saldo$/i',
+            '/^dompet/i',
+            '/^(tambah|buat) dompet/i',
+            '/^(daftar|list) dompet/i',
+
+            // Transfer antar dompet
+            '/^transfer\s+/i',
+
+            // Budget
+            '/^(budget|anggaran)/i',
+            '/^(cek|status|list) budget/i',
+
+            // Recurring / Langganan
+            '/^(langganan|daftar langganan|hapus langganan|buat langganan)/i',
+
+            // Goals / Target
+            '/^(buat target|target|tambah tabungan|daftar target)/i',
+
+            // Insights & Inquiries
+            '/^bulan ini boros/i',
+            '/^evaluasi pengeluaran/i',
+
+            // Freelancer & UMKM
+            '/^omzet/i',
+            '/^laba/i',
+            '/^rekap (freelance|bisnis|proyek)/i',
+
+            // Notification preferences
+            '/^(aktifkan|matikan) rekap harian/i',
 
             // Rekap / laporan
             '/^rekap/i',

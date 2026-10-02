@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\ProcessedMessage;
 use App\Models\User;
+use App\Services\BudgetService;
 use App\Services\FinanceService;
+use App\Services\InsightsService;
+use App\Services\RecurringService;
 use App\Services\TransactionParserService;
 use App\Services\SubscriptionService;
 use App\Services\PinLifecycleService;
@@ -36,6 +39,9 @@ class WebhookController extends Controller
         private readonly TransactionParserService $parser,
         private readonly SubscriptionService $subscriptions,
         private readonly PinLifecycleService $pins,
+        private readonly BudgetService $budgetService,
+        private readonly RecurringService $recurringService,
+        private readonly InsightsService $insightsService,
     ) {}
 
     /**
@@ -83,6 +89,15 @@ class WebhookController extends Controller
 
         $isNewUser = $user->wasRecentlyCreated;
 
+        // --- Blocked User Check ---
+        if (! $user->is_active) {
+            $reason = $user->blocked_reason ? "\n*Alasan:* {$user->blocked_reason}" : '';
+            return response()->json([
+                'action' => 'REPLY_TEXT',
+                'reply_text' => "⛔ *Akses Dinonaktifkan*\nNomor WhatsApp Anda telah diblokir dari layanan ini.{$reason}\n\nSilakan hubungi administrator jika Anda merasa ini adalah kekeliruan.",
+            ]);
+        }
+
         // --- Command Routing ---
         $lowerText = strtolower($messageText);
 
@@ -102,9 +117,28 @@ class WebhookController extends Controller
             return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Paket Pro Rp25.000 / 30 hari. Hubungi endpoint pembelian untuk memperoleh Snap link pembayaran.']);
         }
 
-        // Balance inquiry
-        if (preg_match('/^saldo$/i', $messageText)) {
+        // Balance inquiry & Wallets
+        if (preg_match('/^(?:saldo|cek saldo|dompet|list dompet|daftar dompet|rekening)$/i', $messageText)) {
             return $this->handleBalanceInquiry($user);
+        }
+
+        // Add wallet: "tambah dompet <nama> [saldo <nominal>]"
+        if ($addWallet = $this->parser->parseAddWallet($messageText)) {
+            try {
+                $wallet = $this->financeService->addWallet($user, $addWallet['name'], $addWallet['initial_balance']);
+                $initText = $addWallet['initial_balance'] > 0
+                    ? ' (Saldo Awal: ' . $this->formatRupiah($addWallet['initial_balance']) . ')'
+                    : '';
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "👛 *Dompet Baru Ditambahkan*\nNama: *{$wallet->name}*{$initText}\n\nKetik `saldo` untuk melihat rincian dompet.",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
         }
 
         // Rekap hari ini
@@ -117,6 +151,196 @@ class WebhookController extends Controller
             return $this->handleMonthlySummary($user);
         }
 
+        // Inter-wallet transfer: "transfer <nominal> dari <asal> ke <tujuan>"
+        if ($transferData = $this->parser->parseTransfer($messageText)) {
+            $fromWallet = $this->financeService->findWalletByName($user, $transferData['from_wallet']);
+            $toWallet   = $this->financeService->findWalletByName($user, $transferData['to_wallet']);
+
+            if (!$fromWallet) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "❌ Dompet asal '{$transferData['from_wallet']}' tidak ditemukan. Ketik `saldo` untuk cek daftar dompet.",
+                ]);
+            }
+
+            if (!$toWallet) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "❌ Dompet tujuan '{$transferData['to_wallet']}' tidak ditemukan. Ketik `saldo` untuk cek daftar dompet.",
+                ]);
+            }
+
+            try {
+                $tx = $this->financeService->transferFunds(
+                    $user,
+                    $fromWallet->id,
+                    $toWallet->id,
+                    $transferData['amount']
+                );
+
+                $fromWallet->refresh();
+                $toWallet->refresh();
+                $user->refresh();
+
+                $card  = "🔄 *Transfer Berhasil*\n";
+                $card .= "Nominal: " . $this->formatRupiah($transferData['amount']) . "\n";
+                $card .= "Dari: {$fromWallet->name} (Sisa: " . $this->formatRupiah($fromWallet->balance) . ")\n";
+                $card .= "Ke: {$toWallet->name} (Sisa: " . $this->formatRupiah($toWallet->balance) . ")\n";
+                $card .= "Total Saldo Tetap: " . $this->formatRupiah($user->current_balance) . "\n\n";
+                $card .= "_Ketik \"batal\" jika ingin membatalkan transfer ini._";
+
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => $card,
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Recurring schedules / Langganan
+        if ($recData = $this->parser->parseRecurringSchedule($messageText)) {
+            $wallet = null;
+            if (!empty($recData['wallet_name'])) {
+                $wallet = $this->financeService->findWalletByName($user, $recData['wallet_name']);
+            }
+            if (!$wallet) {
+                $wallet = $this->financeService->getOrCreateDefaultWallet($user);
+            }
+
+            $schedule = $this->recurringService->createSchedule($user, [
+                'description'  => $recData['description'],
+                'amount'       => $recData['amount'],
+                'day_of_month' => $recData['day_of_month'],
+                'wallet_id'    => $wallet->id,
+                'type'         => $recData['type'],
+            ]);
+
+            $amountFmt = $this->formatRupiah($schedule->amount);
+            $nextFmt   = \Carbon\Carbon::parse($schedule->next_run_date)->format('d M Y');
+
+            $card  = "⏰ *Transaksi Rutin Terjadwal*\n";
+            $card .= "Nama: {$schedule->description}\n";
+            $card .= "Nominal: {$amountFmt}\n";
+            $card .= "Jadwal: Tanggal {$schedule->day_of_month} setiap bulan\n";
+            $card .= "Dompet: {$wallet->name}\n";
+            $card .= "Eksekusi Berikutnya: {$nextFmt}";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $card,
+            ]);
+        }
+
+        if (preg_match('/^(?:daftar|list)\s+langganan$/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->recurringService->renderSchedulesCard($user),
+            ]);
+        }
+
+        if (preg_match('/^hapus\s+langganan\s+(.+)$/i', $messageText, $matches)) {
+            $canceled = $this->recurringService->cancelSchedule($user, trim($matches[1]));
+            if ($canceled) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "✅ Transaksi rutin *{$canceled->description}* berhasil dibatalkan.",
+                ]);
+            }
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "❌ Transaksi rutin '{$matches[1]}' tidak ditemukan.",
+            ]);
+        }
+
+        // Financial Goals (Target Tabungan)
+        if ($goalData = $this->parser->parseCreateGoal($messageText)) {
+            $goal = $this->financeService->createGoal($user, $goalData['name'], $goalData['target_amount']);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->financeService->renderGoalCreatedCard($goal),
+            ]);
+        }
+
+        if ($contribData = $this->parser->parseGoalContribution($messageText)) {
+            $goal = $this->financeService->findGoalByNameOrId($user, $contribData['goal_name']);
+            if (!$goal) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "❌ Target '{$contribData['goal_name']}' tidak ditemukan. Ketik `daftar target` untuk melihat daftar target Anda.",
+                ]);
+            }
+
+            try {
+                $result = $this->financeService->contributeToGoal(
+                    $user,
+                    $goal,
+                    $contribData['amount'],
+                    $contribData['wallet_name']
+                );
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => $this->financeService->renderGoalContributionCard($result),
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (preg_match('/^(?:daftar|list)\s+target$/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->financeService->renderGoalsListCard($user),
+            ]);
+        }
+
+        // Daily digest preference toggle
+        if (preg_match('/^(?:matikan|nonaktifkan)\s+rekap\s+harian$/i', $messageText)) {
+            $this->insightsService->setDailyDigestEnabled($user, false);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "🔕 Rekap harian otomatis berhasil dinonaktifkan.\n\nKetik `aktifkan rekap harian` kapan saja untuk menyalakan kembali.",
+            ]);
+        }
+
+        if (preg_match('/^(?:aktifkan|nyalakan)\s+rekap\s+harian$/i', $messageText)) {
+            $this->insightsService->setDailyDigestEnabled($user, true);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "🔔 Rekap harian otomatis berhasil diaktifkan. Anda akan menerima ringkasan setiap pukul 21:00 WIB.",
+            ]);
+        }
+
+        // Contextual spending insights (US7)
+        if (preg_match('/^(?:bulan ini boros|apakah boros|evaluasi pengeluaran)/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->insightsService->renderVarianceAnalysisCard($user),
+            ]);
+        }
+
+        // Freelancer & Projects summary (US8)
+        if (preg_match('/^rekap\s+(?:freelance|bisnis|proyek)/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->financeService->renderFreelanceSummaryCard($user),
+            ]);
+        }
+
+        // UMKM / Merchant summary (US8)
+        if (preg_match('/^(?:omzet|laba)/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->financeService->renderUmkmSummaryCard($user),
+            ]);
+        }
+
         // Undo / batal
         if (preg_match('/^(batal|hapus transaksi terakhir|undo)$/i', $messageText)) {
             return $this->handleUndo($user);
@@ -125,6 +349,27 @@ class WebhookController extends Controller
         // Export Excel
         if (preg_match('/^(export excel|laporan excel|download laporan)$/i', $messageText)) {
             return $this->handleExcelExport($user);
+        }
+
+        // Check budgets
+        if (preg_match('/^(cek|status|list)\s+budget$/i', $messageText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->budgetService->renderAllBudgetsCard($user),
+            ]);
+        }
+
+        // Set budget: "budget <kategori> <nominal>"
+        if ($budgetData = $this->parser->parseBudgetSet($messageText)) {
+            $cat = $this->financeService->matchCategory($user, $budgetData['category'], 'EXPENSE');
+            if (!$cat) {
+                $cat = $this->financeService->addCustomCategory($user, $budgetData['category'], 'EXPENSE');
+            }
+            $budget = $this->budgetService->setBudget($user, $cat->id, $budgetData['amount']);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $this->budgetService->renderSetBudgetCard($budget),
+            ]);
         }
 
         // Category list
@@ -478,12 +723,10 @@ class WebhookController extends Controller
 
     private function handleBalanceInquiry(User $user): JsonResponse
     {
-        $balance = $this->financeService->getBalance($user);
-        $daily   = $this->financeService->getDailySummary($user, now()->toDateString());
+        $walletsCard = $this->financeService->renderWalletsCard($user);
+        $daily       = $this->financeService->getDailySummary($user, now()->toDateString());
 
-        $text = "💰 *Informasi Saldo Kamu*\n";
-        $text .= "━━━━━━━━━━━━━━━━━\n";
-        $text .= "💵 *Saldo Saat Ini*: " . $this->formatRupiah($balance) . "\n\n";
+        $text = "💰 *Informasi Saldo*\n" . $walletsCard . "\n\n";
         $text .= "📅 *Transaksi Hari Ini* (" . now()->format('d M Y') . ")\n";
         $text .= "  ↑ Masuk : " . $this->formatRupiah($daily['total_income']) . "\n";
         $text .= "  ↓ Keluar: " . $this->formatRupiah($daily['total_expense']) . "\n";
@@ -544,10 +787,15 @@ class WebhookController extends Controller
         }
 
         $voided = $result['voided'];
-        $text   = "↩️ *Transaksi Berhasil Dibatalkan*\n";
+        $text   = "↩️ *Transaksi Dibatalkan* (Berhasil Dibatalkan)\n";
         $text  .= "━━━━━━━━━━━━━━━━━\n";
         $text  .= "📝 {$voided->description}\n";
-        $text  .= "💸 " . ($voided->type === 'EXPENSE' ? 'Pengeluaran' : 'Pemasukan') . ": " . $this->formatRupiah($voided->amount) . "\n";
+        if ($voided->type === 'TRANSFER') {
+            $text .= "🔄 Transfer: " . $this->formatRupiah($voided->amount) . "\n";
+        } else {
+            $typeLabel = $voided->type === 'EXPENSE' ? 'Pengeluaran' : 'Pemasukan';
+            $text .= "💸 {$typeLabel}: " . $this->formatRupiah($voided->amount) . "\n";
+        }
         $text  .= "━━━━━━━━━━━━━━━━━\n";
         $text  .= "💰 Saldo Baru: " . $this->formatRupiah($result['new_balance']);
 
@@ -619,17 +867,23 @@ class WebhookController extends Controller
         try {
             [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $category, $messageId) {
                 $transaction = $this->financeService->recordTransaction($user, [
-                    'type' => $parsed['type'], 'amount' => $parsed['amount'],
-                    'description' => $parsed['description'], 'category_id' => $category?->id,
+                    'type'        => $parsed['type'],
+                    'amount'      => $parsed['amount'],
+                    'description' => $parsed['description'],
+                    'category_id' => $category?->id,
+                    'wallet_name' => $parsed['wallet_tag'] ?? null,
                 ]);
                 return [$transaction, $this->subscriptions->consume($user, $messageId)];
             });
 
             $user->refresh();
             $typeLabel    = $parsed['type'] === 'EXPENSE' ? '💸 Pengeluaran' : '💰 Pemasukan';
-            $typeEmoji    = $parsed['type'] === 'EXPENSE' ? '✅' : '✅';
+            $typeEmoji    = '✅';
             $typeTitle    = $parsed['type'] === 'EXPENSE' ? 'Catatan Pengeluaran Tersimpan' : 'Catatan Pemasukan Tersimpan';
             $categoryName = $category ? "{$category->icon} {$category->name}" : '📦 Lain-lain';
+            $walletObj    = $transaction->wallet;
+            $walletName   = $walletObj ? $walletObj->name : 'Cash';
+            $walletBal    = $walletObj ? $this->formatRupiah($walletObj->balance) : $this->formatRupiah($user->current_balance);
 
             $text  = "{$typeEmoji} *{$typeTitle}*\n";
             $text .= "━━━━━━━━━━━━━━━━━\n";
@@ -639,9 +893,18 @@ class WebhookController extends Controller
             }
 
             $text .= "🏷️ *Kategori*: {$categoryName}\n";
+            $text .= "👛 *Dompet*: {$walletName} (Sisa: {$walletBal})\n";
             $text .= "{$typeLabel}: " . $this->formatRupiah($parsed['amount']) . "\n";
             $text .= "━━━━━━━━━━━━━━━━━\n";
-            $text .= "💰 *Sisa Saldo*: " . $this->formatRupiah($user->current_balance) . "\n";
+
+            if ($parsed['type'] === 'EXPENSE' && $category) {
+                $budgetSnippet = $this->budgetService->renderExpenseBudgetSnippet($user, $category->id);
+                if ($budgetSnippet) {
+                    $text .= "\n" . $budgetSnippet . "\n━━━━━━━━━━━━━━━━━\n";
+                }
+            }
+
+            $text .= "💰 *Total Saldo*: " . $this->formatRupiah($user->current_balance) . "\n";
             $text .= "_Ketik \"batal\" jika ingin membatalkan transaksi ini._";
             if ($user->tier === 'FREE' && $remaining <= 10) $text .= "\nSisa kuota gratis: {$remaining} pesan. Ketik `beli pro` untuk tanpa batas.";
 
@@ -664,84 +927,76 @@ class WebhookController extends Controller
     {
         $name = $user->display_name ?: 'Sobat';
 
-        return "👋 Halo *{$name}*! Selamat datang "
-            . "di *WA Finance Bot* 💰\n\n"
-            . "Bot ini membantu kamu catat keuangan "
-            . "harian langsung dari WhatsApp!\n\n"
-            . "*Cara Pakai:*\n"
-            . "  📤 _keluar 25000 makan siang_\n"
-            . "  📥 _masuk 500000 gaji_\n"
-            . "  💰 _saldo_\n"
-            . "  📤 _pengeluaran hari ini_\n"
-            . "  📤 _pengeluaran bulan ini_\n"
-            . "  📥 _pemasukan hari ini_\n"
-            . "  📥 _pemasukan bulan ini_\n"
-            . "  📊 _rekap bulan ini_\n"
-            . "  📋 _export excel_\n"
-            . "  ↩️ _batal_\n\n"
-            . "Ketik *bantuan* untuk panduan lengkap.\n\n"
-            . "_Yuk mulai catat! 🚀_";
+        return "👋 Halo *{$name}*! Selamat datang di *WA Finance Bot* 💰\n\n"
+            . "Asisten finansial pintar harianmu langsung dari WhatsApp!\n\n"
+            . "🔒 *Langkah Awal (Keamanan):*\n"
+            . "Buat PIN 6 digit terlebih dahulu:\n"
+            . "👉 `set pin 123456`\n\n"
+            . "⚡ *Contoh Perintah Cepat:*\n"
+            . "• *Catat*: `keluar 25rb makan via bca` atau `+1.5jt gaji`\n"
+            . "• *Dompet*: `saldo` atau `transfer 50rb dari Cash ke BCA`\n"
+            . "• *Budget*: `budget makan 1jt`\n"
+            . "• *Langganan*: `langganan Netflix 186rb setiap tanggal 15`\n"
+            . "• *Target*: `buat target Liburan 5jt`\n"
+            . "• *Laporan*: `rekap hari ini` atau `bulan ini boros gak?`\n\n"
+            . "Ketik *bantuan* kapan saja untuk daftar perintah lengkap.\n\n"
+            . "_Yuk mulai rapikan keuanganmu! 🚀_";
     }
 
     private function buildHelpMessage(): string
     {
         return "📚 *Panduan WA Finance Bot*\n\n"
-
-            . "*Catat Pengeluaran:*\n"
+            . "💸 *Catat Pengeluaran:*\n"
             . "  • `keluar 25000 makan siang`\n"
-            . "  • `beli bensin 50rb`\n"
+            . "  • `beli bensin 50rb via bca`\n"
             . "  • `bayar listrik 150.000`\n"
             . "  • `-35k parkir`\n\n"
-
-            . "*Catat Pemasukan:*\n"
+            . "💰 *Catat Pemasukan:*\n"
             . "  • `masuk 500000 gaji`\n"
-            . "  • `terima 250k bonus`\n"
-            . "  • `+1.5jt freelance`\n\n"
-
-            . "*Lihat Transaksi:*\n"
-            . "  • `pengeluaran hari ini`\n"
-            . "  • `pemasukan hari ini`\n"
-            . "  • `pengeluaran bulan ini`\n"
-            . "  • `pemasukan bulan ini`\n\n"
-
-            . "*Saldo & Laporan:*\n"
-            . "  • `saldo`\n"
-            . "  • `rekap hari ini`\n"
-            . "  • `rekap bulan ini`\n\n"
-
-            . "*Kelola Transaksi:*\n"
-            . "  • `ubah transaksi ID nominal keterangan`\n"
-            . "  • `hapus transaksi ID`\n"
-            . "  • `batal`\n\n"
-
-            . "*Lainnya:*\n"
-            . "  • `export excel`\n"
-            . "  • `kategori`\n"
-            . "  • `tambah kategori <nama>`\n\n"
-
-            . "_Format nominal: "
-            . "25000, 25.000, 25k, 25rb, 1.5jt_ 💡";
+            . "  • `terima 250k bonus ke bca`\n"
+            . "  • `masuk 2jt project Website Client A` (freelance)\n"
+            . "  • `jual paket nasi 750rb` (omzet UMKM)\n\n"
+            . "👛 *Dompet & Transfer:*\n"
+            . "  • `saldo` (cek rincian saldo per dompet)\n"
+            . "  • `tambah dompet BCA saldo 1jt`\n"
+            . "  • `transfer 200rb dari Cash ke BCA`\n\n"
+            . "🎯 *Plafon Anggaran (Budget):*\n"
+            . "  • `budget makan 1jt`\n"
+            . "  • `cek budget` (status plafon & bar terpakai)\n\n"
+            . "⏰ *Langganan & Transaksi Rutin:*\n"
+            . "  • `langganan Netflix 186rb setiap tanggal 15 via dana`\n"
+            . "  • `daftar langganan`\n"
+            . "  • `hapus langganan Netflix`\n\n"
+            . "🎯 *Target Tabungan (Goals):*\n"
+            . "  • `buat target Mobil 100jt`\n"
+            . "  • `tambah tabungan 1jt untuk Mobil via bca`\n"
+            . "  • `daftar target`\n\n"
+            . "📊 *Laporan & Analisis:*\n"
+            . "  • `rekap hari ini` / `rekap bulan ini`\n"
+            . "  • `pengeluaran hari ini` / `pemasukan hari ini`\n"
+            . "  • `bulan ini boros gak?` (analisis MoM & variansi)\n"
+            . "  • `omzet hari ini` / `laba hari ini` (laba kotor UMKM)\n"
+            . "  • `rekap freelance` (total pendapatan proyek)\n"
+            . "  • `export excel` (download sheet laporan)\n\n"
+            . "⚙️ *Keamanan & Pengaturan:*\n"
+            . "  • `set pin 123456`\n"
+            . "  • `reset pin <recovery_code> <pin_baru>`\n"
+            . "  • `aktifkan rekap harian` / `matikan rekap harian`\n"
+            . "  • `kategori` / `tambah kategori <nama>`\n"
+            . "  • `batal` (batalkan transaksi terakhir)\n\n"
+            . "_💡 Format nominal fleksibel: 25000, 25.000, 25k, 25rb, 1.5jt_";
     }
 
     private function buildUnrecognizedMessage(
         string $message
     ): string {
-        return "🤔 Maaf, saya tidak mengerti "
-            . "maksud pesan:\n"
+        return "🤔 Maaf, saya belum mengerti maksud pesan:\n"
             . "\"_{$message}_\"\n\n"
-
-            . "*Format transaksi:*\n"
+            . "*Contoh format transaksi:*\n"
             . "  📤 `keluar 25000 makan siang`\n"
-            . "  📥 `masuk 500000 gaji`\n\n"
-
-            . "*Lihat transaksi:*\n"
-            . "  📤 `pengeluaran hari ini`\n"
-            . "  📤 `pengeluaran bulan ini`\n"
-            . "  📥 `pemasukan hari ini`\n"
-            . "  📥 `pemasukan bulan ini`\n\n"
-
-            . "Atau ketik *bantuan* untuk "
-            . "panduan lengkap. 😊";
+            . "  📥 `masuk 500000 gaji`\n"
+            . "  👛 `saldo` atau `transfer 50rb dari Cash ke BCA`\n\n"
+            . "Ketik *bantuan* untuk panduan fitur lengkap. 😊";
     }
 
     // ---------------------------------------------------------------------------
@@ -777,6 +1032,6 @@ class WebhookController extends Controller
      */
     private function formatRupiah(int $amount): string
     {
-        return 'Rp ' . number_format($amount, 0, ',', '.');
+        return 'Rp' . number_format($amount, 0, ',', '.');
     }
 }

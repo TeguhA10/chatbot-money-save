@@ -6,6 +6,8 @@ export interface QueuedMessage {
   documentUrl?: string;
   fileName?: string;
   mimetype?: string;
+  replyToKey?: any;
+  replyToTimestamp?: number;
 }
 
 /**

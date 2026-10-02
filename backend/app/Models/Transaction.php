@@ -31,6 +31,8 @@ class Transaction extends Model
     protected $fillable = [
         'user_jid',
         'category_id',
+        'wallet_id',
+        'to_wallet_id',
         'type',
         'amount',
         'description',
@@ -71,6 +73,22 @@ class Transaction extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'category_id', 'id');
+    }
+
+    /**
+     * The source / debited wallet (nullable).
+     */
+    public function wallet(): BelongsTo
+    {
+        return $this->belongsTo(Wallet::class, 'wallet_id', 'id');
+    }
+
+    /**
+     * The destination / credited wallet for TRANSFER (nullable).
+     */
+    public function toWallet(): BelongsTo
+    {
+        return $this->belongsTo(Wallet::class, 'to_wallet_id', 'id');
     }
 
     // -----------------------------------------------------------------------
@@ -124,6 +142,14 @@ class Transaction extends Model
     public function scopeIncomes(Builder $query): Builder
     {
         return $query->where('type', 'INCOME');
+    }
+
+    /**
+     * Scope: Only transfer transactions.
+     */
+    public function scopeTransfers(Builder $query): Builder
+    {
+        return $query->where('type', 'TRANSFER');
     }
 
     public function getAmountAttribute($value): int

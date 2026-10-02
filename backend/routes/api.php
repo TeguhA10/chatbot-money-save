@@ -60,6 +60,20 @@ Route::prefix('v1')->group(function () {
         Route::get('/categories',  [CategoryController::class, 'index'])->name('api.categories.index');
         Route::post('/categories', [CategoryController::class, 'store'])->name('api.categories.store');
 
+        // Budgets
+        Route::get('/budgets',  [\App\Http\Controllers\Api\BudgetController::class, 'index'])->name('api.budgets.index');
+        Route::post('/budgets', [\App\Http\Controllers\Api\BudgetController::class, 'store'])->name('api.budgets.store');
+
+        // Wallets
+        Route::get('/wallets',           [\App\Http\Controllers\Api\WalletController::class, 'index'])->name('api.wallets.index');
+        Route::post('/wallets',          [\App\Http\Controllers\Api\WalletController::class, 'store'])->name('api.wallets.store');
+        Route::post('/wallets/transfer', [\App\Http\Controllers\Api\WalletController::class, 'transfer'])->name('api.wallets.transfer');
+
+        // Financial Goals
+        Route::get('/goals',                 [\App\Http\Controllers\Api\GoalController::class, 'index'])->name('api.goals.index');
+        Route::post('/goals',                [\App\Http\Controllers\Api\GoalController::class, 'store'])->name('api.goals.store');
+        Route::post('/goals/{id}/contribute',[\App\Http\Controllers\Api\GoalController::class, 'contribute'])->name('api.goals.contribute');
+
         // Analytics Dashboard
         Route::get('/analytics/summary',            [AnalyticsController::class, 'summary'])->name('api.analytics.summary');
         Route::get('/analytics/category-breakdown', [AnalyticsController::class, 'categoryBreakdown'])->name('api.analytics.category-breakdown');

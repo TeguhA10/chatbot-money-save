@@ -118,9 +118,13 @@ class FinanceSimulateCommand extends Command
         $this->info("╚════════════════════════════════════════════════════════════════╝");
         $this->line("<fg=gray>User: <fg=white>{$pushName}</> | JID: <fg=white>{$jid}</></>");
         $this->line("<fg=gray>Ketik pesan alami seperti:</>");
-        $this->line("  • <fg=cyan>keluar 25000 makan siang</>  | <fg=cyan>+1.5jt gaji</>");
-        $this->line("  • <fg=cyan>saldo</>                      | <fg=cyan>rekap hari ini</> | <fg=cyan>rekap bulan ini</>");
-        $this->line("  • <fg=cyan>batal</>                      | <fg=cyan>export excel</>   | <fg=cyan>bantuan</>");
+        $this->line("  • <fg=yellow>Transaksi:</>   <fg=cyan>keluar 25rb makan via bca</> | <fg=cyan>+1.5jt gaji</> | <fg=cyan>masuk 2jt project Web</>");
+        $this->line("  • <fg=yellow>Dompet:</>      <fg=cyan>tambah dompet BCA saldo 1jt</> | <fg=cyan>transfer 50rb dari Cash ke BCA</> | <fg=cyan>saldo</>");
+        $this->line("  • <fg=yellow>Budget:</>      <fg=cyan>budget makan 500rb</> | <fg=cyan>cek budget</>");
+        $this->line("  • <fg=yellow>Langganan:</>   <fg=cyan>langganan Netflix 186rb setiap tanggal 15 via dana</> | <fg=cyan>daftar langganan</>");
+        $this->line("  • <fg=yellow>Target:</>      <fg=cyan>buat target Laptop 15jt</> | <fg=cyan>tambah tabungan 1jt untuk Laptop</> | <fg=cyan>daftar target</>");
+        $this->line("  • <fg=yellow>Laporan/AI:</>  <fg=cyan>rekap hari ini</> | <fg=cyan>bulan ini boros?</> | <fg=cyan>omzet hari ini</> | <fg=cyan>rekap freelance</>");
+        $this->line("  • <fg=yellow>Sistem:</>      <fg=cyan>batal</> | <fg=cyan>export excel</> | <fg=cyan>bantuan</>");
         $this->line("<fg=gray>Ketik <fg=red>'exit'</> atau <fg=red>'quit'</> untuk keluar.</>");
         $this->line("");
     }

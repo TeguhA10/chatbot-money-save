@@ -130,6 +130,14 @@ class TenantIsolationTest extends TestCase
             'message_text' => 'halo',
         ]);
 
+        // Set PIN for newly onboarded user
+        $this->postJson('/api/webhook/whatsapp', [
+            'message_id'   => 'PIN_1',
+            'from_jid'     => '628177777777@s.whatsapp.net',
+            'push_name'    => 'Rudi',
+            'message_text' => 'set pin 123456',
+        ]);
+
         // 2. Log income
         $resp = $this->postJson('/api/webhook/whatsapp', [
             'message_id'   => 'TRANS_1',

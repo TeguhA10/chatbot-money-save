@@ -31,6 +31,15 @@ class AuthController extends Controller
         $phone = preg_replace('/\D/', '', $request->phone);
         $jid   = $phone . '@s.whatsapp.net';
 
+        $existingUser = User::where('jid', $jid)->first();
+        if ($existingUser && ! $existingUser->is_active) {
+            $reason = $existingUser->blocked_reason ? " Alasan: {$existingUser->blocked_reason}" : '';
+            return response()->json([
+                'success' => false,
+                'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
+            ], 403);
+        }
+
         // Generate 6-digit OTP
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
@@ -74,6 +83,15 @@ class AuthController extends Controller
 
         // Find or create user, then issue Sanctum token
         $user  = $this->financeService->findOrCreateUser($jid, '');
+
+        if (! $user->is_active) {
+            $reason = $user->blocked_reason ? " Alasan: {$user->blocked_reason}" : '';
+            return response()->json([
+                'success' => false,
+                'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
+            ], 403);
+        }
+
         $token = $user->createToken('wa-finance-bot')->plainTextToken;
 
         return response()->json([
