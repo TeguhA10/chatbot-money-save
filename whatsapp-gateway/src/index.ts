@@ -3,6 +3,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   type WASocket,
+  type WACallEvent,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import * as dotenv from 'dotenv';
@@ -118,6 +119,7 @@ async function startGateway() {
       sock.ev.removeAllListeners('connection.update');
       sock.ev.removeAllListeners('creds.update');
       sock.ev.removeAllListeners('messages.upsert');
+      sock.ev.removeAllListeners('call');
     } catch {
       // ignore
     }
@@ -182,6 +184,41 @@ async function startGateway() {
     await saveCreds();
     if (update.myAppStateKeyId) {
       console.log(`🔒 [Gateway] App State Key berhasil diterima (${update.myAppStateKeyId})! Auto-delete chat di sisi bot aktif.`);
+    }
+  });
+
+  const rejectedCallIds = new Set<string>();
+
+  // Auto-reject incoming calls and notify caller with explanatory chat
+  sock.ev.on('call', async (calls: WACallEvent[]) => {
+    for (const call of calls) {
+      if (call.status === 'offer' && !rejectedCallIds.has(call.id)) {
+        rejectedCallIds.add(call.id);
+        setTimeout(() => rejectedCallIds.delete(call.id), 60_000);
+
+        const callerJid = call.from || call.chatId;
+        console.log(`[Gateway] Panggilan masuk otomatis ditolak dari ${callerJid} (callId: ${call.id}, video: ${Boolean(call.isVideo)})`);
+
+        try {
+          await sock.rejectCall(call.id, call.from);
+        } catch (err: any) {
+          console.warn('[Gateway] Gagal menolak panggilan teknis:', err?.message || err);
+        }
+
+        if (callerJid) {
+          const callRejectMsg =
+            `📞 *Panggilan Ditolak Otomatis*\n\n` +
+            `Mohon maaf, bot ini tidak dapat menerima panggilan telepon maupun video call.\n` +
+            `Layanan pencatatan dan pengelolaan keuangan hanya tersedia melalui pesan teks WhatsApp.\n\n` +
+            `Ketik *bantuan* atau *halo* untuk melihat panduan fitur yang tersedia. 🙏`;
+
+          outboundQueue.enqueue({
+            type: 'TEXT',
+            jid: callerJid,
+            text: callRejectMsg,
+          });
+        }
+      }
     }
   });
 
