@@ -36,12 +36,60 @@ class FinanceService
      * Find an existing user by JID or create a new isolated profile.
      * Satisfies FR-001, FR-002: Unique identification + auto-init on first message.
      */
-    public function findOrCreateUser(string $jid, string $displayName = ''): User
+    public function findOrCreateUser(string $jid, string $displayName = '', ?string $phoneNumber = null, ?string $lid = null): User
     {
-        $user = User::firstOrCreate(
-            ['jid' => $jid],
-            ['display_name' => $displayName, 'current_balance' => 0]
-        );
+        $query = User::where('jid', $jid);
+        if ($lid) {
+            $query->orWhere('lid', $lid)->orWhere('jid', $lid);
+        }
+        if (str_ends_with($jid, '@lid')) {
+            $query->orWhere('lid', $jid);
+        }
+        if ($phoneNumber) {
+            $query->orWhere('phone_number', $phoneNumber);
+        }
+        if (str_ends_with($jid, '@s.whatsapp.net')) {
+            $extractedPhone = explode('@', $jid)[0];
+            $query->orWhere('phone_number', $extractedPhone);
+        }
+
+        $user = $query->first();
+
+        if ($user) {
+            $updates = [];
+            if ($displayName && empty($user->display_name)) {
+                $updates['display_name'] = $displayName;
+            }
+            if ($phoneNumber && empty($user->phone_number)) {
+                $updates['phone_number'] = $phoneNumber;
+            }
+            if ($lid && empty($user->lid)) {
+                $updates['lid'] = $lid;
+            }
+            if (str_ends_with($jid, '@lid') && empty($user->lid)) {
+                $updates['lid'] = $jid;
+            }
+            if (str_ends_with($jid, '@s.whatsapp.net') && empty($user->phone_number)) {
+                $updates['phone_number'] = explode('@', $jid)[0];
+            }
+            if (!empty($updates)) {
+                $user->update($updates);
+            }
+            $this->getOrCreateDefaultWallet($user);
+            return $user;
+        }
+
+        $isLid = str_ends_with($jid, '@lid');
+        $phone = $phoneNumber ?? (str_ends_with($jid, '@s.whatsapp.net') ? explode('@', $jid)[0] : null);
+        $userLid = $lid ?? ($isLid ? $jid : null);
+
+        $user = User::create([
+            'jid'             => $jid,
+            'phone_number'    => $phone,
+            'lid'             => $userLid,
+            'display_name'    => $displayName,
+            'current_balance' => 0,
+        ]);
         $this->getOrCreateDefaultWallet($user);
         return $user;
     }
@@ -158,7 +206,7 @@ class FinanceService
         }
 
         return DB::transaction(function () use ($user, $data) {
-            $freshUser = User::where('jid', $user->jid)->first();
+            $freshUser = User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
 
             $amount = (int) $data['amount'];
             $type   = $data['type'];
@@ -166,12 +214,16 @@ class FinanceService
             // Resolve wallet
             $targetWallet = null;
             if (!empty($data['wallet_id'])) {
-                $targetWallet = Wallet::where('user_jid', $freshUser->jid)->where('id', $data['wallet_id'])->first();
+                $targetWallet = Wallet::where('user_jid', $freshUser->jid)->where('id', $data['wallet_id'])->lockForUpdate()->first();
             } elseif (!empty($data['wallet_name'])) {
                 $targetWallet = $this->findWalletByName($freshUser, $data['wallet_name']);
+                if ($targetWallet) {
+                    $targetWallet = Wallet::where('id', $targetWallet->id)->lockForUpdate()->first();
+                }
             }
             if (!$targetWallet) {
                 $targetWallet = $this->getOrCreateDefaultWallet($freshUser);
+                $targetWallet = Wallet::where('id', $targetWallet->id)->lockForUpdate()->first();
             }
 
             // Update wallet balance
@@ -508,12 +560,15 @@ class FinanceService
     public function undoLastTransaction(User $user): ?array
     {
         return DB::transaction(function () use ($user) {
+            User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
+
             // Find the most recent active transaction using both created_at and id for determinism
             $latest = Transaction::where('user_jid', $user->jid)
                 ->where('status', 'ACTIVE')
                 ->orderByDesc('transaction_date')
                 ->orderByDesc('created_at')
                 ->orderByDesc('id')
+                ->lockForUpdate()
                 ->first();
 
             if (!$latest) {
@@ -523,14 +578,14 @@ class FinanceService
             if ($latest->type === 'TRANSFER') {
                 $newBalance = $user->current_balance;
                 if ($latest->wallet_id) {
-                    $src = Wallet::find($latest->wallet_id);
+                    $src = Wallet::where('id', $latest->wallet_id)->lockForUpdate()->first();
                     if ($src) {
                         $src->balance = $src->balance + $latest->amount;
                         $src->save();
                     }
                 }
                 if ($latest->to_wallet_id) {
-                    $dst = Wallet::find($latest->to_wallet_id);
+                    $dst = Wallet::where('id', $latest->to_wallet_id)->lockForUpdate()->first();
                     if ($dst) {
                         $dst->balance = $dst->balance - $latest->amount;
                         $dst->save();

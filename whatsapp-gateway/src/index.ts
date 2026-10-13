@@ -31,11 +31,19 @@ console.error = (...args: any[]) => {
   originalConsoleError(...args);
 };
 
-const WEBHOOK_URL = process.env.LARAVEL_WEBHOOK_URL || 'http://127.0.0.1:8000/api/webhook/whatsapp';
+const WEBHOOK_URL = process.env.LARAVEL_WEBHOOK_URL || 'http://127.0.0.1:8001/api/webhook/whatsapp';
 const WEBHOOK_SECRET = process.env.GATEWAY_WEBHOOK_SECRET || 'local_dev_secret_12345';
 const PAIRING_PHONE = process.env.PAIRING_PHONE_NUMBER ? process.env.PAIRING_PHONE_NUMBER.replace(/\D/g, '') : '';
 const AUTH_DIR = process.env.BAILEYS_AUTH_DIR || 'auth_info_baileys';
-const HEALTH_PORT = Number(process.env.HEALTH_PORT || 3000);
+
+function resolvePort(): number {
+  const argIdx = process.argv.indexOf('--port');
+  if (argIdx !== -1 && process.argv[argIdx + 1]) {
+    return Number(process.argv[argIdx + 1]);
+  }
+  return Number(process.env.HEALTH_PORT || process.env.PORT || 3001);
+}
+const HEALTH_PORT = resolvePort();
 const AUTO_CLEAR_BOT_CHAT = process.env.AUTO_CLEAR_BOT_CHAT !== 'false';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -232,6 +240,9 @@ async function startGateway() {
   });
 }
 
+const lastIncomingMessageTimes = new Map<string, number>();
+const INBOUND_RATE_LIMIT_MS = 1000; // minimum 1 second interval between messages per JID
+
 async function handleIncomingMessage(msg: WAMessage): Promise<void> {
   // Ignore messages from self or status broadcasts
   if (!msg.message || msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') {
@@ -241,6 +252,24 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
   const fromJid = msg.key.remoteJid;
   if (!fromJid) return;
 
+  // Rate limiting per sender to prevent flood spam & DoS
+  const now = Date.now();
+  const lastTime = lastIncomingMessageTimes.get(fromJid) || 0;
+  if (now - lastTime < INBOUND_RATE_LIMIT_MS) {
+    console.warn(`[Gateway] Flood protection: Rate limit exceeded for ${fromJid}. Dropping message.`);
+    return;
+  }
+  lastIncomingMessageTimes.set(fromJid, now);
+
+  // Periodic cleanup of map cache
+  if (lastIncomingMessageTimes.size > 5000) {
+    for (const [jid, timestamp] of lastIncomingMessageTimes.entries()) {
+      if (now - timestamp > 60000) {
+        lastIncomingMessageTimes.delete(jid);
+      }
+    }
+  }
+
   const pushName = msg.pushName || '';
   const messageText =
     msg.message.conversation ||
@@ -248,6 +277,17 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
     '';
 
   if (!messageText.trim()) {
+    return;
+  }
+
+  // Length validation to protect against ReDoS / parser memory spike
+  if (messageText.length > 2000) {
+    console.warn(`[Gateway] Payload protection: Pesan dari ${fromJid} melebihi batas 2.000 karakter (${messageText.length} chars).`);
+    outboundQueue.enqueue({
+      jid: fromJid,
+      type: 'TEXT',
+      text: '⚠️ Pesan terlalu panjang (maksimal 2.000 karakter). Mohon kirimkan catatan transaksi yang lebih ringkas.',
+    });
     return;
   }
 
@@ -294,8 +334,71 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
   }
 }
 
-// Start gateway daemon
-createServer((_request, response) => { response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify({ status: sock ? 'ready' : 'starting' })); }).listen(HEALTH_PORT);
+// Start gateway HTTP server with health check and outbound send API
+const server = createServer((request, response) => {
+  if (request.method === 'POST' && (request.url === '/send' || request.url === '/api/send')) {
+    // Authenticate internal caller with X-Gateway-Secret
+    const providedSecret = request.headers['x-gateway-secret'];
+    if (WEBHOOK_SECRET && providedSecret !== WEBHOOK_SECRET) {
+      response.writeHead(401, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Unauthorized: Invalid X-Gateway-Secret' }));
+      return;
+    }
+
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const { jid, text, type, documentUrl, fileName, mimetype } = payload;
+        if (!jid) {
+          response.writeHead(400, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ error: 'Missing jid parameter' }));
+          return;
+        }
+
+        console.log(`[Gateway] Outbound message queued via HTTP API to: ${jid}`);
+        outboundQueue.enqueue({
+          jid,
+          type: type === 'DOCUMENT' ? 'DOCUMENT' : 'TEXT',
+          text: text || '',
+          documentUrl,
+          fileName,
+          mimetype,
+        });
+
+        let resolvedLid: string | null = null;
+        if (sock && typeof (sock as any).onWhatsApp === 'function') {
+          try {
+            const check = await (sock as any).onWhatsApp(jid);
+            if (check && check[0]?.lid) {
+              resolvedLid = check[0].lid;
+              console.log(`[Gateway] Resolved LID for ${jid} => ${resolvedLid}`);
+            }
+          } catch (err: any) {
+            console.warn(`[Gateway] Could not resolve LID for ${jid}:`, err?.message || err);
+          }
+        }
+
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ success: true, message: 'Message queued for delivery', lid: resolvedLid }));
+      } catch (err: any) {
+        response.writeHead(400, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: 'Invalid JSON payload' }));
+      }
+    });
+    return;
+  }
+
+  // Default Health check endpoint
+  response.writeHead(200, { 'Content-Type': 'application/json' });
+  response.end(JSON.stringify({ status: sock ? 'ready' : 'starting', timestamp: Date.now() }));
+});
+
+// Bind explicitly to 127.0.0.1 (Loopback only) to prevent external exposure
+server.listen(HEALTH_PORT, '127.0.0.1', () => {
+  console.log(`🚀 [Gateway] HTTP Server listening on 127.0.0.1:${HEALTH_PORT} (Secured & Outbound API ready)`);
+});
 
 startGateway().catch((err) => {
   console.error('[Gateway] Fatal initialization error:', err);

@@ -30,6 +30,7 @@ class TransactionParserService
         'keluar', 'beli', 'bayar', 'pengeluaran', 'spend', 'habis',
         'belanja', 'jajan', 'bayarin', 'transfer keluar', 'kirim',
         'modal', 'kulakan', 'kulak', 'bahan baku', 'hpp',
+        'kluar', 'keluarr', 'klr', 'out', 'byr', 'byar', 'blanja',
     ];
 
     /** Keywords that indicate an INCOME transaction */
@@ -37,6 +38,7 @@ class TransactionParserService
         'masuk', 'terima', 'dapat', 'dapet', 'pemasukan', 'income',
         'honor', 'trf masuk', 'transfer masuk', 'nerima',
         'jual', 'penjualan', 'omzet',
+        'masukk', 'msk', 'in', 'dpt',
     ];
 
     // ---------------------------------------------------------------------------

@@ -21,6 +21,9 @@ class FinanceReportExport implements WithMultipleSheets, Export
         $this->year = $year ?? (int) now()->year;
     }
 
+    /**
+     * @return array<int, \Maatwebsite\Excel\Concerns\WithTitle>
+     */
     public function sheets(): array
     {
         $sheets = [];
@@ -28,10 +31,13 @@ class FinanceReportExport implements WithMultipleSheets, Export
         // Sheet 1: Executive Dashboard
         $sheets[] = new SummaryDashboardSheet($this->user, $this->year);
 
+        $startOfYear = Carbon::create($this->year, 1, 1, 0, 0, 0)->startOfYear();
+        $endOfYear   = Carbon::create($this->year, 12, 31, 23, 59, 59)->endOfYear();
+
         // Fetch distinct months for active transactions
         $transactionsQuery = $this->user->transactions()
             ->active()
-            ->whereYear('created_at', $this->year)
+            ->whereBetween('created_at', [$startOfYear, $endOfYear])
             ->orderBy('created_at', 'asc');
 
         // Extract distinct YYYY-MM

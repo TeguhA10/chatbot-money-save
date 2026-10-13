@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('finance:process-recurring')->dailyAt('00:05');
 Schedule::command('finance:send-daily-digest')->dailyAt('21:00');
+Schedule::command('exports:purge')->everyMinute();

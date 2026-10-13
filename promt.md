@@ -1,225 +1,121 @@
-LEVEL 1 — Wajib
+1. Rekomendasi struktur menu web app
 
-Ini yang membuat produk terasa siap dipakai, bukan sekadar bot pencatat.
+1. Dashboard
 
-① Budget
+Prioritas MVP
 
-Misalnya:
+Halaman utama yang langsung menjawab, “Kondisi keuangan saya sekarang bagaimana?”
 
-budget makan 1jt
-budget transport 500rb
-budget hiburan 300rb
+Total saldo semua dompet
 
-Lalu bot otomatis memberi:
+Pemasukan dan pengeluaran bulan ini
 
-🍔 Budget Makan
-Terpakai: Rp750.000 / Rp1.000.000
-Sisa: Rp250.000
-███████████████░░░ 75%
+Selisih pemasukan dengan pengeluaran
 
-Ini jauh lebih berguna daripada sekadar:
+Grafik arus kas harian/bulanan
 
-"Bulan ini kamu menghabiskan Rp750 ribu."
+Pengeluaran berdasarkan kategori
 
-Karena pengguna akhirnya tahu boleh menghabiskan berapa lagi.
+Budget yang hampir habis
 
-② Multiple wallet / rekening
+Progres target tabungan
 
-Misalnya:
+Transaksi terbaru
 
-rekening
-cash
-DANA
-GoPay
-BCA
+Tambahkan filter periode dan tombol cepat “Tambah transaksi”.
 
-Kemudian:
+2. Transaksi
 
-keluar 50rb makan via dana
+Prioritas MVP
 
-Saldo:
+Ini menjadi pusat data keuangan pengguna.
 
-💰 Saldo kamu
+Daftar pemasukan dan pengeluaran
 
-BCA      Rp2.100.000
-DANA       Rp350.000
-Cash       Rp200.000
----------------------
-Total    Rp2.650.000
+Filter tanggal, kategori, dompet, dan tipe transaksi
 
-Ini menurutku sangat penting.
+Tambah, edit, hapus transaksi
 
-Karena kalau hanya satu saldo, lama-lama pengguna kehilangan kepercayaan terhadap pencatatan.
+Pencarian deskripsi transaksi
 
-③ Transfer
+Detail transaksi dan riwayat perubahan jika tersedia
 
-Kalau ada banyak wallet, harus ada:
+Penanda transaksi dari WhatsApp atau web
 
-transfer 200rb dari bca ke dana
+Transfer antardompet yang tidak dihitung sebagai pemasukan/pengeluaran baru
 
-Bukan dianggap pengeluaran.
+Form transaksi web sebaiknya lebih lengkap daripada format chat, tetapi tetap cepat digunakan.
 
-④ Transaksi berulang
+3. Dompet & Transfer
 
-Contoh:
+Prioritas MVP
 
-langganan Netflix 186rb setiap tanggal 5
-kos 800rb setiap tanggal 1
-gaji 5.2jt setiap tanggal 25
+Daftar dompet: Cash, BCA, DANA, dan lainnya
 
-Bot otomatis membuat transaksi.
+Saldo masing-masing dompet
 
-Ini akan mengurangi kebutuhan user untuk terus-terusan mencatat hal yang sama.
+Tambah dan edit dompet
 
-🟡 3. Fitur yang bikin Finance Bot mulai "pintar"
+Transfer antardompet
 
-Nah, ini bagian yang menurutku menarik.
+Riwayat transfer
 
-⑤ Ringkasan otomatis
+Rekonsiliasi saldo aktual dengan saldo tercatat
 
-Misalnya setiap malam:
+Pastikan transfer mengurangi saldo dompet asal dan menambah saldo dompet tujuan tanpa menggandakan nilai kekayaan pengguna.
 
-📊 Ringkasan Keuangan Hari Ini
+4. Budget / Anggaran
 
-Pemasukan: Rp100.000
-Pengeluaran: Rp75.000
-Net: +Rp25.000
+Prioritas MVP
 
-Pengeluaran terbesar:
-🍔 Makan — Rp40.000
-🚗 Transport — Rp25.000
-☕ Lainnya — Rp10.000
+Anggaran per kategori
 
-Saldo: Rp2.350.000
+Periode mingguan atau bulanan
 
-Dan bulanan:
+Nominal terpakai dan sisa anggaran
 
-📅 September 2026
+Persentase pemakaian
 
-Pemasukan: Rp5.700.000
-Pengeluaran: Rp4.850.000
-Tabungan: Rp850.000
+Peringatan ketika mendekati atau melewati batas
 
-Pengeluaran terbesar:
-🏠 Tempat tinggal — 28%
-🍔 Makanan — 22%
-🚗 Transport — 15%
+Perbandingan anggaran dengan realisasi
 
-Ini membuat bot terasa seperti financial assistant, bukan database transaksi.
+Contoh: budget makan Rp1 juta, terpakai Rp750 ribu, tersisa Rp250 ribu.
 
-🔥 4. Fitur yang menurutku paling menarik untuk diferensiasi
-⑥ Financial Goal
+5. Target Tabungan
 
-Ini yang menurutku cocok banget dengan arah yang pernah kamu bahas.
+Prioritas MVP
 
-Misalnya:
+Nama target dan nominal yang ingin dicapai
 
-buat target apotek 100jt
+Saldo yang sudah terkumpul
 
-Bot:
+Persentase progres
 
-🎯 Target: Modal Apotek
-Target: Rp100.000.000
-Terkumpul: Rp12.500.000
-Progress: 12,5%
+Target tanggal pencapaian
 
-Sisa: Rp87.500.000
+Riwayat penambahan tabungan
 
-Kemudian:
+Estimasi tabungan rutin yang dibutuhkan
 
-tambah tabungan 500rb untuk apotek
+Contoh target Mobil Rp100 juta dengan progres Rp15 juta atau 15%.
 
-Progress otomatis berubah.
+6. Laporan & Analitik
 
-Bisa juga:
+Prioritas MVP
 
-target motor 20jt
-target laptop 15jt
-target dana darurat 10jt
+Laporan pemasukan dan pengeluaran
 
-Ini mengubah mindset dari:
+Tren arus kas bulanan
 
-"Saya mencatat uang."
+Perbandingan bulan ini dengan bulan lalu
 
-menjadi:
+Kategori pengeluaran terbesar
 
-"Saya sedang mengejar sesuatu dengan uang saya."
+Pengeluaran tidak rutin
 
-🧠 5. AI jangan langsung dibuat sebagai gimmick
+Ringkasan surplus atau defisit
 
-Jangan buru-buru bikin:
+Ekspor Excel dan PDF
 
-"AI Finance Assistant 🤖"
-
-yang sebenarnya cuma ChatGPT wrapper.
-
-Lebih bagus AI dipakai untuk analisis data pengguna.
-
-Contoh user:
-
-bulan ini boros gak?
-
-Bot:
-
-📊 Dibanding bulan lalu, pengeluaranmu naik 18%.
-
-Kenaikan terbesar berasal dari:
-🍔 Makanan +Rp320.000
-🚗 Transport +Rp150.000
-
-Kalau pola ini berlanjut, estimasi pengeluaran bulan depan sekitar Rp5,1 juta.
-
-Atau:
-
-"Kenapa saldo saya cepat habis?"
-
-Bot menganalisis transaksi dan menjawab berdasarkan data aktual.
-
-AI = lapisan analisis, bukan inti produknya.
-
-🟢 6. Fitur khusus freelancer
-
-Ini potensial karena pencatatan pemasukan freelancer sering berantakan.
-
-Contoh:
-
-masuk 2jt project website client A
-
-Bot bisa menyimpan:
-
-Income
-├── Gaji
-├── Freelance
-├── Bonus
-├── Jualan
-└── Lainnya
-
-Kemudian:
-
-💻 Pendapatan Freelance September
-Rp4.750.000
-
-Project terbesar:
-Website A — Rp2.000.000
-Website B — Rp1.500.000
-
-Ini mulai membuat produk punya use case spesifik.
-
-🟣 7. Bahkan bisa berkembang ke UMKM
-
-Ini yang sebelumnya juga sempat kita bahas.
-
-Misalnya:
-
-jual nasi goreng 25rb
-
-atau:
-
-modal bahan 300rb
-
-Kemudian:
-
-📈 Penjualan hari ini
-Omzet: Rp750.000
-Modal: Rp300.000
-Estimasi laba kotor: Rp450.000
+Buat laporan yang menjawab bukan hanya “berapa yang dihabiskan”, tetapi juga “apa yang berubah dan apa yang perlu diperhatikan”.

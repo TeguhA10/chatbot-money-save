@@ -398,7 +398,7 @@ cd whatsapp-gateway && npm run dev
 ```
 
 ### 2. Apakah bot bisa digunakan oleh banyak orang sekaligus?
-**Bisa.** Arsitektur bot mengisolasi saldo, kategori, dan mutasi berdasarkan WhatsApp JID unik (`user_jid`). Data antar pengguna tidak akan pernah tercampur.
+**Bisa.** Arsitektur bot mengisolasi saldo, kategori, dan mutasi berdasarkan WhatsApp JID unik (`user_jid`). Data antar pengguna tidak akan pernah tercampur. Untuk rencana pengembangan menuju skala besar (>1.000.000 pengguna bersamaan), silakan pelajari dokumen [SCALABILITY_ROADMAP.md](SCALABILITY_ROADMAP.md).
 
 ### 3. Mengapa ekspor Excel tidak terkirim di WhatsApp?
 Pastikan `APP_URL` di `backend/.env` dapat diakses oleh gateway. Jika menggunakan IP lokal atau ngrok untuk testing publik, pastikan path file dokumen diakses via URL yang valid.

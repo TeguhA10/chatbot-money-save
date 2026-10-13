@@ -1,36 +1,67 @@
 services:
   backend:
     build: ./backend
-    env_file: ./backend/.env.production
+    env_file: ./backend/.env
     environment:
-      DB_CONNECTION: sqlite
-      DB_DATABASE: /var/www/storage/database.sqlite
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
       REDIS_HOST: redis
     ports: ["8000:8000"]
     volumes: ["backend_storage:/var/www/storage"]
-    depends_on: { redis: { condition: service_healthy } }
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     restart: unless-stopped
+
   worker:
     build: ./backend
-    env_file: ./backend/.env.production
+    env_file: ./backend/.env
     command: php artisan queue:work --tries=3 --timeout=60
-    environment: { QUEUE_CONNECTION: redis, REDIS_HOST: redis }
+    environment:
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
     volumes: ["backend_storage:/var/www/storage"]
-    depends_on: { redis: { condition: service_healthy } }
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     restart: unless-stopped
+
   gateway:
     build: ./whatsapp-gateway
-    env_file: ./whatsapp-gateway/.env.production
-    environment: { LARAVEL_WEBHOOK_URL: http://backend:8000/api/webhook/whatsapp, BAILEYS_AUTH_DIR: /data/auth_info_baileys }
+    env_file: ./whatsapp-gateway/.env
+    environment:
+      LARAVEL_WEBHOOK_URL: http://backend:8000/api/webhook/whatsapp
+      BAILEYS_AUTH_DIR: /data/auth_info_baileys
     volumes: ["baileys_auth:/data/auth_info_baileys"]
-    depends_on: { backend: { condition: service_started } }
+    depends_on:
+      backend: { condition: service_started }
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-chatbot_finance}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password123!}
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-chatbot_finance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     volumes: ["redis_data:/data"]
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, timeout: 5s, retries: 5 }
     restart: unless-stopped
-volumes: { backend_storage: {}, baileys_auth: {}, redis_data: {} }
+
+volumes:
+  backend_storage: {}
+  baileys_auth: {}
+  redis_data: {}
+  postgres_data: {}

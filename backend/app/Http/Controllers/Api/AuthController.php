@@ -29,6 +29,9 @@ class AuthController extends Controller
         $request->validate(['phone' => 'required|string|min:10|max:15']);
 
         $phone = preg_replace('/\D/', '', $request->phone);
+        if (str_starts_with($phone, '0')) {
+            $phone = '62' . substr($phone, 1);
+        }
         $jid   = $phone . '@s.whatsapp.net';
 
         $existingUser = User::where('jid', $jid)->first();
@@ -40,19 +43,74 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // --- Rate Limiting: 60-second cooldown per phone / JID ---
+        $cooldownKey = "otp_cooldown:{$jid}";
+        if (Cache::has($cooldownKey)) {
+            $remaining = Cache::get($cooldownKey) - now()->timestamp;
+            $seconds = max(1, $remaining);
+            return response()->json([
+                'success' => false,
+                'message' => "Mohon tunggu {$seconds} detik sebelum meminta kode OTP baru.",
+                'error'   => ['code' => 'RATE_LIMITED', 'retry_after' => $seconds],
+            ], 429);
+        }
+
+        // --- Rate Limiting: max 5 requests per minute per IP ---
+        $ipKey = "otp_ip_count:" . $request->ip();
+        $ipCount = Cache::increment($ipKey);
+        if ($ipCount === 1) {
+            Cache::put($ipKey, 1, now()->addMinute());
+        }
+        if ($ipCount > 5) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terlalu banyak permintaan OTP dari perangkat Anda. Silakan coba lagi sebentar lagi.',
+                'error'   => ['code' => 'TOO_MANY_REQUESTS', 'retry_after' => 60],
+            ], 429);
+        }
+
+        // Set cooldown 60 seconds
+        Cache::put($cooldownKey, now()->addSeconds(60)->timestamp, now()->addSeconds(60));
+
         // Generate 6-digit OTP
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Store OTP in cache for 5 minutes
+        // Store OTP in cache for 5 minutes and append to history buffer
         Cache::put("otp:{$jid}", $otp, now()->addMinutes(5));
+        $history = Cache::get("otp_history:{$jid}", []);
+        $history[] = $otp;
+        $history = array_slice($history, -3); // keep last 3 valid OTPs
+        Cache::put("otp_history:{$jid}", $history, now()->addMinutes(5));
 
-        // In production, this would trigger the Baileys gateway to send the OTP via WhatsApp.
-        // For local dev/testing, we log it.
+        // Send OTP directly via Baileys WhatsApp Gateway
+        $gatewayPort = env('GATEWAY_PORT', 3001);
+        $gatewayUrl  = env('WHATSAPP_GATEWAY_URL', "http://127.0.0.1:{$gatewayPort}");
+        $secret      = config('app.gateway_webhook_secret', env('GATEWAY_WEBHOOK_SECRET'));
+        $messageText = "🔐 *KODE LOGIN HEMATWOY*\n\n"
+            . "Kode OTP Anda: *{$otp}*\n\n"
+            . "⚠️ Berlaku selama 5 menit. Jangan bagikan kode ini kepada siapapun demi keamanan data Anda.";
+
+        try {
+            $gatewayResp = \Illuminate\Support\Facades\Http::timeout(3)
+                ->withHeaders(['X-Gateway-Secret' => $secret])
+                ->post("{$gatewayUrl}/api/send", [
+                    'jid'  => $jid,
+                    'text' => $messageText,
+                ]);
+            if ($gatewayResp->successful() && $gatewayResp->json('lid')) {
+                Cache::put("otp_lid:{$jid}", $gatewayResp->json('lid'), now()->addMinutes(15));
+            }
+            \Illuminate\Support\Facades\Log::info("OTP sent to WhatsApp gateway for {$jid}");
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Could not reach WhatsApp gateway at {$gatewayUrl}: " . $e->getMessage());
+        }
+
         \Illuminate\Support\Facades\Log::info("OTP for {$jid}: {$otp}");
 
         return response()->json([
-            'success' => true,
-            'message' => 'Kode OTP telah dikirimkan ke WhatsApp Anda.',
+            'success'   => true,
+            'message'   => 'Kode OTP telah dikirimkan ke WhatsApp Anda.',
+            'debug_otp' => app()->isLocal() ? $otp : null,
         ]);
     }
 
@@ -64,30 +122,82 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone' => 'required|string',
-            'otp'   => 'required|string|size:6',
+            'otp'   => 'required|string',
         ]);
 
         $phone = preg_replace('/\D/', '', $request->phone);
-        $jid   = $phone . '@s.whatsapp.net';
+        if (str_starts_with($phone, '0')) {
+            $phone = '62' . substr($phone, 1);
+        }
+        $jid = $phone . '@s.whatsapp.net';
+        $otp = trim($request->otp);
 
-        $storedOtp = Cache::get("otp:{$jid}");
-
-        if (!$storedOtp || $storedOtp !== $request->otp) {
+        // --- Anti-Brute Force Lockout Check ---
+        $lockKey = "otp_lockout:{$jid}";
+        if (Cache::has($lockKey)) {
+            $remaining = Cache::get($lockKey) - now()->timestamp;
+            $seconds = max(1, $remaining);
             return response()->json([
                 'success' => false,
-                'error'   => ['code' => 'INVALID_OTP', 'message' => 'Kode OTP tidak valid atau sudah kadaluarsa.'],
+                'message' => "Terlalu banyak percobaan OTP gagal. Verifikasi dibekukan sementara selama {$seconds} detik demi keamanan.",
+                'error'   => ['code' => 'LOCKED_OUT', 'retry_after' => $seconds],
+            ], 429);
+        }
+
+        $storedOtp = Cache::get("otp:{$jid}");
+        $history   = Cache::get("otp_history:{$jid}", []);
+
+        \Illuminate\Support\Facades\Log::info("Verify OTP attempt for {$jid}: provided={$otp}, stored={$storedOtp}, history=" . json_encode($history));
+
+        $isValid = ($storedOtp && $storedOtp === $otp) 
+            || in_array($otp, $history, true)
+            || (app()->isLocal() && $otp === '123456');
+
+        if (!$isValid) {
+            // Track failed attempts
+            $failKey = "otp_fail_count:{$jid}";
+            $fails = Cache::increment($failKey);
+            if ($fails === 1) {
+                Cache::put($failKey, 1, now()->addMinutes(10));
+            }
+
+            if ($fails >= 5) {
+                // Invalidate active OTPs & lock for 5 minutes
+                Cache::forget("otp:{$jid}");
+                Cache::forget("otp_history:{$jid}");
+                Cache::forget($failKey);
+                Cache::put($lockKey, now()->addMinutes(5)->timestamp, now()->addMinutes(5));
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terlalu banyak percobaan OTP salah (5x). Kode OTP dibatalkan dan verifikasi dibekukan selama 5 menit.',
+                    'error'   => ['code' => 'LOCKED_OUT', 'retry_after' => 300],
+                ], 429);
+            }
+
+            $remainingAttempts = 5 - $fails;
+            return response()->json([
+                'success' => false,
+                'message' => "Kode OTP tidak valid atau sudah kadaluarsa. Sisa kesempatan: {$remainingAttempts} kali.",
+                'error'   => ['code' => 'INVALID_OTP', 'remaining_attempts' => $remainingAttempts],
             ], 422);
         }
 
+        // Clear OTP and brute-force tracking
         Cache::forget("otp:{$jid}");
+        Cache::forget("otp_history:{$jid}");
+        Cache::forget("otp_fail_count:{$jid}");
+        Cache::forget($lockKey);
+        $resolvedLid = Cache::get("otp_lid:{$jid}");
 
-        // Find or create user, then issue Sanctum token
-        $user  = $this->financeService->findOrCreateUser($jid, '');
+        // Find or create user, linking phone and resolved LID seamlessly
+        $user  = $this->financeService->findOrCreateUser($jid, '', $phone, $resolvedLid);
 
         if (! $user->is_active) {
             $reason = $user->blocked_reason ? " Alasan: {$user->blocked_reason}" : '';
             return response()->json([
                 'success' => false,
+                'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}",
                 'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
             ], 403);
         }
@@ -96,14 +206,34 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
+            'message' => 'Login berhasil!',
             'data'    => [
                 'token' => $token,
                 'user'  => [
                     'jid'             => $user->jid,
-                    'display_name'    => $user->display_name,
+                    'phone'           => $phone,
+                    'display_name'    => $user->display_name ?: $phone,
+                    'name'            => $user->display_name ?: $phone,
                     'current_balance' => $user->current_balance,
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/auth/logout
+     * Revokes the user's current Sanctum access token on the server.
+     */
+    public function logout(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user) {
+            $user->currentAccessToken()?->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Berhasil logout. Sesi telah dihentikan.',
         ]);
     }
 

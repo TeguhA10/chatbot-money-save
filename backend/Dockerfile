@@ -5,7 +5,7 @@ RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoload
 
 FROM php:8.3-cli-alpine
 WORKDIR /var/www
-RUN docker-php-ext-install pdo pdo_sqlite
+RUN apk add --no-cache postgresql-dev && docker-php-ext-install pdo pdo_pgsql pdo_sqlite
 COPY --from=vendor /app/vendor ./vendor
 COPY . .
 RUN addgroup -S app && adduser -S app -G app && mkdir -p storage/framework storage/logs && chown -R app:app storage bootstrap/cache

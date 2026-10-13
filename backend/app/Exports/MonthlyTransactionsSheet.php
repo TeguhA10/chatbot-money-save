@@ -40,11 +40,13 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
     {
         [$year, $month] = explode('-', $this->yearMonth);
 
+        $start = Carbon::create((int) $year, (int) $month, 1, 0, 0, 0)->startOfMonth();
+        $end   = Carbon::create((int) $year, (int) $month, 1, 0, 0, 0)->endOfMonth();
+
         $transactions = $this->user->transactions()
             ->active()
-            ->whereYear('created_at', (int) $year)
-            ->whereMonth('created_at', (int) $month)
-            ->with('category')
+            ->whereBetween('created_at', [$start, $end])
+            ->with(['category', 'wallet', 'toWallet'])
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -61,6 +63,8 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
             'Tipe',
             'Kategori',
             'Keterangan',
+            'Dompet Asal',
+            'Dompet Tujuan',
             'Nominal (Rp)',
             'Saldo Sesudah (Rp)',
         ];
@@ -73,12 +77,28 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
     {
         $this->rowNumber++;
 
+        $typeLabel = match ($row->type) {
+            'INCOME'   => 'Pemasukan',
+            'EXPENSE'  => 'Pengeluaran',
+            'TRANSFER' => 'Transfer',
+            default    => $row->type,
+        };
+
+        $categoryLabel = $row->category
+            ? (($row->category->icon ? $row->category->icon . ' ' : '') . $row->category->name)
+            : ($row->type === 'TRANSFER' ? '🔄 Transfer Antar Dompet' : 'Lainnya');
+
+        $fromWallet = $row->wallet?->name ?? 'Cash';
+        $toWallet   = $row->type === 'TRANSFER' ? ($row->toWallet?->name ?? '-') : '-';
+
         return [
             $this->rowNumber,
             $row->created_at ? $row->created_at->format('Y-m-d H:i') : '',
-            $row->type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran',
-            $row->category ? (($row->category->icon ? $row->category->icon . ' ' : '') . $row->category->name) : 'Lainnya',
-            $row->description ?? '-',
+            $typeLabel,
+            $categoryLabel,
+            $row->description !== '' ? $row->description : '-',
+            $fromWallet,
+            $toWallet,
             (float) $row->amount,
             (float) $row->balance_after,
         ];
@@ -87,15 +107,15 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
     public function columnFormats(): array
     {
         return [
-            'F' => '#,##0',
-            'G' => '#,##0',
+            'H' => '#,##0',
+            'I' => '#,##0',
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
         // Header styling
-        $sheet->getStyle('A1:G1')->applyFromArray([
+        $sheet->getStyle('A1:I1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E40AF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
@@ -103,15 +123,16 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
 
         $lastRow = max(1, $this->totalRows + 1);
 
-        // Center align No, Tanggal, and Tipe
+        // Center align No, Tanggal, Tipe, Dompet
         if ($lastRow > 1) {
             $sheet->getStyle("A2:A{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("B2:B{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("C2:C{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("F2:G{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("F2:G{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("H2:I{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             
             // All borders
-            $sheet->getStyle("A1:G{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getStyle("A1:I{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         }
 
         return [];

@@ -2,13 +2,17 @@
 
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExportController;
-use App\Http\Controllers\Api\TransactionController;
-use App\Http\Controllers\Api\WebhookController;
+use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MidtransWebhookController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\VaultController;
+use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,9 +37,9 @@ Route::middleware('gateway')->get('/subscription/status', [SubscriptionControlle
 Route::middleware('gateway')->post('/subscription/purchase', [SubscriptionController::class, 'purchase']);
 
 // ---------------------------------------------------------------------------
-// Public Authentication Routes
+// Public Authentication Routes & Protected API (Rate Limited)
 // ---------------------------------------------------------------------------
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     Route::prefix('auth')->group(function () {
         Route::post('/request-otp', [AuthController::class, 'requestOtp'])->name('api.auth.request-otp');
@@ -47,8 +51,20 @@ Route::prefix('v1')->group(function () {
     // ---------------------------------------------------------------------------
     Route::middleware('auth:sanctum')->group(function () {
 
+        // Auth management
+        Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
         // Profile & Balance
         Route::get('/profile', [AuthController::class, 'profile'])->name('api.profile');
+
+        // Zero-Knowledge Security Vault
+        Route::prefix('vault')->group(function () {
+            Route::get('/status',   [VaultController::class, 'status'])->name('api.vault.status');
+            Route::post('/setup',   [VaultController::class, 'setup'])->name('api.vault.setup');
+            Route::post('/unlock',  [VaultController::class, 'unlock'])->name('api.vault.unlock');
+            Route::post('/lock',    [VaultController::class, 'lock'])->name('api.vault.lock');
+            Route::post('/reset',   [VaultController::class, 'reset'])->name('api.vault.reset');
+        });
 
         // Transactions
         Route::get('/transactions',         [TransactionController::class, 'index'])->name('api.transactions.index');
@@ -61,18 +77,18 @@ Route::prefix('v1')->group(function () {
         Route::post('/categories', [CategoryController::class, 'store'])->name('api.categories.store');
 
         // Budgets
-        Route::get('/budgets',  [\App\Http\Controllers\Api\BudgetController::class, 'index'])->name('api.budgets.index');
-        Route::post('/budgets', [\App\Http\Controllers\Api\BudgetController::class, 'store'])->name('api.budgets.store');
+        Route::get('/budgets',  [BudgetController::class, 'index'])->name('api.budgets.index');
+        Route::post('/budgets', [BudgetController::class, 'store'])->name('api.budgets.store');
 
         // Wallets
-        Route::get('/wallets',           [\App\Http\Controllers\Api\WalletController::class, 'index'])->name('api.wallets.index');
-        Route::post('/wallets',          [\App\Http\Controllers\Api\WalletController::class, 'store'])->name('api.wallets.store');
-        Route::post('/wallets/transfer', [\App\Http\Controllers\Api\WalletController::class, 'transfer'])->name('api.wallets.transfer');
+        Route::get('/wallets',           [WalletController::class, 'index'])->name('api.wallets.index');
+        Route::post('/wallets',          [WalletController::class, 'store'])->name('api.wallets.store');
+        Route::post('/wallets/transfer', [WalletController::class, 'transfer'])->name('api.wallets.transfer');
 
         // Financial Goals
-        Route::get('/goals',                 [\App\Http\Controllers\Api\GoalController::class, 'index'])->name('api.goals.index');
-        Route::post('/goals',                [\App\Http\Controllers\Api\GoalController::class, 'store'])->name('api.goals.store');
-        Route::post('/goals/{id}/contribute',[\App\Http\Controllers\Api\GoalController::class, 'contribute'])->name('api.goals.contribute');
+        Route::get('/goals',                 [GoalController::class, 'index'])->name('api.goals.index');
+        Route::post('/goals',                [GoalController::class, 'store'])->name('api.goals.store');
+        Route::post('/goals/{id}/contribute',[GoalController::class, 'contribute'])->name('api.goals.contribute');
 
         // Analytics Dashboard
         Route::get('/analytics/summary',            [AnalyticsController::class, 'summary'])->name('api.analytics.summary');
@@ -80,6 +96,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/analytics/monthly-trend',      [AnalyticsController::class, 'monthlyTrend'])->name('api.analytics.monthly-trend');
     });
 
-    // Excel Export (Accepts either Sanctum Bearer token or WhatsApp user_jid query parameter)
-    Route::get('/export/excel', [ExportController::class, 'excel'])->name('api.export.excel');
+    // Excel Export via Temporary Signed URL with unique single-use export_id
+    Route::get('/export/excel/{export_id}', [ExportController::class, 'excelSigned'])
+        ->name('api.export.excel')
+        ->middleware('signed');
+
+    // Excel Export via Sanctum Bearer token for authenticated clients
+    Route::get('/export/excel', [ExportController::class, 'excel'])
+        ->name('api.export.excel.sanctum');
 });

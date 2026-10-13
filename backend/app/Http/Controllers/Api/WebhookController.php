@@ -16,6 +16,9 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 /**
  * WebhookController
@@ -71,6 +74,14 @@ class WebhookController extends Controller
         $pushName    = $validated['push_name'] ?? '';
         $messageText = trim($validated['message_text']);
 
+        // --- Payload Length Protection (Anti-ReDoS / Memory Spike) ---
+        if (mb_strlen($messageText) > 2000) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => '⚠️ Pesan terlalu panjang (maksimal 2.000 karakter). Mohon kirimkan catatan transaksi yang lebih ringkas.',
+            ]);
+        }
+
         // --- Idempotency Check — FR-012 ---
         if (ProcessedMessage::where('message_id', $messageId)->exists()) {
             Log::info("Webhook: Duplicate message skipped", ['message_id' => $messageId]);
@@ -101,11 +112,11 @@ class WebhookController extends Controller
         // --- Command Routing ---
         $lowerText = strtolower($messageText);
 
-        if (preg_match('/^set pin\s+(\d{6})$/i', $messageText, $matches)) {
+        if (preg_match('/^(?:set|buat|bikin|atur)\s+pin\s+(\S{6,64})$/i', $messageText, $matches)) {
             try { $code = $this->pins->setup($user, $matches[1]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"PIN aktif. Recovery Code (simpan sekali ini): `{$code}`. Kirim ulang transaksi Anda."]); }
             catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
         }
-        if (preg_match('/^reset pin\s+([A-Z0-9]{16})\s+(\d{6})$/i', $messageText, $matches)) {
+        if (preg_match('/^reset pin\s+([A-Z0-9]{16})\s+(\S{6,64})$/i', $messageText, $matches)) {
             try { $this->pins->reset($user, $matches[1], $matches[2]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'PIN berhasil direset.']); }
             catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
         }
@@ -117,8 +128,21 @@ class WebhookController extends Controller
             return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Paket Pro Rp25.000 / 30 hari. Hubungi endpoint pembelian untuk memperoleh Snap link pembayaran.']);
         }
 
-        // Balance inquiry & Wallets
-        if (preg_match('/^(?:saldo|cek saldo|dompet|list dompet|daftar dompet|rekening)$/i', $messageText)) {
+        // Link phone command: "tautkan 08xxxx" or "nohp 08xxxx"
+        if (preg_match('/^(?:tautkan|nohp|nomor)\s+(?:hp\s+)?(\+?0?8\d{8,12})$/i', $messageText, $matches)) {
+            $rawPhone = preg_replace('/\D/', '', $matches[1]);
+            if (str_starts_with($rawPhone, '0')) {
+                $rawPhone = '62' . substr($rawPhone, 1);
+            }
+            $user->update(['phone_number' => $rawPhone]);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "📱 *Nomor HP Berhasil Ditautkan!*\n\nNomor: *+{$rawPhone}*\n\nAkun WhatsApp Anda sekarang telah terhubung dengan Web App. Anda dapat login ke Web App menggunakan nomor ini dengan kode OTP.",
+            ]);
+        }
+
+        // Balance inquiry & Wallets (Typo-tolerant: saldo, saldoo, sisa saldo, dompet)
+        if (preg_match('/^(?:saldo+|saldu|cek saldo|dompet|list dompet|daftar dompet|rekening|sisa saldo|saldo ku|cek dompet)$/i', $messageText)) {
             return $this->handleBalanceInquiry($user);
         }
 
@@ -141,13 +165,13 @@ class WebhookController extends Controller
             }
         }
 
-        // Rekap hari ini
-        if (preg_match('/^rekap hari ini$/i', $messageText)) {
+        // Rekap hari ini (Typo-tolerant: rekap hr ini, rekap harian)
+        if (preg_match('/^rekap\s+(?:hari ini|hr ini|harii ini|harian)$/i', $messageText)) {
             return $this->handleDailySummary($user);
         }
 
-        // Rekap bulan ini
-        if (preg_match('/^rekap( bulan ini)?$/i', $messageText)) {
+        // Rekap bulan ini (Typo-tolerant: rekap bln ini, rekap bulanan)
+        if (preg_match('/^rekap(?:\s+(?:bulan ini|bln ini|blan ini|bulanan))?$/i', $messageText)) {
             return $this->handleMonthlySummary($user);
         }
 
@@ -341,18 +365,18 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Undo / batal
-        if (preg_match('/^(batal|hapus transaksi terakhir|undo)$/i', $messageText)) {
+        // Undo / batal (Typo-tolerant: batalin, undo, cancel)
+        if (preg_match('/^(?:batal|hapus transaksi terakhir|undo+|batalin|cancel)$/i', $messageText)) {
             return $this->handleUndo($user);
         }
 
-        // Export Excel
-        if (preg_match('/^(export excel|laporan excel|download laporan)$/i', $messageText)) {
+        // Export Excel (Typo-tolerant: ekspor excel, unduh excel)
+        if (preg_match('/^(?:export excel|ekspor excel|laporan excel|download laporan|download excel|unduh excel)$/i', $messageText)) {
             return $this->handleExcelExport($user);
         }
 
         // Check budgets
-        if (preg_match('/^(cek|status|list)\s+budget$/i', $messageText)) {
+        if (preg_match('/^(?:cek|status|list)\s+budg?et$/i', $messageText)) {
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->budgetService->renderAllBudgetsCard($user),
@@ -415,7 +439,38 @@ class WebhookController extends Controller
         }
 
         // ---------------------------------------------------------------------
-        // Update Transaction
+        // Quick Correction (Koreksi transaksi terakhir secara instan tanpa ID UUID)
+        // Contoh: "koreksi 35rb" atau "ganti nominal 50rb makan siang"
+        // ---------------------------------------------------------------------
+        if (
+            preg_match(
+                '/^(?:koreksi|ganti nominal|ubah nominal)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)(?:\s+(.+))?$/i',
+                $messageText,
+                $matches
+            )
+        ) {
+            $amount = $this->parseAmount($matches[1]);
+            $newDesc = !empty($matches[2]) ? trim($matches[2]) : null;
+            $lastTx = $user->transactions()->latest('id')->first();
+
+            if (!$lastTx) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Belum ada transaksi yang dapat dikoreksi.']);
+            }
+
+            if ($amount <= 0) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nominal koreksi tidak valid. Contoh: `koreksi 35rb`']);
+            }
+
+            return $this->handleTransactionUpdate(
+                $user,
+                (string) $lastTx->id,
+                $amount,
+                $newDesc ?: $lastTx->description
+            );
+        }
+
+        // ---------------------------------------------------------------------
+        // Update Transaction with ID
         //
         // Example:
         // ubah transaksi a82f31c2 75000 makan siang
@@ -460,8 +515,8 @@ class WebhookController extends Controller
             );
         }
 
-        // Help / menu
-        if (preg_match('/^(bantuan|help|menu|\?)$/i', $messageText)) {
+        // Help / menu (Typo-tolerant: bantuan, panduan, tolong, help)
+        if (preg_match('/^(?:bantuan+|help|menu|\?|panduan|tolong)$/i', $messageText)) {
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->buildHelpMessage(),
@@ -812,7 +867,23 @@ class WebhookController extends Controller
             ]);
         }
 
-        $fileUrl = route('api.export.excel') . "?user_jid=" . urlencode($user->jid);
+        $exportId = 'exp_' . (string) Str::ulid();
+        Cache::put("export:{$exportId}", [
+            'user_jid'   => $user->jid,
+            'purpose'    => 'whatsapp_excel',
+            'created_at' => now()->timestamp,
+        ], 90);
+
+        Log::info('Export requested', [
+            'export_id' => $exportId,
+            'type'      => 'excel',
+        ]);
+
+        $fileUrl = URL::temporarySignedRoute(
+            'api.export.excel',
+            now()->addSeconds(90),
+            ['export_id' => $exportId]
+        );
 
         return response()->json([
             'action'     => 'SEND_DOCUMENT',

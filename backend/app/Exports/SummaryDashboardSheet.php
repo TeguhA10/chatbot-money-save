@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\User;
+use App\Services\FinanceService;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -18,8 +19,30 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
 {
     private User $user;
     private ?int $year;
-    private int $catStartRow = 12;
-    private int $catEndRow = 12;
+
+    // Track dynamic row ranges for styling
+    private int $kpiStartRow = 7;
+    private int $kpiEndRow = 11;
+
+    private int $walletHeaderRow = 14;
+    private int $walletStartRow = 15;
+    private int $walletEndRow = 15;
+
+    private int $catHeaderRow = 18;
+    private int $catStartRow = 19;
+    private int $catEndRow = 19;
+
+    private int $budgetHeaderRow = 23;
+    private int $budgetStartRow = 24;
+    private int $budgetEndRow = 24;
+
+    private int $goalsHeaderRow = 28;
+    private int $goalsStartRow = 29;
+    private int $goalsEndRow = 29;
+
+    private int $recurringHeaderRow = 33;
+    private int $recurringStartRow = 34;
+    private int $recurringEndRow = 34;
 
     public function __construct(User $user, ?int $year = null)
     {
@@ -34,65 +57,188 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
 
     public function array(): array
     {
-        $query = $this->user->transactions()
+        $startOfYear = Carbon::create($this->year, 1, 1, 0, 0, 0)->startOfYear();
+        $endOfYear   = Carbon::create($this->year, 12, 31, 23, 59, 59)->endOfYear();
+
+        $transactions = $this->user->transactions()
             ->active()
-            ->whereYear('created_at', $this->year);
-
-        $totalIncome  = (clone $query)->where('type', 'INCOME')->sum('amount');
-        $totalExpense = (clone $query)->where('type', 'EXPENSE')->sum('amount');
-        $currentBalance = (float) $this->user->current_balance;
-
-        // Group expenses by category
-        $categoryBreakdown = (clone $query)
-            ->where('type', 'EXPENSE')
-            ->selectRaw('category_id, SUM(amount) as total')
-            ->groupBy('category_id')
-            ->orderByDesc('total')
-            ->with('category')
+            ->whereBetween('created_at', [$startOfYear, $endOfYear])
+            ->with(['category', 'wallet', 'toWallet'])
             ->get();
 
+        $totalIncome  = (float) $transactions->where('type', 'INCOME')->sum('amount');
+        $totalExpense = (float) $transactions->where('type', 'EXPENSE')->sum('amount');
+        $currentBalance = (float) $this->user->current_balance;
+
+        // 1. Title & Executive KPI (Preserve exact rows 0-10 for tests & KPI)
         $rows = [
-            ['RINGKASAN LAPORAN KEUANGAN PRIBADI', '', ''],
-            ['Tahun', $this->year, ''],
-            ['Pemilik', $this->user->name ?? $this->user->jid, ''],
-            ['Dicetak Pada', Carbon::now()->isoFormat('D MMMM Y, HH:mm'), ''],
-            ['', '', ''],
-            ['RINGKASAN EKSEKUTIF (KPI)', '', ''],
-            ['Indikator', 'Nominal (Rp)', 'Keterangan'],
-            ['Total Pemasukan', (float) $totalIncome, 'Akumulasi tahun ' . $this->year],
-            ['Total Pengeluaran', (float) $totalExpense, 'Akumulasi tahun ' . $this->year],
-            ['Arus Kas Bersih (Net Cashflow)', '=B8-B9', 'Pemasukan dikurangi Pengeluaran'],
-            ['Saldo Rekening Saat Ini', $currentBalance, 'Posisi saldo real-time'],
-            ['', '', ''],
-            ['DISTRIBUSI PENGELUARAN PER KATEGORI', '', ''],
-            ['Kategori', 'Total Pengeluaran (Rp)', 'Persentase'],
+            ['RINGKASAN LAPORAN KEUANGAN PRIBADI', '', '', '', ''],
+            ['Tahun', $this->year, '', '', ''],
+            ['Pemilik', $this->user->display_name !== '' ? $this->user->display_name : $this->user->jid, '', '', ''],
+            ['Dicetak Pada', Carbon::now()->isoFormat('D MMMM Y, HH:mm'), '', '', ''],
+            ['', '', '', '', ''],
+            ['RINGKASAN EKSEKUTIF (KPI)', '', '', '', ''],
+            ['Indikator', 'Nominal (Rp)', 'Keterangan', '', ''],
+            ['Total Pemasukan', (float) $totalIncome, 'Akumulasi tahun ' . $this->year, '', ''],
+            ['Total Pengeluaran', (float) $totalExpense, 'Akumulasi tahun ' . $this->year, '', ''],
+            ['Arus Kas Bersih (Net Cashflow)', '=B8-B9', 'Pemasukan dikurangi Pengeluaran', '', ''],
+            ['Saldo Rekening Saat Ini', $currentBalance, 'Posisi total saldo konsolidasi', '', ''],
+            ['', '', '', '', ''],
         ];
 
-        $this->catStartRow = 15;
+        // 2. Multi-Wallet Breakdown
+        $wallets = $this->user->wallets()->orderBy('created_at')->get();
+        if ($wallets->isEmpty()) {
+            app(FinanceService::class)->getOrCreateDefaultWallet($this->user);
+            $wallets = $this->user->wallets()->get();
+        }
+
+        $rows[] = ['RINCIAN SALDO PER DOMPET (MULTI-WALLET)', '', '', '', ''];
+        $this->walletHeaderRow = count($rows) + 1;
+        $rows[] = ['Nama Dompet', 'Saldo Terkini (Rp)', 'Tipe Akun', 'Status Dompet', ''];
+        $this->walletStartRow = count($rows) + 1;
+
+        foreach ($wallets as $wallet) {
+            $typeLabel = match (strtoupper($wallet->type)) {
+                'BANK'    => 'Rekening Bank',
+                'EWALLET' => 'Dompet Digital / e-Wallet',
+                default   => 'Uang Tunai / Cash',
+            };
+            $rows[] = [
+                $wallet->name,
+                (float) $wallet->balance,
+                $typeLabel,
+                $wallet->is_default ? 'Utama (Default)' : 'Sekunder',
+                '',
+            ];
+        }
+        $this->walletEndRow = count($rows);
+        $rows[] = ['', '', '', '', ''];
+
+        // 3. Category Breakdown (Expenses)
+        $categoryBreakdown = $transactions
+            ->where('type', 'EXPENSE')
+            ->groupBy('category_id')
+            ->map(function ($group) {
+                $first = $group->first();
+                return (object) [
+                    'category' => $first?->category,
+                    'total'    => (float) $group->sum('amount'),
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        $rows[] = ['DISTRIBUSI PENGELUARAN PER KATEGORI', '', '', '', ''];
+        $this->catHeaderRow = count($rows) + 1;
+        $rows[] = ['Kategori', 'Total Pengeluaran (Rp)', 'Persentase', '', ''];
+        $this->catStartRow = count($rows) + 1;
 
         if ($categoryBreakdown->isEmpty()) {
-            $rows[] = ['Belum ada pengeluaran', 0, 0];
-            $this->catEndRow = 15;
+            $rows[] = ['Belum ada pengeluaran', 0, 0, '', ''];
+            $this->catEndRow = count($rows);
         } else {
-            $currentRow = $this->catStartRow;
             foreach ($categoryBreakdown as $item) {
                 $catName = ($item->category?->icon ? $item->category->icon . ' ' : '') . ($item->category?->name ?? 'Lainnya');
+                $currentRow = count($rows) + 1;
                 $rows[] = [
                     $catName,
                     (float) $item->total,
                     "=IF(\$B\$9>0, B{$currentRow}/\$B\$9, 0)",
+                    '',
+                    '',
                 ];
-                $currentRow++;
             }
-            $this->catEndRow = $currentRow - 1;
+            $this->catEndRow = count($rows);
         }
 
-        $totalRowIndex = $this->catEndRow + 1;
         $rows[] = [
             'TOTAL PENGELUARAN',
             "=SUM(B{$this->catStartRow}:B{$this->catEndRow})",
             "=SUM(C{$this->catStartRow}:C{$this->catEndRow})",
+            '',
+            '',
         ];
+        $rows[] = ['', '', '', '', ''];
+
+        // 4. Budgets / Plafon Anggaran
+        $budgets = $this->user->budgets()->with('category')->get();
+        $rows[] = ['PLAFON ANGGARAN BULANAN (BUDGETS)', '', '', '', ''];
+        $this->budgetHeaderRow = count($rows) + 1;
+        $rows[] = ['Kategori', 'Batas Anggaran (Rp)', 'Realisasi Tahun Berjalan (Rp)', 'Alert Threshold', 'Status'];
+        $this->budgetStartRow = count($rows) + 1;
+
+        if ($budgets->isEmpty()) {
+            $rows[] = ['Belum ada budget ditentukan', 0, 0, '-', 'Gunakan: budget <kategori> <nominal>'];
+            $this->budgetEndRow = count($rows);
+        } else {
+            foreach ($budgets as $budget) {
+                $catName = ($budget->category?->icon ? $budget->category->icon . ' ' : '') . ($budget->category?->name ?? 'Kategori');
+                $spent = (float) $transactions->where('type', 'EXPENSE')->where('category_id', $budget->category_id)->sum('amount');
+                $limit = (float) $budget->limit_amount;
+                $status = $spent > $limit ? '⚠️ Melebihi Plafon' : '✅ Aman';
+
+                $rows[] = [
+                    $catName,
+                    $limit,
+                    $spent,
+                    ($budget->alert_threshold_percent ?? 80) . '%',
+                    $status,
+                ];
+            }
+            $this->budgetEndRow = count($rows);
+        }
+        $rows[] = ['', '', '', '', ''];
+
+        // 5. Target Tabungan (Financial Goals)
+        $goals = $this->user->financialGoals()->get();
+        $rows[] = ['TARGET TABUNGAN & RENCANA MASA DEPAN (GOALS)', '', '', '', ''];
+        $this->goalsHeaderRow = count($rows) + 1;
+        $rows[] = ['Nama Target', 'Target Nominal (Rp)', 'Terkumpul (Rp)', 'Progress (%)', 'Status Target'];
+        $this->goalsStartRow = count($rows) + 1;
+
+        if ($goals->isEmpty()) {
+            $rows[] = ['Belum ada target tabungan', 0, 0, 0, 'Gunakan: buat target <nama> <nominal>'];
+            $this->goalsEndRow = count($rows);
+        } else {
+            foreach ($goals as $goal) {
+                $target = (float) $goal->target_amount;
+                $current = (float) $goal->current_amount;
+                $percent = $target > 0 ? ($current / $target) : 0;
+                $rows[] = [
+                    $goal->name,
+                    $target,
+                    $current,
+                    $percent,
+                    $goal->status === 'COMPLETED' ? '🎉 Tercapai' : '⏳ Berjalan',
+                ];
+            }
+            $this->goalsEndRow = count($rows);
+        }
+        $rows[] = ['', '', '', '', ''];
+
+        // 6. Langganan & Transaksi Rutin (Recurring Schedules)
+        $schedules = $this->user->recurringSchedules()->with('wallet')->where('is_active', true)->get();
+        $rows[] = ['LANGGANAN & TRANSAKSI RUTIN BULANAN (RECURRING)', '', '', '', ''];
+        $this->recurringHeaderRow = count($rows) + 1;
+        $rows[] = ['Keterangan Langganan', 'Nominal (Rp)', 'Jadwal Debit', 'Dompet Pembayaran', 'Tipe Transaksi'];
+        $this->recurringStartRow = count($rows) + 1;
+
+        if ($schedules->isEmpty()) {
+            $rows[] = ['Belum ada transaksi rutin', 0, '-', '-', 'Gunakan: langganan <nama> <nominal> tanggal <tgl>'];
+            $this->recurringEndRow = count($rows);
+        } else {
+            foreach ($schedules as $sched) {
+                $rows[] = [
+                    $sched->description,
+                    (float) $sched->amount,
+                    'Tanggal ' . $sched->day_of_month . ' setiap bulan',
+                    $sched->wallet?->name ?? 'Cash',
+                    $sched->type === 'INCOME' ? 'Pemasukan Rutin' : 'Pengeluaran Rutin',
+                ];
+            }
+            $this->recurringEndRow = count($rows);
+        }
 
         return $rows;
     }
@@ -101,51 +247,71 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
     {
         return [
             'B' => '#,##0',
-            'C' => '0.0%',
+            'C' => '#,##0',
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
-        // Title banner
-        $sheet->mergeCells('A1:C1');
+        // 1. Title banner
+        $sheet->mergeCells('A1:E1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('1E3A8A');
-        
-        // Section headers
-        $sheet->mergeCells('A6:C6');
-        $sheet->getStyle('A6')->getFont()->setBold(true)->setSize(11)->getColor()->setRGB('1E293B');
-        $sheet->getStyle('A6:C6')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2E8F0');
 
-        $sheet->mergeCells('A13:C13');
-        $sheet->getStyle('A13')->getFont()->setBold(true)->setSize(11)->getColor()->setRGB('1E293B');
-        $sheet->getStyle('A13:C13')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2E8F0');
+        // Helper function for table header styling
+        $applySection = function ($headerRow, $colorRGB) use ($sheet) {
+            $sheet->mergeCells("A{$headerRow}:E{$headerRow}");
+            $sheet->getStyle("A{$headerRow}")->getFont()->setBold(true)->setSize(11)->getColor()->setRGB('1E293B');
+            $sheet->getStyle("A{$headerRow}:E{$headerRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E2E8F0');
+        };
 
-        // Table headers (KPI)
-        $sheet->getStyle('A7:C7')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2563EB']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
-        ]);
+        $applyTableHeader = function ($row, $bgColorRGB) use ($sheet) {
+            $sheet->getStyle("A{$row}:E{$row}")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $bgColorRGB]],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
+            ]);
+        };
 
-        // KPI Borders
-        $sheet->getStyle('A7:C11')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        // KPI
+        $applySection(6, 'E2E8F0');
+        $applyTableHeader(7, '2563EB'); // Blue
+        $sheet->getStyle('A7:E11')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('A10:E11')->getFont()->setBold(true);
 
-        // Highlight Net Cashflow and Saldo
-        $sheet->getStyle('A10:C10')->getFont()->setBold(true);
-        $sheet->getStyle('A11:C11')->getFont()->setBold(true);
+        // Wallets
+        $walletSectionRow = $this->walletHeaderRow - 1;
+        $applySection($walletSectionRow, 'E2E8F0');
+        $applyTableHeader($this->walletHeaderRow, '4F46E5'); // Indigo
+        $sheet->getStyle("A{$this->walletHeaderRow}:E{$this->walletEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
-        // Table headers (Category Breakdown)
-        $sheet->getStyle('A14:C14')->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0D9488']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
-        ]);
+        // Categories
+        $catSectionRow = $this->catHeaderRow - 1;
+        $applySection($catSectionRow, 'E2E8F0');
+        $applyTableHeader($this->catHeaderRow, '0D9488'); // Teal
+        $lastCatRow = $this->catEndRow + 1;
+        $sheet->getStyle("A{$this->catHeaderRow}:E{$lastCatRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle("A{$lastCatRow}:E{$lastCatRow}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$lastCatRow}:E{$lastCatRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+        $sheet->getStyle("C{$this->catStartRow}:C{$this->catEndRow}")->getNumberFormat()->setFormatCode('0.0%');
 
-        // Category Borders & Totals
-        $lastRow = $this->catEndRow + 1;
-        $sheet->getStyle("A14:C{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle("A{$lastRow}:C{$lastRow}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$lastRow}:C{$lastRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
+        // Budgets
+        $budgetSectionRow = $this->budgetHeaderRow - 1;
+        $applySection($budgetSectionRow, 'E2E8F0');
+        $applyTableHeader($this->budgetHeaderRow, 'D97706'); // Amber
+        $sheet->getStyle("A{$this->budgetHeaderRow}:E{$this->budgetEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        // Goals
+        $goalsSectionRow = $this->goalsHeaderRow - 1;
+        $applySection($goalsSectionRow, 'E2E8F0');
+        $applyTableHeader($this->goalsHeaderRow, '059669'); // Emerald
+        $sheet->getStyle("A{$this->goalsHeaderRow}:E{$this->goalsEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle("D{$this->goalsStartRow}:D{$this->goalsEndRow}")->getNumberFormat()->setFormatCode('0.0%');
+
+        // Recurring
+        $recurringSectionRow = $this->recurringHeaderRow - 1;
+        $applySection($recurringSectionRow, 'E2E8F0');
+        $applyTableHeader($this->recurringHeaderRow, '7C3AED'); // Purple
+        $sheet->getStyle("A{$this->recurringHeaderRow}:E{$this->recurringEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         return [];
     }

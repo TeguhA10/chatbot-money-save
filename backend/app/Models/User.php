@@ -43,6 +43,8 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'jid',
+        'phone_number',
+        'lid',
         'display_name',
         'current_balance',
         'is_active',

@@ -1,0 +1,111 @@
+<template>
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+      <button
+        @click="$emit('close')"
+        class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <h2 class="text-xl font-bold text-white mb-1">Pasang Limit Anggaran</h2>
+      <p class="text-xs text-slate-400 mb-6">Tentukan plafon pengeluaran bulanan per kategori</p>
+
+      <form @submit.prevent="handleSubmit" class="space-y-4">
+        <!-- Category Selection -->
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Kategori</label>
+          <select
+            v-model="form.category_id"
+            required
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-amber-500"
+          >
+            <option value="" disabled>Pilih kategori pengeluaran...</option>
+            <option
+              v-for="cat in expenseCategories"
+              :key="cat.id"
+              :value="cat.id"
+            >
+              {{ cat.icon }} {{ cat.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Limit Amount -->
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1.5">Batas Pengeluaran Bulanan (Rp)</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">Rp</span>
+            <input
+              type="number"
+              v-model.number="form.limit_amount"
+              required
+              min="10000"
+              step="10000"
+              placeholder="0"
+              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-amber-500"
+            />
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Sistem akan memberi alert saat pemakaian mencapai 80%</p>
+        </div>
+
+        <div class="pt-2 flex gap-3">
+          <button
+            type="button"
+            @click="$emit('close')"
+            class="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm transition disabled:opacity-50"
+          >
+            {{ submitting ? 'Menyimpan...' : 'Simpan Anggaran' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue';
+import { useFinanceStore } from '../../stores/finance';
+
+const props = defineProps({
+  isOpen: Boolean,
+});
+
+const emit = defineEmits(['close', 'saved']);
+const financeStore = useFinanceStore();
+
+const submitting = ref(false);
+const form = ref({
+  category_id: '',
+  limit_amount: null,
+});
+
+const expenseCategories = computed(() => {
+  return financeStore.categories.filter((c) => c.type === 'EXPENSE' || !c.type);
+});
+
+async function handleSubmit() {
+  if (!form.value.category_id || !form.value.limit_amount) return;
+  submitting.value = true;
+  try {
+    await financeStore.createBudget({
+      category_id: form.value.category_id,
+      limit_amount: form.value.limit_amount,
+    });
+    form.value = { category_id: '', limit_amount: null };
+    emit('saved');
+    emit('close');
+  } catch (err) {
+    alert(err.response?.data?.message || 'Gagal menyimpan anggaran.');
+  } finally {
+    submitting.value = false;
+  }
+}
+</script>
