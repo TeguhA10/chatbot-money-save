@@ -26,18 +26,36 @@
 
         <!-- Target Amount -->
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Nominal Target (Rp)</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">Nominal Target (Rp)</label>
+            <span v-if="form.target_amount" class="text-xs font-semibold text-teal-400">
+              Rp {{ Number(form.target_amount).toLocaleString('id-ID') }}
+            </span>
+          </div>
           <div class="relative">
             <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">Rp</span>
             <input
-              type="number"
-              v-model.number="form.target_amount"
+              type="text"
+              inputmode="numeric"
+              :value="formattedTargetAmount"
+              @input="handleTargetAmountInput"
               required
-              min="50000"
-              step="50000"
               placeholder="0"
               class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-teal-500"
             />
+          </div>
+          <!-- Quick Amount Buttons -->
+          <div class="flex items-center gap-1.5 mt-2">
+            <span class="text-[11px] text-slate-500 font-medium mr-1">Cepat:</span>
+            <button
+              v-for="preset in [1000000, 5000000, 10000000, 20000000]"
+              :key="preset"
+              type="button"
+              @click="addPreset(preset)"
+              class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/60 transition"
+            >
+              +{{ (preset / 1000000) }}jt
+            </button>
           </div>
         </div>
 
@@ -74,8 +92,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
+import { useToastStore } from '../../stores/toast';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -83,6 +102,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved']);
 const financeStore = useFinanceStore();
+const toastStore = useToastStore();
 
 const submitting = ref(false);
 const form = ref({
@@ -91,20 +111,39 @@ const form = ref({
   target_date: '',
 });
 
+const formattedTargetAmount = computed(() => {
+  if (!form.value.target_amount && form.value.target_amount !== 0) return '';
+  return Number(form.value.target_amount).toLocaleString('id-ID');
+});
+
+function handleTargetAmountInput(e) {
+  const digits = e.target.value.replace(/\D/g, '');
+  form.value.target_amount = digits ? parseInt(digits, 10) : null;
+  e.target.value = form.value.target_amount ? Number(form.value.target_amount).toLocaleString('id-ID') : '';
+}
+
+function addPreset(val) {
+  form.value.target_amount = (form.value.target_amount || 0) + val;
+}
+
 async function handleSubmit() {
-  if (!form.value.name || !form.value.target_amount) return;
+  if (!form.value.name.trim() || !form.value.target_amount) {
+    toastStore.warning('Masukkan nama target dan nominal yang valid.');
+    return;
+  }
   submitting.value = true;
   try {
     await financeStore.createGoal({
-      name: form.value.name,
+      name: form.value.name.trim(),
       target_amount: form.value.target_amount,
       target_date: form.value.target_date || null,
     });
+    toastStore.success(`Target tabungan "${form.value.name}" berhasil dibuat.`);
     form.value = { name: '', target_amount: null, target_date: '' };
     emit('saved');
     emit('close');
   } catch (err) {
-    alert(err.response?.data?.message || 'Gagal membuat target tabungan.');
+    toastStore.error(err.response?.data?.message || 'Gagal membuat target tabungan.');
   } finally {
     submitting.value = false;
   }

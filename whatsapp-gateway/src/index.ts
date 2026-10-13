@@ -24,7 +24,9 @@ console.error = (...args: any[]) => {
   if (
     msg.includes('Failed to decrypt message with any known session') ||
     msg.includes('MessageCounterError') ||
-    msg.includes('Key used already or never filled')
+    msg.includes('Key used already or never filled') ||
+    msg.includes('Bad MAC') ||
+    msg.includes('Session error')
   ) {
     return;
   }

@@ -155,10 +155,14 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
+import { useVaultStore } from '../stores/vault';
+import { useToastStore } from '../stores/toast';
 import { formatRupiah } from '../utils/formatters';
 import api from '../services/api';
 
 const financeStore = useFinanceStore();
+const vaultStore = useVaultStore();
+const toastStore = useToastStore();
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
 const downloading = ref(false);
 
@@ -193,8 +197,9 @@ async function downloadExcel() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+    toastStore.success('Laporan Excel berhasil diunduh.');
   } catch (err) {
-    alert('Gagal mengunduh laporan Excel. Silakan coba kembali.');
+    toastStore.error('Gagal mengunduh laporan Excel. Silakan coba kembali.');
   } finally {
     downloading.value = false;
   }

@@ -26,12 +26,39 @@
       </div>
     </div>
 
+    <!-- WHATSAPP BOT QUICK BANNER -->
+    <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl shrink-0 border border-emerald-500/30">
+          💬
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            Catat Keuangan Praktis via WhatsApp
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">Aktif</span>
+          </h2>
+          <p class="text-xs text-slate-300 mt-0.5">
+            Ketik pengeluaran langsung di chat WhatsApp, contoh: <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">keluar 25rb makan</code> atau <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">saldo</code>
+          </p>
+        </div>
+      </div>
+      <a
+        :href="whatsappBotLink"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-emerald-500/20 shrink-0 cursor-pointer active:scale-95"
+      >
+        <span>Buka WhatsApp Bot</span>
+        <span>➔</span>
+      </a>
+    </div>
+
     <!-- 4 KPI CARDS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Total Balance -->
       <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold text-slate-400">Total Saldo Konsolidasi</span>
+          <span class="text-xs font-semibold text-slate-400">Total Saldo</span>
           <span class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-sm">👛</span>
         </div>
         <p class="text-2xl font-black text-white tracking-tight">
@@ -52,7 +79,7 @@
           {{ formatRupiah(financeStore.summary?.total_income || 0) }}
         </p>
         <p class="text-[11px] text-slate-500 mt-2">
-          Delta vs lalu: <span class="text-slate-300 font-medium">{{ financeStore.summary?.delta_vs_last_month?.income_percentage || 0 }}%</span>
+          Dibanding bulan lalu: <span class="text-slate-300 font-medium">{{ financeStore.summary?.delta_vs_last_month?.income_percentage || 0 }}%</span>
         </p>
       </div>
 
@@ -66,14 +93,14 @@
           {{ formatRupiah(financeStore.summary?.total_expense || 0) }}
         </p>
         <p class="text-[11px] text-slate-500 mt-2">
-          Delta vs lalu: <span class="text-slate-300 font-medium">{{ financeStore.summary?.delta_vs_last_month?.expense_percentage || 0 }}%</span>
+          Dibanding bulan lalu: <span class="text-slate-300 font-medium">{{ financeStore.summary?.delta_vs_last_month?.expense_percentage || 0 }}%</span>
         </p>
       </div>
 
       <!-- Net Savings (Cashflow) -->
       <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
         <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-semibold text-slate-400">Arus Kas Bersih (Selisih)</span>
+          <span class="text-xs font-semibold text-slate-400">Sisa Saldo Bulan Ini</span>
           <span class="p-2 rounded-xl bg-blue-500/10 text-blue-400 text-sm">⚖️</span>
         </div>
         <p
@@ -82,8 +109,8 @@
         >
           {{ formatRupiah(financeStore.summary?.net_savings || 0) }}
         </p>
-        <p class="text-[11px] mt-2" :class="(financeStore.summary?.net_savings || 0) >= 0 ? 'text-emerald-400/80' : 'text-amber-400/80'">
-          {{ (financeStore.summary?.net_savings || 0) >= 0 ? 'Surplus (Tabungan Positif)' : 'Defisit (Pengeluaran > Pemasukan)' }}
+        <p class="text-[11px] mt-2 font-medium" :class="(financeStore.summary?.net_savings || 0) >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+          {{ (financeStore.summary?.net_savings || 0) >= 0 ? 'Surplus (Tabungan Bertambah)' : 'Defisit (Pengeluaran > Pemasukan)' }}
         </p>
       </div>
     </div>
@@ -318,9 +345,10 @@
               </td>
               <td
                 class="py-3 text-right font-bold whitespace-nowrap"
-                :class="t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400')"
+                :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
               >
-                {{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}
+                <span v-if="vaultStore.isMasked">Rp ••••••••</span>
+                <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
               </td>
             </tr>
           </tbody>

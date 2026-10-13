@@ -10,9 +10,9 @@
           </div>
           <div>
             <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-              HematWoy <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">AI</span>
+              HematWoy
             </h1>
-            <p class="text-xs text-slate-400">Personal Finance</p>
+            <p class="text-xs text-slate-400">Pencatat Keuangan</p>
           </div>
         </div>
 
@@ -22,7 +22,7 @@
           class="w-full mb-6 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer active:scale-95"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Catat Transaksi
+          + Catat Transaksi
         </button>
 
         <!-- Navigation Links -->
@@ -39,25 +39,9 @@
           </RouterLink>
         </nav>
 
-        <!-- Security & Privacy Controls -->
+        <!-- Privacy Controls -->
         <div class="mt-6 pt-4 border-t border-slate-800/80 space-y-2">
-          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2">Keamanan Zero-Knowledge</div>
-          <!-- Vault Status & Instant Lock -->
-          <button
-            @click="toggleVaultLock"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-            :class="vaultStore.isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold'"
-            :title="vaultStore.isUnlocked ? 'Klik untuk Mengunci Vault' : 'Vault Terkunci'"
-          >
-            <span class="flex items-center gap-2">
-              <span>{{ vaultStore.isUnlocked ? '🛡️' : '🔒' }}</span>
-              <span>{{ vaultStore.isUnlocked ? 'Vault Aktif' : 'Vault Terkunci' }}</span>
-            </span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
-              {{ vaultStore.isUnlocked ? 'Kunci' : 'Buka' }}
-            </span>
-          </button>
-
+          <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2">Keamanan & Privasi</div>
           <!-- Privacy Eye (Shoulder Surfing Mask) -->
           <button
             @click="vaultStore.toggleMask"
@@ -66,10 +50,25 @@
           >
             <span class="flex items-center gap-2">
               <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
-              <span>{{ vaultStore.isMasked ? 'Nomor Disamarkan' : 'Sensor Nominal' }}</span>
+              <span>{{ vaultStore.isMasked ? 'Saldo Disamarkan' : 'Sensor Nominal' }}</span>
             </span>
             <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 font-mono text-slate-400">
               {{ vaultStore.isMasked ? 'ON' : 'OFF' }}
+            </span>
+          </button>
+
+          <!-- Vault Lock Button -->
+          <button
+            @click="toggleVaultLock"
+            class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+            :class="vaultStore.isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-slate-800' : 'bg-slate-800/60 text-slate-300 border border-slate-700/60'"
+          >
+            <span class="flex items-center gap-2">
+              <span>{{ vaultStore.isUnlocked ? '🛡️' : '🔒' }}</span>
+              <span>{{ vaultStore.isUnlocked ? 'Kunci Brankas' : 'Buka Brankas' }}</span>
+            </span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">
+              {{ vaultStore.isUnlocked ? 'Aktif' : 'Terkunci' }}
             </span>
           </button>
         </div>
@@ -88,7 +87,7 @@
             </div>
           </div>
           <button
-            @click="handleLogout"
+            @click="showLogoutModal = true"
             title="Keluar"
             class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
           >
@@ -107,6 +106,14 @@
         <span class="font-bold text-base text-white">HematWoy</span>
       </div>
       <div class="flex items-center gap-2">
+        <!-- Privacy Eye on Mobile -->
+        <button
+          @click="vaultStore.toggleMask"
+          class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer"
+          :title="vaultStore.isMasked ? 'Tampilkan Nominal' : 'Samarkan Nominal'"
+        >
+          <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
+        </button>
         <button
           @click="openTransactionModal()"
           class="p-2 rounded-lg bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 transition cursor-pointer"
@@ -115,8 +122,8 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
         <button
-          @click="handleLogout"
-          class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400"
+          @click="showLogoutModal = true"
+          class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer"
           title="Keluar"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/></svg>
@@ -150,17 +157,31 @@
 
     <!-- Global Interactive Toast Notifications -->
     <ToastContainer />
+
+    <!-- Confirmation Modal for Logout -->
+    <ConfirmModal
+      :isOpen="showLogoutModal"
+      title="Konfirmasi Keluar"
+      message="Apakah Anda yakin ingin keluar dari akun HematWoy?"
+      icon="🚪"
+      confirmText="Keluar"
+      cancelText="Batal"
+      :danger="true"
+      @confirm="confirmLogout"
+      @cancel="showLogoutModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import { useVaultStore } from '../../stores/vault';
 import { useToastStore } from '../../stores/toast';
 import VaultModal from '../vault/VaultModal.vue';
 import ToastContainer from '../common/ToastContainer.vue';
+import ConfirmModal from '../common/ConfirmModal.vue';
 
 const emit = defineEmits(['open-transaction-modal']);
 
@@ -170,6 +191,8 @@ const authStore = useAuthStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 
+const showLogoutModal = ref(false);
+
 onMounted(() => {
   vaultStore.fetchStatus();
 });
@@ -177,7 +200,7 @@ onMounted(() => {
 function toggleVaultLock() {
   if (vaultStore.isUnlocked) {
     vaultStore.lock();
-    toastStore.info('Vault keamanan berhasil dikunci.');
+    toastStore.info('Brankas berhasil dikunci.');
   } else {
     vaultStore.fetchStatus();
   }
@@ -210,11 +233,10 @@ const formattedPhone = computed(() => {
   return raw;
 });
 
-function handleLogout() {
-  if (confirm('Apakah Anda yakin ingin keluar?')) {
-    toastStore.info('Mengakhiri sesi...');
-    authStore.logout();
-  }
+function confirmLogout() {
+  showLogoutModal.value = false;
+  toastStore.info('Mengakhiri sesi...');
+  authStore.logout();
 }
 
 function openTransactionModal() {

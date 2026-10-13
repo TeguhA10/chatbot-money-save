@@ -41,14 +41,19 @@
 
         <!-- Initial Balance -->
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Saldo Awal (Rp)</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">Saldo Awal (Rp)</label>
+            <span v-if="form.initial_balance" class="text-xs font-semibold text-emerald-400">
+              Rp {{ Number(form.initial_balance).toLocaleString('id-ID') }}
+            </span>
+          </div>
           <div class="relative">
             <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">Rp</span>
             <input
-              type="number"
-              v-model.number="form.initial_balance"
-              min="0"
-              step="1000"
+              type="text"
+              inputmode="numeric"
+              :value="formattedInitialBalance"
+              @input="handleInitialBalanceInput"
               placeholder="0"
               class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500"
             />
@@ -78,8 +83,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
+import { useToastStore } from '../../stores/toast';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -87,6 +93,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved']);
 const financeStore = useFinanceStore();
+const toastStore = useToastStore();
 
 const submitting = ref(false);
 const form = ref({
@@ -95,20 +102,35 @@ const form = ref({
   initial_balance: 0,
 });
 
+const formattedInitialBalance = computed(() => {
+  if (!form.value.initial_balance && form.value.initial_balance !== 0) return '';
+  return Number(form.value.initial_balance).toLocaleString('id-ID');
+});
+
+function handleInitialBalanceInput(e) {
+  const digits = e.target.value.replace(/\D/g, '');
+  form.value.initial_balance = digits ? parseInt(digits, 10) : 0;
+  e.target.value = form.value.initial_balance ? Number(form.value.initial_balance).toLocaleString('id-ID') : '0';
+}
+
 async function handleSubmit() {
-  if (!form.value.name) return;
+  if (!form.value.name.trim()) {
+    toastStore.warning('Nama dompet tidak boleh kosong.');
+    return;
+  }
   submitting.value = true;
   try {
     await financeStore.createWallet({
-      name: form.value.name,
+      name: form.value.name.trim(),
       type: form.value.type,
       initial_balance: form.value.initial_balance || 0,
     });
+    toastStore.success(`Dompet "${form.value.name}" berhasil ditambahkan.`);
     form.value = { name: '', type: 'BANK', initial_balance: 0 };
     emit('saved');
     emit('close');
   } catch (err) {
-    alert(err.response?.data?.message || 'Gagal menambahkan dompet.');
+    toastStore.error(err.response?.data?.message || 'Gagal menambahkan dompet.');
   } finally {
     submitting.value = false;
   }

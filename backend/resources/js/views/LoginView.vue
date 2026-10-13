@@ -77,11 +77,6 @@
           </p>
 
           <form @submit.prevent="handleVerifyOtp" class="space-y-4">
-            <div v-if="debugOtp" class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center justify-between">
-              <span>💡 Kode OTP (Dev): <b class="font-mono text-white text-sm">{{ debugOtp }}</b></span>
-              <span class="text-[10px] text-emerald-400/70">Otomatis terisi</span>
-            </div>
-
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1.5">Kode OTP 6 Digit</label>
               <input
@@ -119,7 +114,7 @@
 
       <!-- Footer Info -->
       <div class="text-center mt-6 text-xs text-slate-500">
-        HematWoy &bull; Zero-Knowledge Personal Finance &bull; Enkripsi End-to-End
+        HematWoy &bull; Kelola Catatan Keuangan dengan Praktis & Aman
       </div>
     </div>
   </div>
@@ -136,7 +131,6 @@ const authStore = useAuthStore();
 const step = ref(1);
 const phone = ref('');
 const otp = ref('');
-const debugOtp = ref('');
 const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
@@ -175,13 +169,9 @@ async function handleRequestOtp() {
 
   loading.value = true;
   try {
-    const res = await authStore.requestOtp(normalized);
+    await authStore.requestOtp(normalized);
     step.value = 2;
     successMessage.value = 'Kode OTP berhasil dikirim ke WhatsApp Anda!';
-    if (res?.debug_otp) {
-      debugOtp.value = res.debug_otp;
-      otp.value = res.debug_otp;
-    }
     startCooldown();
   } catch (err) {
     errorMessage.value = authStore.error || 'Gagal mengirim OTP.';

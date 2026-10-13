@@ -18,6 +18,54 @@
 
     <!-- FILTER BAR & LIVE SEARCH -->
     <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+      <!-- Date Presets & Filter Row -->
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[11px] text-slate-400 font-medium mr-1">Rentang:</span>
+          <button
+            type="button"
+            @click="setDatePreset('all')"
+            :class="activeDatePreset === 'all' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'"
+            class="text-[11px] px-2.5 py-1 rounded-lg border font-medium transition"
+          >
+            Semua
+          </button>
+          <button
+            type="button"
+            @click="setDatePreset('today')"
+            :class="activeDatePreset === 'today' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'"
+            class="text-[11px] px-2.5 py-1 rounded-lg border font-medium transition"
+          >
+            Hari Ini
+          </button>
+          <button
+            type="button"
+            @click="setDatePreset('7days')"
+            :class="activeDatePreset === '7days' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'"
+            class="text-[11px] px-2.5 py-1 rounded-lg border font-medium transition"
+          >
+            7 Hari Terakhir
+          </button>
+          <button
+            type="button"
+            @click="setDatePreset('this_month')"
+            :class="activeDatePreset === 'this_month' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'"
+            class="text-[11px] px-2.5 py-1 rounded-lg border font-medium transition"
+          >
+            Bulan Ini
+          </button>
+        </div>
+
+        <button
+          v-if="hasActiveFilters"
+          @click="resetFilters"
+          type="button"
+          class="text-[11px] text-rose-400 hover:text-rose-300 font-medium underline transition"
+        >
+          Reset Filter
+        </button>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <!-- Live Search -->
         <div class="relative lg:col-span-2">
@@ -59,18 +107,20 @@
           </select>
         </div>
 
-        <!-- Date Range Filter Reset -->
+        <!-- Date Range Filter -->
         <div class="flex items-center gap-2">
           <input
             type="date"
             v-model="filters.start_date"
-            @change="applyFilters"
+            @change="onCustomDateChange"
+            title="Tanggal Mulai"
             class="w-1/2 px-2 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[11px] focus:outline-none focus:border-emerald-500"
           />
           <input
             type="date"
             v-model="filters.end_date"
-            @change="applyFilters"
+            @change="onCustomDateChange"
+            title="Tanggal Akhir"
             class="w-1/2 px-2 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[11px] focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -79,12 +129,41 @@
 
     <!-- TRANSACTIONS TABLE -->
     <div class="rounded-2xl bg-slate-900/80 border border-slate-800 overflow-hidden">
-      <div v-if="financeStore.loadingTransactions" class="py-16 text-center text-slate-500 text-xs">
-        Memuat data transaksi...
+      <div v-if="financeStore.loadingTransactions" class="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+        <svg class="w-6 h-6 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Memuat data transaksi...</span>
       </div>
 
-      <div v-else-if="financeStore.transactions.length === 0" class="py-16 text-center text-slate-500 text-xs">
-        Tidak ada transaksi yang cocok dengan filter.
+      <!-- EMPTY STATE -->
+      <div v-else-if="financeStore.transactions.length === 0" class="py-14 px-4 text-center flex flex-col items-center justify-center">
+        <div class="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-2xl mb-3 shadow-inner">
+          📝
+        </div>
+        <h3 class="text-sm font-bold text-white mb-1">
+          {{ hasActiveFilters ? 'Tidak ada transaksi yang cocok' : 'Belum Ada Transaksi' }}
+        </h3>
+        <p class="text-xs text-slate-400 max-w-sm mb-4">
+          {{ hasActiveFilters ? 'Coba ubah kata kunci atau setel ulang filter tanggal & kategori.' : 'Catat transaksi pemasukan atau pengeluaran pertama Anda untuk mulai memantau keuangan!' }}
+        </p>
+        <button
+          v-if="hasActiveFilters"
+          @click="resetFilters"
+          type="button"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition"
+        >
+          Reset Filter
+        </button>
+        <button
+          v-else
+          @click="openCreateModal"
+          type="button"
+          class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
+        >
+          + Catat Transaksi Pertama
+        </button>
       </div>
 
       <div v-else class="overflow-x-auto">
@@ -143,9 +222,10 @@
               <!-- Amount -->
               <td
                 class="py-3.5 px-4 text-right font-bold whitespace-nowrap"
-                :class="t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400')"
+                :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
               >
-                {{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}
+                <span v-if="vaultStore.isMasked">Rp ••••••••</span>
+                <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
               </td>
 
               <!-- Actions (Edit & Delete) -->
@@ -159,7 +239,7 @@
                     ✏️
                   </button>
                   <button
-                    @click="deleteTransaction(t.id)"
+                    @click="promptDelete(t)"
                     class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
                     title="Hapus"
                   >
@@ -173,7 +253,7 @@
       </div>
 
       <!-- PAGINATION BAR -->
-      <div class="p-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+      <div v-if="financeStore.transactions.length > 0" class="p-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
         <div>
           Menampilkan {{ financeStore.transactions.length }} dari {{ financeStore.pagination.total_items }} data
         </div>
@@ -206,18 +286,33 @@
       @close="showModal = false"
       @saved="refreshList"
     />
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      :isOpen="showDeleteModal"
+      title="Hapus Transaksi?"
+      :message="deleteConfirmMessage"
+      confirmText="Ya, Hapus Transaksi"
+      :danger="true"
+      :loading="deleting"
+      @confirm="executeDelete"
+      @cancel="showDeleteModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
+import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import TransactionModal from '../components/modals/TransactionModal.vue';
+import ConfirmModal from '../components/common/ConfirmModal.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+const toastStore = useToastStore();
 
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
@@ -227,6 +322,12 @@ function formatRupiah(val) {
 const showModal = ref(false);
 const selectedTransaction = ref(null);
 
+const showDeleteModal = ref(false);
+const transactionToDelete = ref(null);
+const deleting = ref(false);
+
+const activeDatePreset = ref('all');
+
 const filters = ref({
   search: '',
   type: '',
@@ -235,6 +336,62 @@ const filters = ref({
   end_date: '',
   page: 1,
 });
+
+const hasActiveFilters = computed(() => {
+  return !!(filters.value.search || filters.value.type || filters.value.category_id || filters.value.start_date || filters.value.end_date);
+});
+
+const deleteConfirmMessage = computed(() => {
+  if (!transactionToDelete.value) return 'Apakah Anda yakin ingin menghapus transaksi ini?';
+  const desc = transactionToDelete.value.description;
+  const nom = formatRupiah(transactionToDelete.value.amount);
+  return `Yakin ingin menghapus transaksi "${desc}" sebesar ${nom}? Saldo dompet Anda akan dikembalikan otomatis.`;
+});
+
+function setDatePreset(preset) {
+  activeDatePreset.value = preset;
+  const now = new Date();
+  const formatYMD = (d) => d.toISOString().slice(0, 10);
+
+  if (preset === 'all') {
+    filters.value.start_date = '';
+    filters.value.end_date = '';
+  } else if (preset === 'today') {
+    const today = formatYMD(now);
+    filters.value.start_date = today;
+    filters.value.end_date = today;
+  } else if (preset === '7days') {
+    const past = new Date();
+    past.setDate(past.getDate() - 7);
+    filters.value.start_date = formatYMD(past);
+    filters.value.end_date = formatYMD(now);
+  } else if (preset === 'this_month') {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    filters.value.start_date = formatYMD(startOfMonth);
+    filters.value.end_date = formatYMD(now);
+  }
+
+  filters.value.page = 1;
+  applyFilters();
+}
+
+function onCustomDateChange() {
+  activeDatePreset.value = 'custom';
+  applyFilters();
+}
+
+function resetFilters() {
+  filters.value = {
+    search: '',
+    type: '',
+    category_id: '',
+    start_date: '',
+    end_date: '',
+    page: 1,
+  };
+  activeDatePreset.value = 'all';
+  applyFilters();
+}
 
 let debounceTimer = null;
 function debounceSearch() {
@@ -264,14 +421,23 @@ function editTransaction(item) {
   showModal.value = true;
 }
 
-async function deleteTransaction(id) {
-  if (confirm('Apakah Anda yakin ingin menghapus transaksi ini? Saldo dompet akan disesuaikan otomatis.')) {
-    try {
-      await financeStore.deleteTransaction(id);
-      applyFilters();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Gagal menghapus transaksi.');
-    }
+function promptDelete(item) {
+  transactionToDelete.value = item;
+  showDeleteModal.value = true;
+}
+
+async function executeDelete() {
+  if (!transactionToDelete.value) return;
+  deleting.value = true;
+  try {
+    await financeStore.deleteTransaction(transactionToDelete.value.id);
+    toastStore.success('Transaksi berhasil dihapus dan saldo telah disesuaikan.');
+    showDeleteModal.value = false;
+    applyFilters();
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Gagal menghapus transaksi.');
+  } finally {
+    deleting.value = false;
   }
 }
 

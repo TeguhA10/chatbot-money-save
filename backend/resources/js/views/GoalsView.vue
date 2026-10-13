@@ -115,11 +115,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
-import { formatRupiah, formatDate } from '../utils/formatters';
+import { useVaultStore } from '../stores/vault';
+import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import GoalModal from '../components/modals/GoalModal.vue';
 import ContributeGoalModal from '../components/modals/ContributeGoalModal.vue';
 
 const financeStore = useFinanceStore();
+const vaultStore = useVaultStore();
+
+function formatRupiah(val) {
+  if (vaultStore.isMasked) return 'Rp ••••••••';
+  return rawFormatRupiah(val);
+}
 
 const showGoalModal = ref(false);
 const showContributeModal = ref(false);

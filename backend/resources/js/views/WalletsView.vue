@@ -27,7 +27,7 @@
     <!-- TOTAL WEALTH BANNER -->
     <div class="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
       <div>
-        <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Total Kekayaan Bersih</span>
+        <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Total Saldo Dompet</span>
         <p class="text-3xl font-black text-white mt-1 tracking-tight">
           {{ formatRupiah(financeStore.totalBalance) }}
         </p>
@@ -36,13 +36,30 @@
 
       <div class="flex items-center gap-2">
         <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">
-          🛡️ Saldo Terenkripsi
+          🛡️ Saldo Aman
         </span>
       </div>
     </div>
 
     <!-- WALLET CARDS GRID -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div v-if="financeStore.wallets.length === 0" class="py-12 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center flex flex-col items-center justify-center">
+      <div class="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-2xl mb-3 shadow-inner">
+        💳
+      </div>
+      <h3 class="text-sm font-bold text-white mb-1">Belum Ada Dompet Terdaftar</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-4">
+        Tambahkan rekening bank, dompet tunai, atau e-wallet (GoPay, OVO, ShopeePay) untuk mulai mengelola saldo dan transaksi.
+      </p>
+      <button
+        @click="showWalletModal = true"
+        type="button"
+        class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
+      >
+        + Tambah Dompet Pertama
+      </button>
+    </div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       <div
         v-for="wallet in financeStore.wallets"
         :key="wallet.id"
@@ -129,11 +146,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
-import { formatRupiah, formatDate } from '../utils/formatters';
+import { useVaultStore } from '../stores/vault';
+import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import TransferModal from '../components/modals/TransferModal.vue';
 import WalletModal from '../components/modals/WalletModal.vue';
 
 const financeStore = useFinanceStore();
+const vaultStore = useVaultStore();
+
+function formatRupiah(val) {
+  if (vaultStore.isMasked) return 'Rp ••••••••';
+  return rawFormatRupiah(val);
+}
 
 const showTransferModal = ref(false);
 const showWalletModal = ref(false);

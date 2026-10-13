@@ -130,11 +130,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
-import { formatRupiah } from '../utils/formatters';
+import { useVaultStore } from '../stores/vault';
+import { formatRupiah as rawFormatRupiah } from '../utils/formatters';
 import BudgetModal from '../components/modals/BudgetModal.vue';
 
 const financeStore = useFinanceStore();
+const vaultStore = useVaultStore();
 const showBudgetModal = ref(false);
+
+function formatRupiah(val) {
+  if (vaultStore.isMasked) return 'Rp ••••••••';
+  return rawFormatRupiah(val);
+}
 
 const overallPercentage = computed(() => {
   if (!financeStore.totalBudgeted || financeStore.totalBudgeted <= 0) return 0;

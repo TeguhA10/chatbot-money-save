@@ -39,18 +39,36 @@
 
         <!-- Amount -->
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Nominal (Rp)</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">Nominal (Rp)</label>
+            <span v-if="form.amount" class="text-xs font-semibold text-emerald-400">
+              Rp {{ (form.amount || 0).toLocaleString('id-ID') }}
+            </span>
+          </div>
           <div class="relative">
             <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">Rp</span>
             <input
-              type="number"
-              v-model.number="form.amount"
+              type="text"
+              inputmode="numeric"
+              :value="formattedAmount"
+              @input="handleAmountInput"
               required
-              min="100"
-              step="100"
               placeholder="0"
               class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
+          </div>
+          <!-- Quick Amount Buttons -->
+          <div class="flex items-center gap-1.5 mt-2">
+            <span class="text-[11px] text-slate-500 font-medium mr-1">Cepat:</span>
+            <button
+              v-for="preset in [10000, 20000, 50000, 100000]"
+              :key="preset"
+              type="button"
+              @click="addPreset(preset)"
+              class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/60 transition"
+            >
+              +{{ (preset / 1000).toLocaleString('id-ID') }}rb
+            </button>
           </div>
         </div>
 
@@ -115,6 +133,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
+import { useToastStore } from '../../stores/toast';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -124,6 +143,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const financeStore = useFinanceStore();
+const toastStore = useToastStore();
 const submitting = ref(false);
 
 const isEdit = computed(() => !!props.transaction?.id);
@@ -135,6 +155,21 @@ const form = ref({
   description: '',
   transaction_date: new Date().toISOString().slice(0, 10),
 });
+
+const formattedAmount = computed(() => {
+  if (!form.value.amount && form.value.amount !== 0) return '';
+  return Number(form.value.amount).toLocaleString('id-ID');
+});
+
+function handleAmountInput(e) {
+  const digits = e.target.value.replace(/\D/g, '');
+  form.value.amount = digits ? parseInt(digits, 10) : null;
+  e.target.value = form.value.amount ? Number(form.value.amount).toLocaleString('id-ID') : '';
+}
+
+function addPreset(val) {
+  form.value.amount = (form.value.amount || 0) + val;
+}
 
 watch(
   () => props.transaction,
@@ -161,7 +196,10 @@ watch(
 );
 
 async function handleSubmit() {
-  if (!form.value.amount || form.value.amount <= 0) return;
+  if (!form.value.amount || form.value.amount <= 0) {
+    toastStore.warning('Masukkan nominal transaksi yang valid.');
+    return;
+  }
   submitting.value = true;
   try {
     if (isEdit.value) {
@@ -169,6 +207,7 @@ async function handleSubmit() {
         amount: form.value.amount,
         description: form.value.description,
       });
+      toastStore.success('Transaksi berhasil diperbarui.');
     } else {
       await financeStore.createTransaction({
         type: form.value.type,
@@ -177,11 +216,12 @@ async function handleSubmit() {
         description: form.value.description,
         transaction_date: form.value.transaction_date,
       });
+      toastStore.success('Transaksi baru berhasil dicatat.');
     }
     emit('saved');
     emit('close');
   } catch (err) {
-    alert(err.response?.data?.message || 'Gagal menyimpan transaksi.');
+    toastStore.error(err.response?.data?.message || 'Gagal menyimpan transaksi.');
   } finally {
     submitting.value = false;
   }
