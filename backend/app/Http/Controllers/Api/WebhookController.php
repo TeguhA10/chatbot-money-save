@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Http;
+use App\Jobs\ProcessIncomingWhatsAppMessage;
 use Illuminate\Support\Str;
 
 /**
@@ -48,14 +50,43 @@ class WebhookController extends Controller
     ) {}
 
     /**
+     * GET /api/webhook/whatsapp
+     * Meta Cloud API Webhook handshake verification.
+     */
+    public function verifyMetaWebhook(Request $request)
+    {
+        $mode = $request->query('hub_mode', $request->query('hub.mode'));
+        $token = $request->query('hub_verify_token', $request->query('hub.verify_token'));
+        $challenge = $request->query('hub_challenge', $request->query('hub.challenge'));
+
+        $expectedToken = config('services.whatsapp.verify_token', env('WHATSAPP_VERIFY_TOKEN', 'test123'));
+
+        if ($mode === 'subscribe' && $token === $expectedToken) {
+            Log::info("Meta Webhook: Verification challenge passed successfully.");
+            return response($challenge, 200)->header('Content-Type', 'text/plain');
+        }
+
+        Log::warning("Meta Webhook: Verification challenge failed.", [
+            'mode'           => $mode,
+            'received_token' => $token,
+            'expected_token' => $expectedToken,
+        ]);
+        return response('Forbidden', 403);
+    }
+
+    /**
      * POST /api/webhook/whatsapp
      *
-     * Entry point for all incoming WhatsApp messages from the Baileys gateway.
-     * Returns a structured reply that the gateway uses to send the response back.
+     * Entry point for incoming WhatsApp messages from Baileys sidecar or Meta Cloud API.
      */
     public function handle(Request $request): JsonResponse
     {
-        // Validate webhook secret header (FR-012 security)
+        // 0. Support Meta WhatsApp Cloud API webhooks
+        if ($request->input('object') === 'whatsapp_business_account' || $request->hasHeader('X-Hub-Signature-256')) {
+            return $this->handleMetaWebhook($request);
+        }
+
+        // Validate webhook secret header (FR-012 security for Baileys gateway)
         $secret = config('app.gateway_webhook_secret', env('GATEWAY_WEBHOOK_SECRET'));
         if ($secret && $request->header('X-Gateway-Secret') !== $secret) {
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -69,10 +100,151 @@ class WebhookController extends Controller
             'timestamp'    => 'nullable|integer',
         ]);
 
-        $messageId   = $validated['message_id'];
-        $fromJid     = $validated['from_jid'];
-        $pushName    = $validated['push_name'] ?? '';
-        $messageText = trim($validated['message_text']);
+        // Asynchronous ingestion option for Baileys Gateway (Fase 3 Decoupled Webhook)
+        if ($request->header('X-Async-Processing') === 'true' || config('services.whatsapp.async_baileys', env('ASYNC_BAILEYS_WEBHOOK', false))) {
+            ProcessIncomingWhatsAppMessage::dispatch(
+                'baileys',
+                $validated['message_id'],
+                $validated['from_jid'],
+                $validated['push_name'] ?? '',
+                trim($validated['message_text'])
+            );
+
+            return response()->json([
+                'status'     => 'QUEUED',
+                'action'     => 'QUEUED',
+                'message_id' => $validated['message_id'],
+            ], 202);
+        }
+
+        return $this->processMessage(
+            $validated['message_id'],
+            $validated['from_jid'],
+            $validated['push_name'] ?? '',
+            trim($validated['message_text'])
+        );
+    }
+
+    /**
+     * Handle incoming payload from Meta WhatsApp Business Cloud API.
+     * Decoupled asynchronous ingestion responding in <10ms (Fase 2 & Fase 3).
+     */
+    protected function handleMetaWebhook(Request $request): JsonResponse
+    {
+        Log::info("Meta Webhook Received Payload", ['payload' => $request->all()]);
+
+        // Verify X-Hub-Signature-256 if Meta app secret is configured (Fase 2 security)
+        $signature = $request->header('X-Hub-Signature-256');
+        $appSecret = config('services.whatsapp.app_secret', env('WHATSAPP_APP_SECRET', env('META_APP_SECRET')));
+        if ($signature && $appSecret) {
+            $expected = 'sha256=' . hash_hmac('sha256', $request->getContent(), $appSecret);
+            if (!hash_equals($expected, $signature)) {
+                Log::warning("Meta Webhook: Invalid X-Hub-Signature-256 signature.");
+                return response()->json(['error' => 'Invalid signature'], 401);
+            }
+        }
+
+        $entries = $request->input('entry', []);
+        $queuedCount = 0;
+
+        foreach ($entries as $entry) {
+            foreach ($entry['changes'] ?? [] as $change) {
+                $value = $change['value'] ?? [];
+                $contacts = $value['contacts'] ?? [];
+                $contactName = $contacts[0]['profile']['name'] ?? '';
+
+                foreach ($value['messages'] ?? [] as $msg) {
+                    $fromPhone = $msg['from'] ?? null;
+                    if (!$fromPhone) continue;
+
+                    $fromJid = $fromPhone . '@s.whatsapp.net';
+                    $messageId = $msg['id'] ?? Str::uuid()->toString();
+                    $messageType = $msg['type'] ?? 'text';
+                    $messageText = '';
+
+                    if ($messageType === 'text') {
+                        $messageText = trim($msg['text']['body'] ?? '');
+                    } elseif ($messageType === 'interactive') {
+                        $interactive = $msg['interactive'] ?? [];
+                        if (($interactive['type'] ?? '') === 'button_reply') {
+                            $messageText = trim($interactive['button_reply']['id'] ?? $interactive['button_reply']['title'] ?? '');
+                        } elseif (($interactive['type'] ?? '') === 'list_reply') {
+                            $messageText = trim($interactive['list_reply']['id'] ?? $interactive['list_reply']['title'] ?? '');
+                        }
+                    }
+
+                    if ($messageText === '') {
+                        continue;
+                    }
+
+                    // Dispatch async job to Redis Queue for high-throughput decoupling (<10ms HTTP response)
+                    ProcessIncomingWhatsAppMessage::dispatch(
+                        'meta',
+                        $messageId,
+                        $fromJid,
+                        $contactName,
+                        $messageText,
+                        $fromPhone
+                    );
+                    $queuedCount++;
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'EVENT_RECEIVED',
+            'queued' => true,
+            'count'  => $queuedCount,
+        ], 202);
+    }
+
+    /**
+     * Send outbound message back to user via Meta WhatsApp Cloud API.
+     */
+    public function sendMetaReply(string $toPhone, string $text): void
+    {
+        $phoneNumberId = config('services.whatsapp.phone_number_id', env('WHATSAPP_PHONE_NUMBER_ID'));
+        $accessToken = config('services.whatsapp.access_token', env('WHATSAPP_ACCESS_TOKEN'));
+        $version = config('services.whatsapp.api_version', env('WHATSAPP_API_VERSION', 'v21.0'));
+
+        if (!$phoneNumberId || !$accessToken) {
+            Log::warning("Meta WhatsApp Cloud API: Missing Phone Number ID or Access Token in .env");
+            return;
+        }
+
+        try {
+            $resp = Http::withToken($accessToken)
+                ->timeout(10)
+                ->post("https://graph.facebook.com/{$version}/{$phoneNumberId}/messages", [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type'    => 'individual',
+                    'to'                => $toPhone,
+                    'type'              => 'text',
+                    'text'              => [
+                        'preview_url' => false,
+                        'body'        => $text,
+                    ],
+                ]);
+
+            if ($resp->failed()) {
+                Log::error("Meta WhatsApp Cloud API Send Message Failed", [
+                    'to'     => $toPhone,
+                    'status' => $resp->status(),
+                    'body'   => $resp->json(),
+                ]);
+            } else {
+                Log::info("Meta WhatsApp Cloud API message sent to {$toPhone}");
+            }
+        } catch (\Throwable $e) {
+            Log::error("Meta WhatsApp Cloud API Exception: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Process message through the financial engine and command router.
+     */
+    public function processMessage(string $messageId, string $fromJid, string $pushName, string $messageText): JsonResponse
+    {
 
         // --- Payload Length Protection (Anti-ReDoS / Memory Spike) ---
         if (mb_strlen($messageText) > 2000) {
@@ -110,7 +282,58 @@ class WebhookController extends Controller
         }
 
         // --- Command Routing ---
-        $lowerText = strtolower($messageText);
+        $lowerText = strtolower(trim($messageText));
+        $userName = $user->display_name ?: 'Kak';
+
+        // 1. Greetings (Halo, Hai, Assalamualaikum, Selamat Pagi/Siang/Malam, P, Ping)
+        if (preg_match('/^(?:halo+|hai+|hey+|hei+|hello+|hi+|p+|ping|assalam(?:u[\'\’]?alaikum)?|samlikum|selamat\s+(?:pagi|siang|sore|malam)|pagi|siang|sore|malam)$/i', $lowerText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "👋 Halo *{$userName}*! Selamat datang di *HematWoy* 💰\n\n"
+                    . "Ada pengeluaran atau pemasukan yang mau dicatat hari ini? 😊\n\n"
+                    . "💡 *Pilihan Cepat:*\n"
+                    . "• Catat: `keluar 25rb makan` atau `+500rb gaji`\n"
+                    . "• Cek Saldo: `saldo`\n"
+                    . "• Dashboard Web: `web`\n"
+                    . "• Menu Lengkap: `menu`",
+            ]);
+        }
+
+        // 2. Gratitude (Terima kasih, makasih, thanks, etc.)
+        if (preg_match('/^(?:terima\s*kasih(?:\s+banyak)?|makasih+(?:\s+banyak)?|makasi+|thanks+(?:\s+a\s+lot)?|tq|tengkyu|syukron|maturnuwun)(?:\s+(?:ya|kak|min|bos))?$/i', $lowerText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "Sama-sama, *{$userName}*! Senang bisa membantu merapikan keuanganmu. 😊\n\nKetik `saldo` untuk cek keuangan terkini, atau `menu` untuk panduan lengkap.",
+            ]);
+        }
+
+        // 3. Affirmation (Oke, Siap, Mantap, Keren, Sip)
+        if (preg_match('/^(?:(?:oke+|ok+|sip+|siap+|mantap+|keren|yoi|mantul)(?:\s+(?:oke+|ok+|sip+|siap+|mantap+|keren|yoi|mantul|kak|min|bos|ya))?)$/i', $lowerText)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "Siap! 👍 Langsung ketik saja kapan pun ada transaksi baru ya (misal: `keluar 15rb kopi`).",
+            ]);
+        }
+
+        // 4. Web Dashboard Link
+        if (preg_match('/^(?:web|dashboard|link\s+web|buka\s+web|aplikasi|app|portal)$/i', $lowerText)) {
+            $webUrl = url('/');
+            $phoneInfo = $user->phone_number
+                ? "Nomor HP tertaut: *+{$user->phone_number}*"
+                : "Belum menautkan nomor HP? Ketik: `tautkan 08xxxxxxxxxx`";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "🌐 *Web App Dashboard — HematWoy*\n\n"
+                    . "Pantau keuanganmu dengan grafik visual, pie chart, dan kelola dompet di browser:\n"
+                    . "👉 {$webUrl}\n\n"
+                    . "📱 *Cara Login:*\n"
+                    . "1. Buka link di atas.\n"
+                    . "2. Masukkan nomor HP Anda yang tertaut.\n"
+                    . "3. Masukkan kode OTP yang dikirimkan ke WhatsApp ini.\n\n"
+                    . "{$phoneInfo}",
+            ]);
+        }
 
         if (preg_match('/^(?:set|buat|bikin|atur)\s+pin\s+(\S{6,64})$/i', $messageText, $matches)) {
             try { $code = $this->pins->setup($user, $matches[1]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"PIN aktif. Recovery Code (simpan sekali ini): `{$code}`. Kirim ulang transaksi Anda."]); }
@@ -141,8 +364,8 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Balance inquiry & Wallets (Typo-tolerant: saldo, saldoo, sisa saldo, dompet)
-        if (preg_match('/^(?:saldo+|saldu|cek saldo|dompet|list dompet|daftar dompet|rekening|sisa saldo|saldo ku|cek dompet)$/i', $messageText)) {
+        // Balance inquiry & Wallets (Typo-tolerant & Natural phrasing)
+        if (preg_match('/^(?:saldo+|saldu|cek saldo|dompet|list dompet|daftar dompet|rekening|sisa saldo|saldo ku|cek dompet|uang(?:ku)?|sisa uang(?:ku)?|duit(?:ku)?|cek duit|cek uang|total saldo|total uang|sisa dana|uang(?:ku)? (?:ada|sisa|tinggal) berapa|sisa (?:uang|saldo|dana)(?:ku)?(?: berapa)?|(?:uang|duit|saldo)(?:ku)? (?:tinggal |sisa )?berapa)$/i', $lowerText)) {
             return $this->handleBalanceInquiry($user);
         }
 
@@ -515,8 +738,8 @@ class WebhookController extends Controller
             );
         }
 
-        // Help / menu (Typo-tolerant: bantuan, panduan, tolong, help)
-        if (preg_match('/^(?:bantuan+|help|menu|\?|panduan|tolong)$/i', $messageText)) {
+        // Help / menu (Typo-tolerant & Natural phrasing)
+        if (preg_match('/^(?:bantuan+|help|menu|\?|panduan|tolong|cara pakai|cara guna(?:kan)?|gimana cara(?:nya)?|bisa apa(?: aja)?|fitur(?: apa aja)?|kamu bot apa|daftar perintah|perintah(?: apa aja)?)$/i', trim($messageText))) {
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->buildHelpMessage(),
@@ -975,9 +1198,11 @@ class WebhookController extends Controller
                 }
             }
 
-            $text .= "💰 *Total Saldo*: " . $this->formatRupiah($user->current_balance) . "\n";
-            $text .= "_Ketik \"batal\" jika ingin membatalkan transaksi ini._";
-            if ($user->tier === 'FREE' && $remaining <= 10) $text .= "\nSisa kuota gratis: {$remaining} pesan. Ketik `beli pro` untuk tanpa batas.";
+            $text .= "💰 *Total Saldo*: " . $this->formatRupiah($user->current_balance) . "\n\n";
+            $text .= "💡 *Aksi Cepat:*\n";
+            $text .= "• Koreksi nominal: `koreksi 30rb`\n";
+            $text .= "• Batalkan: _Ketik \"batal\" jika ingin membatalkan transaksi ini._";
+            if ($user->tier === 'FREE' && $remaining <= 10) $text .= "\n\nSisa kuota gratis: {$remaining} pesan. Ketik `beli pro` untuk tanpa batas.";
 
             return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
 
@@ -996,27 +1221,25 @@ class WebhookController extends Controller
 
     private function buildWelcomeMessage(User $user): string
     {
-        $name = $user->display_name ?: 'Sobat';
+        $name = $user->display_name ?: 'Kak';
 
-        return "👋 Halo *{$name}*! Selamat datang di *WA Finance Bot* 💰\n\n"
+        return "👋 Halo *{$name}*! Selamat datang di *HematWoy* 💰\n\n"
             . "Asisten finansial pintar harianmu langsung dari WhatsApp!\n\n"
-            . "🔒 *Langkah Awal (Keamanan):*\n"
-            . "Buat PIN 6 digit terlebih dahulu:\n"
+            . "🔒 *Langkah Awal (Keamanan Data):*\n"
+            . "Sebelum transaksi pertama, buat PIN 6 digit terlebih dahulu:\n"
             . "👉 `set pin 123456`\n\n"
             . "⚡ *Contoh Perintah Cepat:*\n"
-            . "• *Catat*: `keluar 25rb makan via bca` atau `+1.5jt gaji`\n"
+            . "• *Catat*: `keluar 25rb makan` atau `+1.5jt gaji`\n"
             . "• *Dompet*: `saldo` atau `transfer 50rb dari Cash ke BCA`\n"
             . "• *Budget*: `budget makan 1jt`\n"
-            . "• *Langganan*: `langganan Netflix 186rb setiap tanggal 15`\n"
-            . "• *Target*: `buat target Liburan 5jt`\n"
-            . "• *Laporan*: `rekap hari ini` atau `bulan ini boros gak?`\n\n"
-            . "Ketik *bantuan* kapan saja untuk daftar perintah lengkap.\n\n"
-            . "_Yuk mulai rapikan keuanganmu! 🚀_";
+            . "• *Dashboard*: `web` (buka analitik & grafik visual)\n"
+            . "• *Panduan*: `menu`\n\n"
+            . "_Yuk mulai rapikan keuanganmu hari ini! 🚀_";
     }
 
     private function buildHelpMessage(): string
     {
-        return "📚 *Panduan WA Finance Bot*\n\n"
+        return "📚 *Panduan WA Finance Bot (HematWoy)*\n\n"
             . "💸 *Catat Pengeluaran:*\n"
             . "  • `keluar 25000 makan siang`\n"
             . "  • `beli bensin 50rb via bca`\n"
@@ -1025,9 +1248,9 @@ class WebhookController extends Controller
             . "💰 *Catat Pemasukan:*\n"
             . "  • `masuk 500000 gaji`\n"
             . "  • `terima 250k bonus ke bca`\n"
-            . "  • `masuk 2jt project Website Client A` (freelance)\n"
+            . "  • `+2jt freelance website client A`\n"
             . "  • `jual paket nasi 750rb` (omzet UMKM)\n\n"
-            . "👛 *Dompet & Transfer:*\n"
+            . "👛 *Dompet & Saldo:*\n"
             . "  • `saldo` (cek rincian saldo per dompet)\n"
             . "  • `tambah dompet BCA saldo 1jt`\n"
             . "  • `transfer 200rb dari Cash ke BCA`\n\n"
@@ -1040,34 +1263,36 @@ class WebhookController extends Controller
             . "  • `hapus langganan Netflix`\n\n"
             . "🎯 *Target Tabungan (Goals):*\n"
             . "  • `buat target Mobil 100jt`\n"
-            . "  • `tambah tabungan 1jt untuk Mobil via bca`\n"
+            . "  • `tabung 1jt untuk Mobil via bca`\n"
             . "  • `daftar target`\n\n"
             . "📊 *Laporan & Analisis:*\n"
             . "  • `rekap hari ini` / `rekap bulan ini`\n"
             . "  • `pengeluaran hari ini` / `pemasukan hari ini`\n"
-            . "  • `bulan ini boros gak?` (analisis MoM & variansi)\n"
-            . "  • `omzet hari ini` / `laba hari ini` (laba kotor UMKM)\n"
+            . "  • `bulan ini boros gak?` (analisis MoM)\n"
+            . "  • `omzet hari ini` / `laba hari ini` (laba UMKM)\n"
             . "  • `rekap freelance` (total pendapatan proyek)\n"
-            . "  • `export excel` (download sheet laporan)\n\n"
-            . "⚙️ *Keamanan & Pengaturan:*\n"
+            . "  • `export excel` (unduh sheet laporan)\n\n"
+            . "🌐 *Web Dashboard & Pengaturan:*\n"
+            . "  • `web` (link dashboard grafik & analitik)\n"
+            . "  • `koreksi 35rb` (ubah nominal transaksi terakhir)\n"
+            . "  • `batal` (batalkan transaksi terakhir)\n"
             . "  • `set pin 123456`\n"
-            . "  • `reset pin <recovery_code> <pin_baru>`\n"
-            . "  • `aktifkan rekap harian` / `matikan rekap harian`\n"
-            . "  • `kategori` / `tambah kategori <nama>`\n"
-            . "  • `batal` (batalkan transaksi terakhir)\n\n"
+            . "  • `kategori` / `tambah kategori <nama>`\n\n"
             . "_💡 Format nominal fleksibel: 25000, 25.000, 25k, 25rb, 1.5jt_";
     }
 
     private function buildUnrecognizedMessage(
         string $message
     ): string {
-        return "🤔 Maaf, saya belum mengerti maksud pesan:\n"
+        return "🤔 Maaf, saya belum mengenali format pesan:\n"
             . "\"_{$message}_\"\n\n"
-            . "*Contoh format transaksi:*\n"
-            . "  📤 `keluar 25000 makan siang`\n"
-            . "  📥 `masuk 500000 gaji`\n"
-            . "  👛 `saldo` atau `transfer 50rb dari Cash ke BCA`\n\n"
-            . "Ketik *bantuan* untuk panduan fitur lengkap. 😊";
+            . "💡 *Pilihan Bantuan Cepat:*\n"
+            . "1️⃣ *Catat Pengeluaran* 👉 `keluar 25000 makan siang`\n"
+            . "2️⃣ *Catat Pemasukan*   👉 `masuk 500000 gaji`\n"
+            . "3️⃣ *Cek Saldo*          👉 `saldo`\n"
+            . "4️⃣ *Buka Dashboard*     👉 `web`\n"
+            . "5️⃣ *Panduan Lengkap*    👉 `menu`\n\n"
+            . "_Ketik salah satu perintah di atas ya! 😊_";
     }
 
     // ---------------------------------------------------------------------------

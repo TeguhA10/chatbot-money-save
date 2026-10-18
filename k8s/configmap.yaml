@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-config
+  namespace: chatbot-finance
+data:
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://api.hematwoy.com"
+  OCTANE_SERVER: "frankenphp"
+  DB_CONNECTION: "pgsql"
+  DB_HOST: "pgbouncer-service"
+  DB_PORT: "6432"
+  DB_DATABASE: "chatbot_finance"
+  CACHE_STORE: "redis"
+  QUEUE_CONNECTION: "redis"
+  SESSION_DRIVER: "redis"
+  REDIS_HOST: "redis-cluster-service"
+  REDIS_PORT: "6379"
+  WHATSAPP_API_VERSION: "v21.0"
+  PULSE_ENABLED: "false"
+  TELESCOPE_ENABLED: "false"

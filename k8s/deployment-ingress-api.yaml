@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-ingress-api
+  namespace: chatbot-finance
+  labels:
+    app.kubernetes.io/name: chatbot-ingress-api
+    app.kubernetes.io/component: webhook-ingress
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chatbot-ingress-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chatbot-ingress-api
+    spec:
+      containers:
+        - name: octane-api
+          image: your-registry.com/chatbot-finance-backend:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: chatbot-config
+            - secretRef:
+                name: chatbot-secrets
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5

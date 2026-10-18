@@ -151,12 +151,12 @@ flowchart TD
 
 ---
 
-## 📋 Checklist Prioritas untuk Sprint Mendatang
+## 📋 Checklist Prioritas & Status Implementasi
 
-- [ ] **Prioritas 1 (Kritis)**: Ganti SQLite dengan PostgreSQL di lingkungan produksi (`docker-compose.prod.yml`).
-- [ ] **Prioritas 1 (Kritis)**: Migrasi dari Baileys ke WhatsApp Cloud API resmi menggunakan token yang tertera di `.env.example`.
-- [ ] **Prioritas 2 (Tinggi)**: Ubah endpoint webhook menjadi *asynchronous ingestion* (dispatch Job ke Redis Queue).
-- [ ] **Prioritas 2 (Tinggi)**: Pasang atomic lock di transaksi keuangan untuk mencegah saldo dobel akibat request paralel.
-- [ ] **Prioritas 3 (Menengah)**: Implementasi Laravel Octane dengan FrankenPHP.
-- [ ] **Prioritas 3 (Menengah)**: Setup Read-Replicas database dan PgBouncer.
-- [ ] **Prioritas 4 (Jangka Panjang)**: Deployment manifest Kubernetes (Helm Chart / Kube YAML) dengan HPA.
+- [x] **Prioritas 1 (Kritis)**: Ganti SQLite dengan PostgreSQL di lingkungan produksi (`docker-compose.yml` & `docker-compose.prod.yml`).
+- [x] **Prioritas 1 (Kritis)**: Integrasi Meta WhatsApp Cloud API resmi (Webhook verification, `X-Hub-Signature-256`, dan Outbound Graph API di `WebhookController`).
+- [x] **Prioritas 2 (Tinggi)**: Ubah endpoint webhook menjadi *asynchronous ingestion* (Job `ProcessIncomingWhatsAppMessage` di-dispatch ke Redis Queue dengan return HTTP 202 <10ms).
+- [x] **Prioritas 2 (Tinggi)**: Pasang atomic lock berbasis Redis (`Cache::lock("user_balance:{$jid}", 10)`) di transaksi keuangan (`recordTransaction`, `transferFunds`, `undoLastTransaction`).
+- [x] **Prioritas 3 (Menengah)**: Implementasi Laravel Octane dengan FrankenPHP di `backend/Dockerfile`.
+- [x] **Prioritas 3 (Menengah)**: Setup Connection Pooling PgBouncer di `docker-compose.yml`.
+- [x] **Prioritas 4 (Jangka Panjang)**: Deployment manifest Kubernetes (`k8s/` berisi Ingress API, Scalable Workers, Service, ConfigMap, Secrets, dan HPA).

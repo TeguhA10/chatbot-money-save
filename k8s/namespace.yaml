@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chatbot-finance
+  labels:
+    app.kubernetes.io/name: chatbot-finance
+    app.kubernetes.io/part-of: personal-finance-assistant

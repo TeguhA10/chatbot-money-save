@@ -397,9 +397,9 @@ const server = createServer((request, response) => {
   response.end(JSON.stringify({ status: sock ? 'ready' : 'starting', timestamp: Date.now() }));
 });
 
-// Bind explicitly to 127.0.0.1 (Loopback only) to prevent external exposure
-server.listen(HEALTH_PORT, '127.0.0.1', () => {
-  console.log(`🚀 [Gateway] HTTP Server listening on 127.0.0.1:${HEALTH_PORT} (Secured & Outbound API ready)`);
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(HEALTH_PORT, HOST, () => {
+  console.log(`🚀 [Gateway] HTTP Server listening on ${HOST}:${HEALTH_PORT} (Secured & Outbound API ready)`);
 });
 
 startGateway().catch((err) => {

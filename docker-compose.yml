@@ -3,9 +3,19 @@ services:
     build: ./backend
     env_file: ./backend/.env
     environment:
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-chatbot_finance}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password123!}
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OCTANE_SERVER: frankenphp
+      GATEWAY_OUTBOUND_URL: http://gateway:3001/send
     ports: ["8000:8000"]
     volumes: ["backend_storage:/var/www/storage"]
     depends_on:
@@ -18,9 +28,18 @@ services:
     env_file: ./backend/.env
     command: php artisan queue:work --tries=3 --timeout=60
     environment:
+      DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-chatbot_finance}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password123!}
       CACHE_STORE: redis
       QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GATEWAY_OUTBOUND_URL: http://gateway:3001/send
     volumes: ["backend_storage:/var/www/storage"]
     depends_on:
       redis: { condition: service_healthy }
@@ -58,6 +77,24 @@ services:
     command: redis-server --appendonly yes
     volumes: ["redis_data:/data"]
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 10s, timeout: 5s, retries: 5 }
+    restart: unless-stopped
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DB_USER: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password123!}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_DATABASE:-chatbot_finance}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 10000
+      DEFAULT_POOL_SIZE: 50
+      RESERVE_POOL_SIZE: 10
+      AUTH_TYPE: md5
+    ports: ["6432:6432"]
+    depends_on:
+      postgres: { condition: service_healthy }
     restart: unless-stopped
 
 volumes:

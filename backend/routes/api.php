@@ -26,8 +26,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 // ---------------------------------------------------------------------------
-// Webhook (Internal — called by Baileys gateway sidecar, not protected by Sanctum)
+// Webhook (Internal Baileys sidecar & Meta WhatsApp Cloud API)
 // ---------------------------------------------------------------------------
+Route::get('/webhook/whatsapp', [WebhookController::class, 'verifyMetaWebhook'])
+    ->name('api.webhook.whatsapp.verify');
 Route::middleware('gateway')->post('/webhook/whatsapp', [WebhookController::class, 'handle'])
     ->name('api.webhook.whatsapp');
 Route::post('/webhook/midtrans', [MidtransWebhookController::class, 'handle'])->name('api.webhook.midtrans');

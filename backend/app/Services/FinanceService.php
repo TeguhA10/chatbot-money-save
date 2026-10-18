@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -205,57 +206,59 @@ class FinanceService
             throw new \InvalidArgumentException('Transaction amount must be a positive integer.');
         }
 
-        return DB::transaction(function () use ($user, $data) {
-            $freshUser = User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
+        return Cache::lock("user_balance:{$user->jid}", 10)->block(5, function () use ($user, $data) {
+            return DB::transaction(function () use ($user, $data) {
+                $freshUser = User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
 
-            $amount = (int) $data['amount'];
-            $type   = $data['type'];
+                $amount = (int) $data['amount'];
+                $type   = $data['type'];
 
-            // Resolve wallet
-            $targetWallet = null;
-            if (!empty($data['wallet_id'])) {
-                $targetWallet = Wallet::where('user_jid', $freshUser->jid)->where('id', $data['wallet_id'])->lockForUpdate()->first();
-            } elseif (!empty($data['wallet_name'])) {
-                $targetWallet = $this->findWalletByName($freshUser, $data['wallet_name']);
-                if ($targetWallet) {
+                // Resolve wallet
+                $targetWallet = null;
+                if (!empty($data['wallet_id'])) {
+                    $targetWallet = Wallet::where('user_jid', $freshUser->jid)->where('id', $data['wallet_id'])->lockForUpdate()->first();
+                } elseif (!empty($data['wallet_name'])) {
+                    $targetWallet = $this->findWalletByName($freshUser, $data['wallet_name']);
+                    if ($targetWallet) {
+                        $targetWallet = Wallet::where('id', $targetWallet->id)->lockForUpdate()->first();
+                    }
+                }
+                if (!$targetWallet) {
+                    $targetWallet = $this->getOrCreateDefaultWallet($freshUser);
                     $targetWallet = Wallet::where('id', $targetWallet->id)->lockForUpdate()->first();
                 }
-            }
-            if (!$targetWallet) {
-                $targetWallet = $this->getOrCreateDefaultWallet($freshUser);
-                $targetWallet = Wallet::where('id', $targetWallet->id)->lockForUpdate()->first();
-            }
 
-            // Update wallet balance
-            $newWalletBalance = $type === 'INCOME' ? $targetWallet->balance + $amount : $targetWallet->balance - $amount;
-            $targetWallet->balance = $newWalletBalance;
-            $targetWallet->save();
+                // Update wallet balance
+                $newWalletBalance = $type === 'INCOME' ? $targetWallet->balance + $amount : $targetWallet->balance - $amount;
+                $targetWallet->balance = $newWalletBalance;
+                $targetWallet->save();
 
-            // Calculate new consolidated balance
-            $newBalance = $type === 'INCOME' ? $freshUser->current_balance + $amount : $freshUser->current_balance - $amount;
+                // Calculate new consolidated balance
+                $newBalance = $type === 'INCOME' ? $freshUser->current_balance + $amount : $freshUser->current_balance - $amount;
 
-            // Persist transaction with balance snapshot
-            $transaction = Transaction::create([
-                'user_jid'                => $freshUser->jid,
-                'category_id'             => $data['category_id'] ?? null,
-                'wallet_id'               => $targetWallet->id,
-                'type'                    => $type,
-                'amount'                  => 0,
-                'description'             => $data['description'] ?? '',
-                'balance_after'           => 0,
-                'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
-                'encrypted_balance_after' => $this->encryption->encryptForStorage($newBalance),
-                'transaction_date'        => now(),
-                'status'                  => 'ACTIVE',
-            ]);
+                // Persist transaction with balance snapshot
+                $transaction = Transaction::create([
+                    'user_jid'                => $freshUser->jid,
+                    'category_id'             => $data['category_id'] ?? null,
+                    'wallet_id'               => $targetWallet->id,
+                    'type'                    => $type,
+                    'amount'                  => 0,
+                    'description'             => $data['description'] ?? '',
+                    'balance_after'           => 0,
+                    'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
+                    'encrypted_balance_after' => $this->encryption->encryptForStorage($newBalance),
+                    'transaction_date'        => now(),
+                    'status'                  => 'ACTIVE',
+                ]);
 
-            // Update user balance atomically
-            $freshUser->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
+                // Update user balance atomically
+                $freshUser->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
 
-            // Sync caller instance
-            $user->current_balance = $newBalance;
+                // Sync caller instance
+                $user->current_balance = $newBalance;
 
-            return $transaction;
+                return $transaction;
+            });
         });
     }
 
@@ -272,37 +275,39 @@ class FinanceService
             throw new \InvalidArgumentException('Source and destination wallets must be different.');
         }
 
-        return DB::transaction(function () use ($user, $fromWalletId, $toWalletId, $amount, $description) {
-            $source = Wallet::where('user_jid', $user->jid)->where('id', $fromWalletId)->lockForUpdate()->firstOrFail();
-            $dest   = Wallet::where('user_jid', $user->jid)->where('id', $toWalletId)->lockForUpdate()->firstOrFail();
+        return Cache::lock("user_balance:{$user->jid}", 10)->block(5, function () use ($user, $fromWalletId, $toWalletId, $amount, $description) {
+            return DB::transaction(function () use ($user, $fromWalletId, $toWalletId, $amount, $description) {
+                $source = Wallet::where('user_jid', $user->jid)->where('id', $fromWalletId)->lockForUpdate()->firstOrFail();
+                $dest   = Wallet::where('user_jid', $user->jid)->where('id', $toWalletId)->lockForUpdate()->firstOrFail();
 
-            if ($source->balance < $amount) {
-                throw new \RuntimeException("Saldo {$source->name} tidak mencukupi (Rp" . number_format($source->balance, 0, ',', '.') . ").");
-            }
+                if ($source->balance < $amount) {
+                    throw new \RuntimeException("Saldo {$source->name} tidak mencukupi (Rp" . number_format($source->balance, 0, ',', '.') . ").");
+                }
 
-            $source->balance = $source->balance - $amount;
-            $source->save();
+                $source->balance = $source->balance - $amount;
+                $source->save();
 
-            $dest->balance = $dest->balance + $amount;
-            $dest->save();
+                $dest->balance = $dest->balance + $amount;
+                $dest->save();
 
-            $freshUser = User::where('jid', $user->jid)->first();
-            $memo = !empty($description) ? $description : "Transfer dari {$source->name} ke {$dest->name}";
+                $freshUser = User::where('jid', $user->jid)->first();
+                $memo = !empty($description) ? $description : "Transfer dari {$source->name} ke {$dest->name}";
 
-            return Transaction::create([
-                'user_jid'                => $freshUser->jid,
-                'wallet_id'               => $source->id,
-                'to_wallet_id'            => $dest->id,
-                'category_id'             => null,
-                'type'                    => 'TRANSFER',
-                'amount'                  => 0,
-                'description'             => $memo,
-                'balance_after'           => 0,
-                'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
-                'encrypted_balance_after' => $this->encryption->encryptForStorage($freshUser->current_balance),
-                'transaction_date'        => now(),
-                'status'                  => 'ACTIVE',
-            ]);
+                return Transaction::create([
+                    'user_jid'                => $freshUser->jid,
+                    'wallet_id'               => $source->id,
+                    'to_wallet_id'            => $dest->id,
+                    'category_id'             => null,
+                    'type'                    => 'TRANSFER',
+                    'amount'                  => 0,
+                    'description'             => $memo,
+                    'balance_after'           => 0,
+                    'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
+                    'encrypted_balance_after' => $this->encryption->encryptForStorage($freshUser->current_balance),
+                    'transaction_date'        => now(),
+                    'status'                  => 'ACTIVE',
+                ]);
+            });
         });
     }
 
@@ -559,76 +564,78 @@ class FinanceService
      */
     public function undoLastTransaction(User $user): ?array
     {
-        return DB::transaction(function () use ($user) {
-            User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
+        return Cache::lock("user_balance:{$user->jid}", 10)->block(5, function () use ($user) {
+            return DB::transaction(function () use ($user) {
+                User::where('jid', $user->jid)->lockForUpdate()->firstOrFail();
 
-            // Find the most recent active transaction using both created_at and id for determinism
-            $latest = Transaction::where('user_jid', $user->jid)
-                ->where('status', 'ACTIVE')
-                ->orderByDesc('transaction_date')
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->lockForUpdate()
-                ->first();
-
-            if (!$latest) {
-                return null;
-            }
-
-            if ($latest->type === 'TRANSFER') {
-                $newBalance = $user->current_balance;
-                if ($latest->wallet_id) {
-                    $src = Wallet::where('id', $latest->wallet_id)->lockForUpdate()->first();
-                    if ($src) {
-                        $src->balance = $src->balance + $latest->amount;
-                        $src->save();
-                    }
-                }
-                if ($latest->to_wallet_id) {
-                    $dst = Wallet::where('id', $latest->to_wallet_id)->lockForUpdate()->first();
-                    if ($dst) {
-                        $dst->balance = $dst->balance - $latest->amount;
-                        $dst->save();
-                    }
-                }
-            } else {
-                // The previous transaction's balance_after is the correct balance after voiding.
-                // If no previous transaction exists, balance reverts to 0.
-                $previousTransaction = Transaction::where('user_jid', $user->jid)
+                // Find the most recent active transaction using both created_at and id for determinism
+                $latest = Transaction::where('user_jid', $user->jid)
                     ->where('status', 'ACTIVE')
-                    ->where('id', '!=', $latest->id)
                     ->orderByDesc('transaction_date')
                     ->orderByDesc('created_at')
                     ->orderByDesc('id')
+                    ->lockForUpdate()
                     ->first();
 
-                $newBalance = $previousTransaction?->balance_after ?? 0;
+                if (!$latest) {
+                    return null;
+                }
 
-                if ($latest->wallet_id) {
-                    $w = Wallet::find($latest->wallet_id);
-                    if ($w) {
-                        if ($latest->type === 'EXPENSE') {
-                            $w->balance = $w->balance + $latest->amount;
-                        } elseif ($latest->type === 'INCOME') {
-                            $w->balance = $w->balance - $latest->amount;
+                if ($latest->type === 'TRANSFER') {
+                    $newBalance = $user->current_balance;
+                    if ($latest->wallet_id) {
+                        $src = Wallet::where('id', $latest->wallet_id)->lockForUpdate()->first();
+                        if ($src) {
+                            $src->balance = $src->balance + $latest->amount;
+                            $src->save();
                         }
-                        $w->save();
+                    }
+                    if ($latest->to_wallet_id) {
+                        $dst = Wallet::where('id', $latest->to_wallet_id)->lockForUpdate()->first();
+                        if ($dst) {
+                            $dst->balance = $dst->balance - $latest->amount;
+                            $dst->save();
+                        }
+                    }
+                } else {
+                    // The previous transaction's balance_after is the correct balance after voiding.
+                    // If no previous transaction exists, balance reverts to 0.
+                    $previousTransaction = Transaction::where('user_jid', $user->jid)
+                        ->where('status', 'ACTIVE')
+                        ->where('id', '!=', $latest->id)
+                        ->orderByDesc('transaction_date')
+                        ->orderByDesc('created_at')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    $newBalance = $previousTransaction?->balance_after ?? 0;
+
+                    if ($latest->wallet_id) {
+                        $w = Wallet::find($latest->wallet_id);
+                        if ($w) {
+                            if ($latest->type === 'EXPENSE') {
+                                $w->balance = $w->balance + $latest->amount;
+                            } elseif ($latest->type === 'INCOME') {
+                                $w->balance = $w->balance - $latest->amount;
+                            }
+                            $w->save();
+                        }
                     }
                 }
-            }
 
-            // Update user balance
-            User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
-            $user->current_balance = $newBalance;
+                // Update user balance
+                User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
+                $user->current_balance = $newBalance;
 
-            // Void the transaction
-            $latest->update(['status' => 'VOIDED']);
-            $latest->refresh();
+                // Void the transaction
+                $latest->update(['status' => 'VOIDED']);
+                $latest->refresh();
 
-            return [
-                'voided'      => $latest,
-                'new_balance' => $newBalance,
-            ];
+                return [
+                    'voided'      => $latest,
+                    'new_balance' => $newBalance,
+                ];
+            });
         });
     }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class WebhookTest extends TestCase
@@ -258,4 +259,140 @@ class WebhookTest extends TestCase
         $notFoundRes = $this->sendChat("hapus transaksi 00000000-0000-0000-0000-000000000000");
         $this->assertStringContainsString('tidak ditemukan', $notFoundRes['reply_text']);
     }
+
+    public function test_it_verifies_meta_webhook_challenge_successfully()
+    {
+        config(['services.whatsapp.verify_token' => 'test123']);
+
+        $response = $this->get('/api/webhook/whatsapp?hub_mode=subscribe&hub_verify_token=test123&hub_challenge=1158201444');
+
+        $response->assertStatus(200);
+        $this->assertEquals('1158201444', $response->getContent());
+    }
+
+    public function test_it_rejects_meta_webhook_challenge_with_invalid_token()
+    {
+        config(['services.whatsapp.verify_token' => 'test123']);
+
+        $response = $this->get('/api/webhook/whatsapp?hub_mode=subscribe&hub_verify_token=wrong_token&hub_challenge=1158201444');
+
+        $response->assertStatus(403);
+    }
+
+    public function test_it_handles_meta_webhook_incoming_message_and_dispatches_reply()
+    {
+        Http::fake([
+            'graph.facebook.com/*' => Http::response(['messaging_product' => 'whatsapp', 'messages' => [['id' => 'wamid.HBgL...']]], 200),
+        ]);
+
+        $phoneNumber = '628999888777';
+
+        $metaPayload = [
+            'object' => 'whatsapp_business_account',
+            'entry' => [
+                [
+                    'id' => '1495979515621499',
+                    'changes' => [
+                        [
+                            'value' => [
+                                'messaging_product' => 'whatsapp',
+                                'metadata' => [
+                                    'display_phone_number' => '15550234567',
+                                    'phone_number_id' => '1329679493558003',
+                                ],
+                                'contacts' => [
+                                    [
+                                        'profile' => ['name' => 'Meta Test User'],
+                                        'wa_id' => $phoneNumber,
+                                    ],
+                                ],
+                                'messages' => [
+                                    [
+                                        'from' => $phoneNumber,
+                                        'id' => 'wamid.HBgL' . uniqid(),
+                                        'timestamp' => (string) time(),
+                                        'text' => [
+                                            'body' => '+250000 gaji freelance',
+                                        ],
+                                        'type' => 'text',
+                                    ],
+                                ],
+                            ],
+                            'field' => 'messages',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->postJson('/api/webhook/whatsapp', $metaPayload);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => 'EVENT_RECEIVED']);
+
+        // Check user balance updated
+        $user = User::where('jid', $this->jid)->first();
+        $this->assertEquals(250000, $user->current_balance);
+
+        // Check outbound HTTP call to Graph API was made
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'graph.facebook.com')
+                && $request['messaging_product'] === 'whatsapp'
+                && str_contains($request['text']['body'], 'Pemasukan Tersimpan');
+        });
+    }
+
+    public function test_it_responds_warmly_to_greetings()
+    {
+        $res = $this->sendChat('halo');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Halo', $res['reply_text']);
+        $this->assertStringContainsString('HematWoy', $res['reply_text']);
+
+        $res2 = $this->sendChat('selamat pagi');
+        $this->assertEquals('REPLY_TEXT', $res2['action']);
+        $this->assertStringContainsString('Halo', $res2['reply_text']);
+    }
+
+    public function test_it_responds_politely_to_gratitude()
+    {
+        $res = $this->sendChat('terima kasih banyak');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Sama-sama', $res['reply_text']);
+    }
+
+    public function test_it_responds_to_affirmations()
+    {
+        $res = $this->sendChat('oke siap');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Siap', $res['reply_text']);
+    }
+
+    public function test_it_provides_web_app_dashboard_link()
+    {
+        $res = $this->sendChat('web');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Web App Dashboard', $res['reply_text']);
+    }
+
+    public function test_it_handles_natural_balance_queries()
+    {
+        $this->sendChat('+300000 tabungan');
+        $res = $this->sendChat('uangku sisa berapa');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Informasi Saldo', $res['reply_text']);
+        $this->assertStringContainsString('300.000', $res['reply_text']);
+    }
+
+    public function test_it_handles_natural_help_queries()
+    {
+        $res = $this->sendChat('cara pakai gimana');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('Panduan', $res['reply_text']);
+
+        $res2 = $this->sendChat('fitur apa aja');
+        $this->assertEquals('REPLY_TEXT', $res2['action']);
+        $this->assertStringContainsString('Panduan', $res2['reply_text']);
+    }
 }
+
