@@ -192,5 +192,9 @@ export const useFinanceStore = defineStore('finance', {
                 this.fetchMonthlyTrend(),
             ]);
         },
+
+        async loadAll() {
+            return this.refreshAllData();
+        },
     },
 });

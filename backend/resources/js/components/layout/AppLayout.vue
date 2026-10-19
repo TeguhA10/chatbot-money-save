@@ -202,7 +202,7 @@ function toggleVaultLock() {
     vaultStore.lock();
     toastStore.info('Brankas berhasil dikunci.');
   } else {
-    vaultStore.fetchStatus();
+    vaultStore.openModal();
   }
 }
 

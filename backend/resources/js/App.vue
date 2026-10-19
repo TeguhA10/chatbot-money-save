@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-slate-950 font-sans">
-    <component :is="isAuthPage ? 'div' : AppLayout" @open-transaction-modal="showTransactionModal = true">
+    <component :is="isPublicPage ? 'div' : AppLayout" @open-transaction-modal="showTransactionModal = true">
       <RouterView @open-transaction-modal="showTransactionModal = true" />
     </component>
 
@@ -29,7 +29,7 @@ const financeStore = useFinanceStore();
 const showTransactionModal = ref(false);
 const modalTransaction = ref(null);
 
-const isAuthPage = computed(() => route.name === 'login');
+const isPublicPage = computed(() => ['landing', 'login', 'checkout'].includes(route.name) || route.meta?.isPublic);
 
 function closeTransactionModal() {
   showTransactionModal.value = false;

@@ -14,14 +14,32 @@ export const useVaultStore = defineStore('vault', {
         cooldownSeconds: 0,
         cooldownTimer: null,
         inactivityTimer: null,
+        isModalDismissed: false,
+        forceShowModal: false,
     }),
 
     getters: {
         isLocked: (state) => !state.isUnlocked,
         isSetupNeeded: (state) => state.pinStatus === 'PENDING_SETUP',
+        isModalOpen: (state) => {
+            if (state.forceShowModal) return true;
+            if (state.isUnlocked) return false;
+            if (state.isModalDismissed) return false;
+            return state.isSetupNeeded || !state.isUnlocked;
+        },
     },
 
     actions: {
+        openModal() {
+            this.isModalDismissed = false;
+            this.forceShowModal = true;
+        },
+
+        closeModal() {
+            this.isModalDismissed = true;
+            this.forceShowModal = false;
+        },
+
         async fetchStatus() {
             try {
                 const res = await api.get('/vault/status');
@@ -30,6 +48,8 @@ export const useVaultStore = defineStore('vault', {
                     this.isUnlocked = Boolean(res.data.data.is_unlocked);
                     this.salt = res.data.data.encryption_salt;
                     if (this.isUnlocked) {
+                        this.isModalDismissed = true;
+                        this.forceShowModal = false;
                         this.resetInactivityTimer();
                     }
                 }
@@ -45,6 +65,8 @@ export const useVaultStore = defineStore('vault', {
                 const res = await api.post('/vault/unlock', { pin });
                 if (res.data.success) {
                     this.isUnlocked = true;
+                    this.isModalDismissed = true;
+                    this.forceShowModal = false;
                     this.error = '';
                     this.remainingAttempts = null;
                     this.cooldownSeconds = 0;
@@ -96,6 +118,8 @@ export const useVaultStore = defineStore('vault', {
                 // ignore
             } finally {
                 this.isUnlocked = false;
+                this.isModalDismissed = false;
+                this.forceShowModal = true;
                 this.clearInactivityTimer();
             }
         },
@@ -111,6 +135,8 @@ export const useVaultStore = defineStore('vault', {
                 if (res.data.success) {
                     this.pinStatus = 'ACTIVE';
                     this.isUnlocked = true;
+                    this.isModalDismissed = true;
+                    this.forceShowModal = false;
                     this.resetInactivityTimer();
                     return true;
                 }

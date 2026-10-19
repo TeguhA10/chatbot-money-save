@@ -10,7 +10,13 @@ const routes = [
     },
     {
         path: '/',
-        redirect: '/dashboard',
+        name: 'landing',
+        component: () => import('../views/LandingPageView.vue'),
+    },
+    {
+        path: '/pay/:orderId',
+        name: 'checkout',
+        component: () => import('../views/CheckoutView.vue'),
     },
     {
         path: '/dashboard',

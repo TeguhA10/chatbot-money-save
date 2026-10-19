@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MidtransWebhookController;
+use App\Http\Controllers\Api\PaymentCheckoutController;
+use App\Http\Controllers\Api\SimulatorController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\VaultController;
@@ -46,6 +48,18 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/request-otp', [AuthController::class, 'requestOtp'])->name('api.auth.request-otp');
         Route::post('/verify-otp',  [AuthController::class, 'verifyOtp'])->name('api.auth.verify-otp');
+    });
+
+    // Public In-Chat Payment Checkout & Status
+    Route::prefix('payment')->group(function () {
+        Route::get('/order/{orderId}',     [PaymentCheckoutController::class, 'show'])->name('api.payment.show');
+        Route::post('/simulate/{orderId}', [PaymentCheckoutController::class, 'simulate'])->name('api.payment.simulate');
+    });
+
+    // Public Web Simulator (Interactive Demo with 3-attempt limit)
+    Route::prefix('simulator')->group(function () {
+        Route::get('/status',   [SimulatorController::class, 'status'])->name('api.simulator.status');
+        Route::post('/',        [SimulatorController::class, 'simulate'])->name('api.simulator.simulate');
     });
 
     // ---------------------------------------------------------------------------

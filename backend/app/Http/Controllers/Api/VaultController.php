@@ -35,9 +35,12 @@ class VaultController extends Controller
     {
         /** @var User $user */
         $user    = $request->user();
-        $tokenId = $user->currentAccessToken()?->id ?? 'default';
-        $unlockedKey = "vault_unlocked:{$user->jid}:{$tokenId}";
-        $isUnlocked  = (bool) Cache::get($unlockedKey, false);
+        $tokenId = $user->currentAccessToken()?->id;
+        $isUnlocked = (bool) (
+            Cache::get("vault_unlocked:{$user->jid}", false) ||
+            ($tokenId && Cache::get("vault_unlocked:{$user->jid}:{$tokenId}", false)) ||
+            Cache::get("vault_unlocked:{$user->jid}:default", false)
+        );
 
         return response()->json([
             'success' => true,
@@ -75,8 +78,12 @@ class VaultController extends Controller
             $recoveryCode = $this->pins->setup($user, $request->pin);
 
             // Auto-unlock vault for the current session upon setup
-            $tokenId = $user->currentAccessToken()?->id ?? 'default';
-            Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+            $tokenId = $user->currentAccessToken()?->id;
+            Cache::put("vault_unlocked:{$user->jid}", true, now()->addMinutes(30));
+            Cache::put("vault_unlocked:{$user->jid}:default", true, now()->addMinutes(30));
+            if ($tokenId) {
+                Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+            }
 
             return response()->json([
                 'success' => true,
@@ -164,8 +171,12 @@ class VaultController extends Controller
         Cache::forget($lockKey);
 
         // Mark unlocked for current session (30 minutes TTL)
-        $tokenId = $user->currentAccessToken()?->id ?? 'default';
-        Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+        $tokenId = $user->currentAccessToken()?->id;
+        Cache::put("vault_unlocked:{$user->jid}", true, now()->addMinutes(30));
+        Cache::put("vault_unlocked:{$user->jid}:default", true, now()->addMinutes(30));
+        if ($tokenId) {
+            Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+        }
 
         return response()->json([
             'success' => true,
@@ -184,8 +195,12 @@ class VaultController extends Controller
     {
         /** @var User $user */
         $user    = $request->user();
-        $tokenId = $user->currentAccessToken()?->id ?? 'default';
-        Cache::forget("vault_unlocked:{$user->jid}:{$tokenId}");
+        $tokenId = $user->currentAccessToken()?->id;
+        Cache::forget("vault_unlocked:{$user->jid}");
+        Cache::forget("vault_unlocked:{$user->jid}:default");
+        if ($tokenId) {
+            Cache::forget("vault_unlocked:{$user->jid}:{$tokenId}");
+        }
 
         return response()->json([
             'success' => true,
@@ -214,8 +229,12 @@ class VaultController extends Controller
             $this->pins->reset($user, strtoupper(trim($request->recovery_code)), $request->new_pin);
 
             // Re-unlock with new PIN
-            $tokenId = $user->currentAccessToken()?->id ?? 'default';
-            Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+            $tokenId = $user->currentAccessToken()?->id;
+            Cache::put("vault_unlocked:{$user->jid}", true, now()->addMinutes(30));
+            Cache::put("vault_unlocked:{$user->jid}:default", true, now()->addMinutes(30));
+            if ($tokenId) {
+                Cache::put("vault_unlocked:{$user->jid}:{$tokenId}", true, now()->addMinutes(30));
+            }
 
             return response()->json([
                 'success' => true,

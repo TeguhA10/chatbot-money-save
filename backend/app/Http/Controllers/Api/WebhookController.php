@@ -11,6 +11,7 @@ use App\Services\RecurringService;
 use App\Services\TransactionParserService;
 use App\Services\SubscriptionService;
 use App\Services\PinLifecycleService;
+use App\Services\MidtransService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -47,6 +48,7 @@ class WebhookController extends Controller
         private readonly BudgetService $budgetService,
         private readonly RecurringService $recurringService,
         private readonly InsightsService $insightsService,
+        private readonly MidtransService $midtrans,
     ) {}
 
     /**
@@ -195,7 +197,7 @@ class WebhookController extends Controller
             'status' => 'EVENT_RECEIVED',
             'queued' => true,
             'count'  => $queuedCount,
-        ], 202);
+        ], 200);
     }
 
     /**
@@ -343,12 +345,65 @@ class WebhookController extends Controller
             try { $this->pins->reset($user, $matches[1], $matches[2]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'PIN berhasil direset.']); }
             catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
         }
-        if (preg_match('/^(kuota|status langganan)$/i', $messageText)) {
-            $status=$this->subscriptions->status($user); $tail=$status['tier']==='PREMIUM' ? 'Berlaku sampai: '.$status['expires_at']?->format('d M Y') : 'Sisa kuota gratis: '.$status['remaining'].' dari 100 pesan finansial';
-            return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"Status: *{$status['tier']}*\n{$tail}"]);
+        // Subscription & Pricing — High-Converting In-Chat Checkout
+        if (preg_match('/^(?:beli\s+pro|langganan|upgrade(?:\s+pro)?|paket\s+pro|berlangganan|premium)$/i', $lowerText)) {
+            $order = $this->midtrans->createOrder($user);
+            $payUrl = $order->payment_url ?: url("/pay/{$order->order_id}");
+
+            $text  = "⭐ *HematWoy Pro — Akses Tanpa Batas*\n";
+            $text .= "───────────────────────\n";
+            $text .= "Kelola seluruh keuanganmu dengan fitur premium tanpa batasan:\n\n";
+            $text .= "✨ *Fitur Spesial Pro:*\n";
+            $text .= "• 🚀 Catat transaksi tanpa batas kuota\n";
+            $text .= "• 👛 Multi-Dompet (BCA, Mandiri, GoPay, OVO, Cash)\n";
+            $text .= "• 📊 Download Laporan Excel (.xlsx) instan\n";
+            $text .= "• 🎯 Plafon Anggaran (Budget) & Peringatan Boncos\n";
+            $text .= "• 🤖 Evaluasi & Analisis Pengeluaran Pintar\n\n";
+            $text .= "💳 *Pilihan Paket:*\n";
+            $text .= "• Paket Bulanan : *Rp25.000* / 30 hari\n";
+            $text .= "• Paket Tahunan : *Rp199.000* / tahun _(Hemat 35%)_\n\n";
+            $text .= "👉 *Klik link berikut untuk pembayaran (QRIS / GoPay / ShopeePay / VA):*\n";
+            $text .= "{$payUrl}\n\n";
+            $text .= "_Akun Pro akan otomatis aktif seketika setelah pembayaran berhasil diproses! 🚀_";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $text,
+            ]);
         }
-        if (preg_match('/^(beli pro|langganan)$/i', $messageText)) {
-            return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Paket Pro Rp25.000 / 30 hari. Hubungi endpoint pembelian untuk memperoleh Snap link pembayaran.']);
+
+        // Quota & Subscription Status
+        if (preg_match('/^(?:kuota|status\s+langganan|sisa\s+kuota|cek\s+paket|paket\s+saya)$/i', $lowerText)) {
+            $status = $this->subscriptions->status($user);
+            $isPro = $status['tier'] === 'PREMIUM';
+
+            if ($isPro) {
+                $expiry = $status['expires_at'] ? $status['expires_at']->translatedFormat('d F Y') : '-';
+                $card  = "⭐ *Status Langganan Anda*\n";
+                $card .= "───────────────────────\n";
+                $card .= "🏷️ Status Paket : *HEMATWOY PRO (Aktif)*\n";
+                $card .= "📅 Berlaku Sampai : *{$expiry}*\n";
+                $card .= "💬 Kuota Pesan : *Unlimited (Tanpa Batas)*\n\n";
+                $card .= "Terima kasih telah menjadi pelanggan setia HematWoy! 🚀";
+            } else {
+                $used = 100 - $status['remaining'];
+                $percentage = min(100, max(0, (int) round(($used / 100) * 100)));
+                $barFilled = (int) round($percentage / 5);
+                $progressBar = str_repeat('█', $barFilled) . str_repeat('░', 20 - $barFilled);
+
+                $card  = "📊 *Status Kuota Finansial*\n";
+                $card .= "───────────────────────\n";
+                $card .= "🏷️ Paket Saat Ini : *GRATIS (Freemium)*\n";
+                $card .= "💬 Sisa Kuota     : *{$status['remaining']}* dari 100 transaksi gratis\n";
+                $card .= "📈 Penggunaan     : {$progressBar} {$percentage}%\n\n";
+                $card .= "💡 *Mau catat tanpa batas & kelola banyak dompet?*\n";
+                $card .= "Ketik: `langganan` untuk upgrade ke HematWoy Pro! ⭐";
+            }
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $card,
+            ]);
         }
 
         // Link phone command: "tautkan 08xxxx" or "nohp 08xxxx"

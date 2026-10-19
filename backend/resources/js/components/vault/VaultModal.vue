@@ -1,6 +1,18 @@
 <template>
   <div v-if="isOpen" class="vault-overlay">
     <div class="vault-card" role="dialog" aria-modal="true">
+      <!-- Close Button -->
+      <button
+        v-if="mode !== 'recovery_success'"
+        type="button"
+        class="vault-modal-close"
+        @click="dismissModal"
+        title="Tutup & Tetap di Mode Sensor"
+        aria-label="Tutup"
+      >
+        ✕
+      </button>
+
       <!-- Shield Header Icon -->
       <div class="vault-icon-wrapper" :class="{ 'is-locked': mode === 'unlock', 'is-setup': mode === 'setup', 'is-success': mode === 'recovery_success' }">
         <svg v-if="mode === 'unlock'" class="vault-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -60,6 +72,13 @@
             >
               <span v-if="vaultStore.loading" class="spinner"></span>
               <span v-else>🔓 Buka Vault</span>
+            </button>
+            <button
+              type="button"
+              class="btn-dismiss-vault"
+              @click="dismissModal"
+            >
+              👁️‍🗨️ Nanti Saja (Lihat Data Tersensor)
             </button>
           </div>
 
@@ -234,15 +253,22 @@ const newlyGeneratedRecoveryCode = ref('');
 const mode = ref('unlock');
 
 const isOpen = computed(() => {
-  return vaultStore.isSetupNeeded || vaultStore.isLocked;
+  return vaultStore.isModalOpen;
 });
 
+function dismissModal() {
+  vaultStore.closeModal();
+  if (!vaultStore.isUnlocked && !vaultStore.isMasked) {
+    vaultStore.toggleMask();
+  }
+}
+
 watch(
-  () => vaultStore.pinStatus,
-  (status) => {
+  () => [vaultStore.pinStatus, vaultStore.isLocked],
+  ([status]) => {
     if (status === 'PENDING_SETUP') {
       mode.value = 'setup';
-    } else if (vaultStore.isLocked) {
+    } else if (mode.value !== 'recovery_success') {
       mode.value = 'unlock';
     }
   },
@@ -284,10 +310,17 @@ const canSubmitSetup = computed(() => {
 async function handleUnlock() {
   localError.value = '';
   try {
-    await vaultStore.unlock(pinInput.value);
-    pinInput.value = '';
-    // Reload financial data securely now that vault is open
-    await financeStore.loadAll();
+    const success = await vaultStore.unlock(pinInput.value);
+    if (success) {
+      pinInput.value = '';
+      localError.value = '';
+      vaultStore.closeModal();
+      try {
+        await financeStore.refreshAllData();
+      } catch (e) {
+        console.error('Error reloading financial data:', e);
+      }
+    }
   } catch (err) {
     localError.value = vaultStore.error || 'PIN / Passphrase tidak sesuai.';
   }
@@ -320,18 +353,29 @@ function copyRecoveryCode() {
 async function finishSetup() {
   pinInput.value = '';
   pinConfirmInput.value = '';
-  mode.value = 'unlock';
-  await financeStore.loadAll();
+  vaultStore.closeModal();
+  try {
+    await financeStore.refreshAllData();
+  } catch (e) {
+    console.error('Error reloading financial data:', e);
+  }
 }
 
 async function handleReset() {
   localError.value = '';
   try {
-    await vaultStore.reset(recoveryInput.value, pinInput.value);
-    recoveryInput.value = '';
-    pinInput.value = '';
-    mode.value = 'unlock';
-    await financeStore.loadAll();
+    const success = await vaultStore.reset(recoveryInput.value, pinInput.value);
+    if (success) {
+      recoveryInput.value = '';
+      pinInput.value = '';
+      localError.value = '';
+      vaultStore.closeModal();
+      try {
+        await financeStore.refreshAllData();
+      } catch (e) {
+        console.error('Error reloading financial data:', e);
+      }
+    }
   } catch (err) {
     localError.value = vaultStore.error || 'Recovery code tidak valid.';
   }
@@ -359,6 +403,7 @@ onMounted(() => {
 }
 
 .vault-card {
+  position: relative;
   width: 100%;
   max-width: 480px;
   background: #111827;
@@ -368,6 +413,54 @@ onMounted(() => {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
   text-align: center;
   animation: cardIn 0.25s ease-out;
+}
+
+.vault-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #9ca3af;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.vault-modal-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.btn-dismiss-vault {
+  width: 100%;
+  padding: 10px 16px;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #9ca3af;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-dismiss-vault:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 @keyframes cardIn {
