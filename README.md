@@ -1,90 +1,121 @@
-# 💰 WhatsApp Personal Finance Bot (Chatbot Money Save)
+# 💰 HematWoy — Smart Personal Finance Tracker
 
 [![Laravel 11](https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
-[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%20%7C%208.4-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://www.php.net)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Baileys WhatsApp](https://img.shields.io/badge/WhatsApp-Baileys%20Sidecar-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
-[![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![Pest PHP](https://img.shields.io/badge/Tested%20With-Pest%20PHP-00D1B2?style=for-the-badge)](https://pestphp.com/)
+[![FrankenPHP Octane](https://img.shields.io/badge/FrankenPHP-Octane%20Worker-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://frankenphp.dev/)
+[![Vue 3](https://img.shields.io/badge/Vue.js-3.5-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%7C%20PgBouncer-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![WhatsApp Gateway](https://img.shields.io/badge/WhatsApp-Baileys%20%26%20Meta%20Cloud-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
+[![Grafana k6](https://img.shields.io/badge/Load%20Tested-Grafana%20k6-7D64FF?style=for-the-badge&logo=k6&logoColor=white)](https://k6.io/)
+[![Tests Passed](https://img.shields.io/badge/Tests-144%20Passed%20(100%25)-00D1B2?style=for-the-badge&logo=pest)](https://pestphp.com/)
 
-**WhatsApp Personal Finance Bot** adalah asisten pencatat keuangan pribadi otomatis yang bekerja langsung di dalam aplikasi **WhatsApp**. Pengguna dapat mencatat pemasukan dan pengeluaran harian semudah mengirim pesan teks biasa (menggunakan bahasa percakapan sehari-hari), memantau saldo mutasi real-time, melihat riwayat transaksi, mengekspor laporan Excel (.xlsx), hingga mengelola data via REST API.
+**HematWoy** adalah platform pencatat keuangan pribadi pintar (*all-in-one financial assistant*) yang menggabungkan kemudahan **asisten percakapan WhatsApp** berbasis kecerdasan bahasa alami dengan **Web Dashboard visual modern**. 
+
+Pengguna dapat mencatat pemasukan dan pengeluaran semudah mengirim chat teks biasa, mengelola multi-dompet, menetapkan plafon anggaran (*budgeting*), memantau target tabungan (*goals*), mengekspor laporan Excel (.xlsx) otomatis, hingga melakukan pembayaran langganan Pro secara instan via QRIS dan Virtual Account.
 
 ---
 
 ## 📑 Daftar Isi
 
-1. [Fitur Utama](#-fitur-utama)
+1. [Fitur Unggulan](#-fitur-unggulan)
 2. [Arsitektur Sistem](#-arsitektur-sistem)
 3. [Struktur Direktori](#-struktur-direktori)
 4. [Prasyarat Sistem](#-prasyarat-sistem)
-5. [Panduan Instalasi](#-panduan-instalasi)
+5. [Panduan Instalasi & Setup](#-panduan-instalasi--setup)
 6. [Cara Menjalankan](#-cara-menjalankan)
-   - [Mode 1: Simulator Terminal (Tanpa WhatsApp)](#mode-1-simulator-terminal-tanpa-hp--wa)
-   - [Mode 2: Bot WhatsApp Live (Terkoneksi Penuh)](#mode-2-bot-whatsapp-live-terkoneksi-penuh)
-7. [Daftar Perintah & Contoh Penggunaan Bot](#-daftar-perintah--contoh-penggunaan-bot)
-8. [Dokumentasi REST API](#-dokumentasi-rest-api)
-9. [Automated Testing](#-automated-testing)
+   - [Mode 1: Development Lokal](#mode-1-development-lokal)
+   - [Mode 2: Production Skala Besar (Docker FrankenPHP + PgBouncer)](#mode-2-production-skala-besar-docker-compose)
+7. [Panduan Perintah WhatsApp Bot](#-panduan-perintah-whatsapp-bot)
+8. [Dokumentasi REST API v1](#-dokumentasi-rest-api-v1)
+9. [Automated Testing & Load Benchmark (k6)](#-automated-testing--load-benchmark-k6)
 10. [Konfigurasi Environment (.env)](#-konfigurasi-environment-env)
 11. [Troubleshooting & FAQ](#-troubleshooting--faq)
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Fitur Unggulan
 
-- 🧠 **Natural Language Parsing (Bahasa Indonesia)**
-  - Mendukung penulisan fleksibel: `keluar 25000 nasi padang`, `beli bensin 50rb`, `-35k parkir`.
-  - Mendukung pemasukan: `masuk 500000 gaji`, `terima 250k bonus`, `+1.5jt freelance`.
-  - Konversi otomatis satuan nominal: `k`, `rb`, `ribu`, `jt`, `juta`, pemisah titik/koma (`25.000`, `1.5jt`).
-- 💰 **ACID Ledger & Mutasi Saldo Real-Time**
-  - Setiap transaksi mencatat `balance_after` secara akurat.
-  - Perhitungan mutasi saldo anti-race condition dengan database transaction lock.
-- 📜 **Cek Riwayat & Filter Transaksi**
-  - Tampilkan riwayat: `pengeluaran hari ini`, `pengeluaran bulan ini`, `pemasukan hari ini`, `pemasukan bulan ini`.
-  - Menampilkan ID transaksi 8-karakter yang ramah di layar smartphone.
-- ✏️ **Kelola, Ubah, & Hapus Transaksi**
-  - **Ubah**: `ubah transaksi <ID> <nominal> <keterangan>` (rekalkulasi mutasi saldo otomatis).
-  - **Hapus / Void**: `hapus transaksi <ID>` (audit trail tetap tersimpan aman).
-  - **Undo Cepat**: `batal` untuk membatalkan langsung transaksi terakhir Anda.
-- 📊 **Rekap Saldo & Ringkasan Pengeluaran**
-  - Cek saldo terkini: `saldo`.
-  - Rekap statistik: `rekap hari ini` dan `rekap bulan ini` dengan rincian pengeluaran per kategori.
-- 📁 **Export Laporan Excel (.xlsx)**
-  - Ketik `export excel` untuk menerima file dokumen spreadsheet langsung di chat WhatsApp.
-  - File Excel multi-sheet dilengkapi tabel ringkasan per kategori dan mutasi transaksi lengkap.
-- 🏷️ **Kategori Otomatis & Kustom**
-  - Auto-categorization pintar berdasarkan kata kunci (cth: "nasi", "kopi" $\rightarrow$ *Makanan & Minuman*).
-  - Tambah kategori baru secara mandiri: `tambah kategori Investasi`.
-- 🛡️ **Multi-Tenant & Idempotensi Pesan**
-  - Data terisolasi ketat berdasarkan WhatsApp JID (`user_jid`).
-  - Idempotency guard via tabel `processed_messages` untuk mencegah duplikasi pemrosesan pesan dari WhatsApp.
-- 📱 **REST API & Auth OTP WhatsApp**
-  - Endpoint REST API berstandar Sanctum untuk dashboard Web (Vue/React) maupun Mobile App (React Native/Flutter).
-  - Login menggunakan verifikasi OTP 6-digit yang dikirimkan bot ke WhatsApp pengguna.
+### 🤖 1. Asisten Finansial Percakapan WhatsApp (Conversational Bot)
+- **Natural Language Parsing (Bahasa Indonesia Sehari-hari):**
+  - Pengeluaran: `keluar 25000 nasi padang`, `beli bensin 50rb via bca`, `-35k kopi susu`.
+  - Pemasukan: `masuk 5000000 gaji bulanan`, `terima 250k bonus ke mandiri`, `+1.5jt freelance`.
+  - Fleksibilitas format angka: konversi otomatis satuan `k`, `rb`, `ribu`, `jt`, `juta`, pemisah titik dan koma (`25.000`, `1,5jt`).
+- **ACID Double-Entry Ledger & Mutasi Saldo Real-Time:**
+  - Setiap mutasi mencatat snapshot saldo akhir (`balance_after`) anti-race condition dengan *database transaction lock* & *Redis atomic locks*.
+- **Koreksi & Pembatalan Transaksi Cepat:**
+  - `koreksi 35rb`: Koreksi nominal transaksi terakhir secara instan tanpa perlu repot mengetik ID.
+  - `batal`: Batalkan (*undo*) transaksi terakhir seketika dan saldo otomatis pulih.
+  - `ubah transaksi <ID> <Nominal> <Keterangan>` & `hapus transaksi <ID>`.
+
+### 👛 2. Manajemen Multi-Dompet (Multi-Wallets)
+- Buat dan pantau banyak dompet: Tunai (`Cash`), Rekening Bank (`BCA`, `Mandiri`, `BRI`), hingga e-Wallet (`GoPay`, `OVO`, `DANA`).
+- **Transfer Antar-Dompet:** `transfer 200rb dari Cash ke BCA` (otomatis menggeser saldo tanpa mempengaruhi catatan pemasukan/pengeluaran bersih).
+
+### 🎯 3. Plafon Anggaran (Budgeting) & Target Tabungan (Financial Goals)
+- **Smart Budget Limit:** `budget makan 1.5jt` — Bot otomatis memunculkan progress bar persentase sisa kuota budget saat pengeluaran dicatat.
+- **Financial Goals:** `buat target Mobil 100jt` dan catat tabungan rutin `tabung 1jt untuk Mobil via bca`.
+
+### ⏰ 4. Transaksi Rutin / Pengingat Langganan (Recurring Schedules)
+- `langganan Netflix 186rb setiap tanggal 15 via dana` — Dijadwalkan otomatis masuk pembukuan tanpa lupa.
+
+### 🌐 5. Web App Dashboard & Custom Checkout (Vue 3 + Tailwind CSS)
+- **Dashboard Visual:** Grafik arus kas bulanan, pie chart distribusi pengeluaran per kategori, dan metrik kesehatan finansial.
+- **Autentikasi OTP WhatsApp:** Login aman tanpa kata sandi rumit, kode verifikasi 6 digit dikirimkan langsung oleh bot ke nomor WhatsApp pengguna.
+- **Halaman Checkout Terintegrasi (`/pay/:orderId`):** Pembayaran langganan resmi Pro Bulanan & Tahunan via QRIS, Virtual Account bank, dan e-Wallet dengan status konfirmasi otomatis (*white-labeled*).
+
+### 🛡️ 6. Keamanan & Retensi Data Skala Jutaan Pengguna
+- **Zero-Knowledge Encryption (AES-256-GCM):** Nominal transaksi dan saldo akun dienkripsi rapat. Dilengkapi Master PIN pengaman dan Emergency Recovery Code 16-karakter.
+- **Idempotensi Pesan & Auto-Pruning:** Tabel `processed_messages` memblokir duplikasi pesan dari WhatsApp. Command `messages:prune --days=30` berjalan otomatis untuk mencegah disk database membengkak.
+- **Security Hardening:** Middleware keamanan `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options`, dan CSP.
 
 ---
 
 ## 🏗️ Arsitektur Sistem
 
-Sistem ini dirancang menggunakan arsitektur **Decoupled Sidecar Gateway**:
-
 ```mermaid
-flowchart LR
-    User([Pengguna WhatsApp]) <-->|Protokol WhatsApp| Baileys[WhatsApp Gateway\nNode.js / Baileys Sidecar]
-    Baileys <-->|HTTP POST Webhook\nx-gateway-secret| Laravel[Backend Service\nLaravel 11 REST API]
-    Laravel <--> SQLite[(SQLite Database\nACID Ledger)]
-    Laravel -.->|Generates .xlsx| ExcelExport[Maatwebsite Excel]
-    ExcelExport -.->|Direct Document File| Baileys
-```
+flowchart TD
+    subgraph Client Layer
+        WA[Pengguna WhatsApp]
+        Browser[Web Browser / Dashboard]
+    end
 
-1. **WhatsApp Gateway (`whatsapp-gateway/`)**:
-   - Layanan sidecar berbasis **Node.js + TypeScript** menggunakan pustaka `@whiskeysockets/baileys`.
-   - Menghubungkan nomor bot WhatsApp via **Pairing Code** (atau QR scan).
-   - Meneruskan pesan masuk ke Laravel Webhook dan mengantrekan pesan balasan (*outbound queue*).
-2. **Backend Engine (`backend/`)**:
-   - Dibangun dengan **Laravel 11**.
-   - `TransactionParserService`: Menganalisis pesan teks bahasa Indonesia dengan regex & intent recognition.
-   - `FinanceService`: Mengelola ACID database transaction, saldo, kategori, pembatalan, dan rekalkulasi buku kas.
-   - `ExportController` & `FinancialReportExport`: Menghasilkan file Excel multi-sheet.
+    subgraph Gateway & Ingestion
+        Baileys[WhatsApp Baileys Sidecar\nNode.js + TypeScript]
+        MetaCloud[Meta WhatsApp Cloud API]
+    end
+
+    subgraph Application Layer - Laravel Octane
+        FrankenPHP[FrankenPHP Caddy Server\nIn-Memory Workers]
+        WebhookController[Webhook & Transaction Parser]
+        REST[REST API v1 & Auth OTP]
+        QueueWorker[Laravel Queue Worker\nBackground Export & Alerts]
+    end
+
+    subgraph Data & Persistence Layer
+        PgBouncer[PgBouncer Pooler\nTransaction Mode :6432 / :6543]
+        PostgreSQL[(PostgreSQL 16 DB\nACID Ledger & Indexes)]
+        Redis[(Redis 7\nQueue, Cache, & Atomic Locks)]
+    end
+
+    subgraph Payment Provider
+        Midtrans[Payment Gateway\nQRIS / VA / e-Wallet]
+    end
+
+    WA <-->|Protokol WhatsApp| Baileys
+    WA <-->|Meta Cloud API| MetaCloud
+    Baileys <-->|HTTP POST Webhook| FrankenPHP
+    MetaCloud <-->|HTTPS Webhook| FrankenPHP
+    Browser <-->|HTTPS / REST API| FrankenPHP
+    FrankenPHP <--> REST
+    FrankenPHP <--> WebhookController
+    WebhookController <--> Redis
+    QueueWorker <--> Redis
+    FrankenPHP <--> PgBouncer
+    QueueWorker <--> PgBouncer
+    PgBouncer <--> PostgreSQL
+    Browser <-->|Snap Payment Modal| Midtrans
+    Midtrans -->|Settlement Webhook| FrankenPHP
+```
 
 ---
 
@@ -92,50 +123,63 @@ flowchart LR
 
 ```text
 chatbot-money-save/
-├── backend/                        # Service Backend Laravel 11
+├── backend/                        # Backend Engine (Laravel 11 + Octane FrankenPHP + Vue 3)
 │   ├── app/
-│   │   ├── Console/Commands/       # Artisan commands (finance:simulate)
-│   │   ├── Exports/                # Export Excel (Maatwebsite Excel)
-│   │   ├── Http/Controllers/Api/   # WebhookController, TransactionController, dsb.
-│   │   ├── Models/                 # Eloquent Models (User, Transaction, Category)
-│   │   └── Services/               # TransactionParserService, FinanceService
-│   ├── config/                     # Konfigurasi aplikasi & database
-│   ├── database/                   # Migrasi, Seeder, dan database.sqlite
-│   ├── routes/
-│   │   └── api.php                 # Route Webhook & REST API v1
-│   ├── tests/                      # Unit & Feature Test (Pest PHP / PHPUnit)
+│   │   ├── Console/Commands/       # Artisan Commands (messages:prune, finance:simulate)
+│   │   ├── Exports/                # Export Excel Multi-Sheet (Maatwebsite Excel)
+│   │   ├── Http/Controllers/Api/   # Webhook, Transaction, Wallet, Budget, Goal, Plan, Checkout
+│   │   ├── Http/Middleware/        # SecurityHeaders, AuthenticateGateway
+│   │   ├── Models/                 # User, Transaction, Wallet, Budget, Goal, Subscription, BotMenu
+│   │   └── Services/               # TransactionParser, Finance, Midtrans, Encryption, Insights
+│   ├── config/                     # Konfigurasi database, cache, octane, services
+│   ├── database/migrations/        # Schema ACID ledger, multi-dompet, dan indeks performa
+│   ├── resources/
+│   │   ├── css/                    # Tailwind CSS v4 styling
+│   │   └── js/                     # Vue 3 Single Page Application (Views, Components, Stores, Router)
+│   ├── routes/                     # api.php, web.php, console.php
+│   ├── Dockerfile                  # 3-Stage Multi-Build Produksi (Composer + Node + FrankenPHP)
+│   ├── docker-entrypoint.sh        # Entrypoint aman multi-replica & auto-cache
 │   └── composer.json
 │
-├── whatsapp-gateway/               # Sidecar Gateway WhatsApp (Baileys)
+├── whatsapp-gateway/               # Sidecar Gateway WhatsApp (Baileys Engine)
 │   ├── src/
-│   │   ├── index.ts                # Entrypoint Baileys socket & event handler
-│   │   ├── queue.ts                # Antrean pengiriman pesan keluar
-│   │   └── webhook-client.php / ts # Forwarder pesan ke backend Laravel
-│   ├── package.json
-│   └── tsconfig.json
+│   │   ├── index.ts                # Socket handler & koneksi pairing WhatsApp
+│   │   └── queue.ts                # Outbound rate-limiting queue
+│   ├── Dockerfile                  # Container gateway Baileys terisolasi
+│   └── package.json
 │
-├── specs/                          # Dokumentasi Spesifikasi Fitur & Data Model
-│   └── 001-wa-finance-tracker/
-└── README.md                       # Dokumentasi Utama Proyek
+├── load-tests/                     # Skenario Uji Beban & Performa Grafana k6
+│   ├── api-benchmark.js            # Uji endpoint REST API (Health, Plans, Menus)
+│   ├── webhook-benchmark.js        # Simulasi lonjakan ribuan chat WhatsApp masuk
+│   └── quick-test.js               # Pengujian latensi cepat
+│
+├── k8s/                            # Manifest Produksi Skala Raksasa (Kubernetes)
+│   ├── hpa.yaml                    # Horizontal Pod Autoscaler (Auto-scale hingga 100 worker)
+│   ├── deployment-ingress-api.yaml # Pod API Webhook Octane
+│   ├── deployment-worker.yaml      # Pod Queue Worker
+│   └── service.yaml                # Cloud Load Balancer
+│
+├── docker-compose.yml              # Orkestrasi Full-Stack (Backend, Gateway, Postgres, Redis, PgBouncer)
+├── docker-compose.prod.yml         # Konfigurasi resource limit produksi
+└── README.md                       # Dokumentasi Resmi Proyek
 ```
 
 ---
 
 ## ⚙️ Prasyarat Sistem
 
-Pastikan perangkat Anda telah terpasang kebutuhan berikut:
-
-| Perangkat Lunak | Versi Minimal | Keterangan |
+| Komponen | Kebutuhan Minimum | Rekomendasi Produksi |
 | :--- | :--- | :--- |
-| **PHP** | `^8.2` atau `8.4+` | Ekstensi wajib: `pdo_sqlite`, `mbstring`, `fileinfo`, `zip`, `gd` |
-| **Composer** | `2.x+` | Package manager dependensi PHP |
-| **Node.js** | `18.x+` atau `22.x+` | Runtime untuk gateway WhatsApp |
-| **npm** / **pnpm** | Terpasang | Package manager Node.js |
-| **SQLite** | Bawaan PHP | Zero-configuration database lokal |
+| **PHP** | `^8.2` atau `8.3 / 8.4` | `PHP 8.3` (Ekstensi: `pdo_pgsql`, `redis`, `opcache`, `bcmath`, `pcntl`) |
+| **Runtime Server** | `php artisan serve` (Dev) | **FrankenPHP Octane Worker Mode** |
+| **Database** | SQLite (Uji Coba Lokal) | **PostgreSQL 16 + PgBouncer (Transaction Pooling)** |
+| **Cache & Queue** | File / Database driver | **Redis 7 (AOF Enabled)** |
+| **Node.js** | `v20.x+` atau `v22.x+` | `Node.js 22 Alpine` & `Yarn` |
+| **Container Engine** | Docker Desktop | **Docker Engine 26+ & Docker Compose v2** |
 
 ---
 
-## 🚀 Panduan Instalasi
+## 🚀 Panduan Instalasi & Setup
 
 ### 1. Clone Repositori
 ```bash
@@ -143,268 +187,202 @@ git clone https://github.com/TeguhA10/chatbot-money-save.git
 cd chatbot-money-save
 ```
 
-### 2. Setup Backend Laravel
-Masuk ke direktori `backend/` dan siapkan environment:
+### 2. Setup Backend Laravel & Frontend
 ```bash
 cd backend
-
-# Salin konfigurasi environment
 cp .env.example .env
 
-# Pasang dependensi PHP
+# Pasang dependensi PHP & Node.js
 composer install
+yarn install
 
-# Buat Application Key
+# Generate application security key
 php artisan key:generate
 
-# Buat file database SQLite (Windows PowerShell)
-if (!(Test-Path "database\database.sqlite")) { New-Item -Path "database\database.sqlite" -ItemType File }
-# (atau di Linux/macOS: touch database/database.sqlite)
-
-# Jalankan migrasi dan seeder kategori default
+# Konfigurasikan koneksi database di .env (PostgreSQL atau SQLite)
 php artisan migrate --seed
+
+# Kompilasi frontend asset untuk produksi
+yarn build
 ```
 
-### 3. Setup WhatsApp Gateway (Baileys)
-Buka terminal baru, masuk ke direktori `whatsapp-gateway/`:
+### 3. Setup WhatsApp Gateway (Baileys Sidecar)
 ```bash
-cd whatsapp-gateway
-
-# Salin konfigurasi environment
+cd ../whatsapp-gateway
 cp .env.example .env
-
-# Pasang dependensi Node.js
 npm install
+npm run build
 ```
 
 ---
 
 ## ▶️ Cara Menjalankan
 
-### Mode 1: Simulator Terminal (Tanpa HP / WA)
-Anda dapat menguji seluruh fungsi bot, parser nominal bahasa Indonesia, database, hingga ekspor Excel secara 100% offline langsung di terminal Anda:
+### Mode 1: Development Lokal
+
+Buka 3 tab terminal:
+
+* **Terminal 1 (Backend Server):**
+  ```bash
+  cd backend
+  php artisan serve --port 8000
+  ```
+* **Terminal 2 (Frontend Dev HMR - Opsional):**
+  ```bash
+  cd backend
+  yarn dev
+  ```
+* **Terminal 3 (WhatsApp Gateway):**
+  ```bash
+  cd whatsapp-gateway
+  npm run dev
+  ```
+  *Terminal akan menampilkan **Kode Pairing 8-Karakter**. Buka WhatsApp di smartphone Anda $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ **Tautkan dengan nomor telepon** $\rightarrow$ Masukkan kode tersebut.*
+
+---
+
+### Mode 2: Production Skala Besar (Docker Compose)
+
+Untuk menjalankan seluruh stack (FrankenPHP Octane + Queue Worker + PostgreSQL + PgBouncer Pooler + Redis + WhatsApp Gateway) dalam container terisolasi:
 
 ```bash
-cd backend
-php artisan finance:simulate
-```
+# Jalankan seluruh stack dengan alokasi resource produksi
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-**Contoh Interaksi di Terminal**:
-```text
-======================================================
-  SIMULATOR WHATSAPP BOT CATATAN KEUANGAN (LARAVEL 11)
-======================================================
-Ketik pesan transaksi Anda (atau 'exit' untuk keluar).
-
-Pesan: masuk 1.5jt gaji bulanan
-🤖 Bot:
-✅ *Pemasukan Berhasil Dicatat*
-━━━━━━━━━━━━━━━━━
-📝 Keterangan: gaji bulanan
-🏷️ Kategori: 💰 Gaji & Pendapatan
-💵 Pemasukan: Rp 1.500.000
-━━━━━━━━━━━━━━━━━
-💰 Saldo Sekarang: Rp 1.500.000
-
-Pesan: keluar 35k kopi susu
-🤖 Bot:
-✅ *Pengeluaran Berhasil Dicatat*
-━━━━━━━━━━━━━━━━━
-📝 Keterangan: kopi susu
-🏷️ Kategori: 🍜 Makanan & Minuman
-💵 Pengeluaran: Rp 35.000
-━━━━━━━━━━━━━━━━━
-💰 Sisa Saldo: Rp 1.465.000
-
-Pesan: saldo
-🤖 Bot:
-💰 Saldo Anda saat ini: *Rp 1.465.000*
+# Pantau log server
+docker compose logs -f backend
 ```
 
 ---
 
-### Mode 2: Bot WhatsApp Live (Terkoneksi Penuh)
+## 📖 Panduan Perintah WhatsApp Bot
 
-Untuk menghubungkan bot ke nomor WhatsApp sungguhan:
+Kirimkan pesan berikut langsung ke nomor WhatsApp bot:
 
-#### Langkah 1: Jalankan Backend Server
-Di Terminal 1:
-```bash
-cd backend
-php artisan serve
-```
-*Backend berjalan pada `http://127.0.0.1:8000`.*
-
-#### Langkah 2: Konfigurasi Pairing Phone di Gateway
-Buka file `whatsapp-gateway/.env`, masukkan nomor telepon WhatsApp bot Anda (format internasional tanpa tanda `+`, contoh `6281234567890`):
-```env
-PORT=3000
-LARAVEL_WEBHOOK_URL=http://127.0.0.1:8000/api/webhook/whatsapp
-GATEWAY_WEBHOOK_SECRET=local_dev_secret_12345
-PAIRING_PHONE_NUMBER=6281234567890
-```
-*(Catatan: Jika `PAIRING_PHONE_NUMBER` dikosongkan, gateway akan memunculkan QR Code di terminal).*
-
-#### Langkah 3: Jalankan WhatsApp Gateway
-Di Terminal 2:
-```bash
-cd whatsapp-gateway
-npm run dev
-```
-
-1. Terminal akan menampilkan **8 karakter kode pairing**:
-   ```text
-   =================================================
-   📲 KODE PAIRING WHATSAPP: ABC1-234D
-   Masukkan kode ini di WhatsApp HP kamu:
-   Perangkat Tertaut > Tautkan dengan nomor telepon
-   =================================================
-   ```
-2. Di WhatsApp HP Anda: Buka **Pengaturan / Titik Tiga** $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ **Tautkan Perangkat** $\rightarrow$ Pilih **Tautkan dengan nomor telepon saja**, lalu ketikkan 8 karakter kode pairing tersebut.
-3. Setelah tertaut, bot WhatsApp Anda resmi online dan siap melayani pesan! 🎉
-
----
-
-## 📖 Daftar Perintah & Contoh Penggunaan Bot
-
-Kirimkan format pesan berikut ke nomor WhatsApp bot:
-
-### 1. Mencatat Transaksi
-| Kebutuhan | Format / Contoh Pesan | Keterangan |
+### 1. 💸 Catat Pengeluaran & Pemasukan
+| Jenis | Contoh Pesan | Keterangan |
 | :--- | :--- | :--- |
-| **Pengeluaran** | `keluar 25000 nasi padang`<br>`beli bensin 50rb`<br>`bayar listrik 150.000`<br>`-35k parkir mall` | Mengurangi saldo, kategori ditentukan otomatis sesuai kata kunci |
-| **Pemasukan** | `masuk 5000000 gaji bulanan`<br>`terima 250k bonus proyek`<br>`+1.5jt freelance website` | Menambah saldo dompet |
+| **Pengeluaran** | `keluar 25000 nasi padang`<br>`beli bensin 50rb via bca`<br>`bayar listrik 150.000`<br>`-35k parkir mall` | Mengurangi saldo dompet & mencocokkan kategori otomatis |
+| **Pemasukan** | `masuk 5000000 gaji bulanan`<br>`terima 250k bonus ke mandiri`<br>`+1.5jt freelance website` | Menambah saldo dompet tertuju |
+| **Koreksi Instan** | `koreksi 30rb` | Mengubah nominal transaksi terakhir secara langsung |
+| **Batal (Undo)** | `batal` | Membatalkan transaksi terakhir & saldo otomatis kembali |
 
-> **Format Nominal yang Didukung:**
-> - Angka polos: `25000`
-> - Format titik/koma: `25.000` atau `25,000`
-> - Satuan k / rb / ribu: `25k`, `50rb`, `100ribu`
-> - Satuan juta: `1.5jt`, `2juta`, `5jt`
-
----
-
-### 2. Memeriksa Riwayat & Saldo
-| Perintah | Deskripsi |
-| :--- | :--- |
-| `saldo` | Menampilkan total saldo aktif Anda saat ini |
-| `pengeluaran hari ini` | Daftar 10 transaksi pengeluaran pada hari ini lengkap dengan ID |
-| `pengeluaran bulan ini` | Daftar transaksi pengeluaran sepanjang bulan berjalan |
-| `pemasukan hari ini` | Daftar transaksi pemasukan pada hari ini |
-| `pemasukan bulan ini` | Daftar transaksi pemasukan sepanjang bulan berjalan |
-| `rekap hari ini` | Ringkasan total pengeluaran vs pemasukan hari ini per kategori |
-| `rekap bulan ini` | Laporan komprehensif pemasukan, pengeluaran, & persentase kategori |
-
----
-
-### 3. Mengelola Transaksi (Ubah, Hapus, Undo)
+### 2. 👛 Dompet & Saldo
 | Perintah | Contoh | Keterangan |
 | :--- | :--- | :--- |
-| `ubah transaksi <ID> <Nominal> <Keterangan>` | `ubah transaksi a82f31c2 75000 makan siang keluarga` | Mengubah transaksi lama dengan ID 8-karakter & otomatis merekakulasi saldo |
-| `hapus transaksi <ID>` | `hapus transaksi a82f31c2` | Membatalkan/menghapus transaksi berdasarkan ID & mengembalikan saldo |
-| `batal` | `batal` | Membatalkan instan (undo) 1 transaksi terakhir yang baru saja diinput |
+| `saldo` | `saldo` | Menampilkan total saldo dan rincian per dompet aktif |
+| `tambah dompet <nama> [saldo <nominal>]` | `tambah dompet BCA saldo 1jt` | Membuat dompet baru dengan saldo awal |
+| `transfer <nominal> dari <asal> ke <tujuan>` | `transfer 200rb dari Cash ke BCA` | Mutasi saldo antar-dompet tanpa mengubah income/expense |
 
----
-
-### 4. Ekspor Data & Kategori
+### 3. 🎯 Plafon Anggaran (Budgets) & Target Tabungan (Goals)
 | Perintah | Contoh | Keterangan |
 | :--- | :--- | :--- |
-| `export excel` | `export excel` | Bot mengompilasi data dan mengirim file `.xlsx` siap download |
-| `kategori` | `kategori` | Menampilkan seluruh kategori pengeluaran & pemasukan aktif |
-| `tambah kategori <Nama>` | `tambah kategori Investasi` | Mendaftarkan kategori kustom baru untuk akun Anda |
-| `bantuan` / `menu` | `bantuan` | Menampilkan panduan lengkap dan cheat sheet perintah |
+| `budget <kategori> <nominal>` | `budget makan 1.5jt` | Menetapkan batas maksimal pengeluaran per kategori per bulan |
+| `cek budget` | `cek budget` | Menampilkan progress bar pemakaian seluruh kategori anggaran |
+| `buat target <nama> <nominal>` | `buat target Liburan 5jt` | Membuat target capaian tabungan baru |
+| `tabung <nominal> untuk <nama> [via <dompet>]` | `tabung 500rb untuk Liburan via bca` | Menyisihkan dana tabungan ke target tertentu |
+| `daftar target` | `daftar target` | Memeriksa persentase pencapaian seluruh target tabungan |
+
+### 4. ⏰ Langganan Rutin & Laporan Keuangan
+| Perintah | Contoh | Keterangan |
+| :--- | :--- | :--- |
+| `langganan <nama> <nominal> setiap tanggal <tgl>` | `langganan Spotify 55rb setiap tanggal 10` | Mencatat transaksi otomatis bulanan |
+| `rekap hari ini` / `rekap bulan ini` | `rekap bulan ini` | Ringkasan visual pemasukan, pengeluaran, dan persentase |
+| `export excel` | `export excel` | Bot mengompilasi dan mengirimkan dokumen `.xlsx` multi-sheet |
+| `web` | `web` | Mengirimkan tautan langsung ke Web App Dashboard |
+| `menu` / `bantuan` | `menu` | Menampilkan daftar panduan perintah terorganisir |
 
 ---
 
-## 🔌 Dokumentasi REST API
+## 🔌 Dokumentasi REST API v1
 
-Semua endpoint berawalan prefix `/api/v1`. Endpoint terautentikasi membutuhkan header `Authorization: Bearer <sanctum_token>`.
+Seluruh endpoint publik berawalan prefix `/api/v1`. Endpoint terautentikasi membutuhkan header `Authorization: Bearer <sanctum_token>`.
 
-### Authentication (OTP WhatsApp)
-- `POST /api/v1/auth/request-otp`
-  - Body: `{"phone": "6281234567890"}`
-  - *Bot mengirimkan 6 digit OTP ke WhatsApp nomor tersebut.*
-- `POST /api/v1/auth/verify-otp`
-  - Body: `{"phone": "6281234567890", "otp": "123456"}`
-  - Response: `{"token": "1|sanctum_token_here...", "user": {...}}`
+### Authentication (WhatsApp OTP)
+* `POST /api/v1/auth/request-otp` — Mengirim kode OTP 6 digit ke nomor WhatsApp pengguna.
+* `POST /api/v1/auth/verify-otp` — Verifikasi OTP dan mendapatkan personal access token Sanctum.
 
-### Profil & Transaksi
-- `GET /api/v1/profile`: Mendapatkan data profil dan saldo saat ini.
-- `GET /api/v1/transactions`: Mengambil daftar riwayat transaksi (mendukung filter `type`, `start_date`, `end_date`, `page`).
-- `POST /api/v1/transactions`: Tambah transaksi manual via JSON API.
-- `DELETE /api/v1/transactions/{id}`: Hapus/void transaksi.
+### Data Keuangan & Analisis
+* `GET /api/v1/profile` — Mendapatkan profil pengguna, tier langganan, dan saldo konsolidasi.
+* `GET /api/v1/transactions` — Mengambil riwayat transaksi (mendukung filter tanggal, tipe, kategori, dompet).
+* `POST /api/v1/transactions` — Menambahkan catatan transaksi via API.
+* `GET /api/v1/wallets` & `POST /api/v1/wallets` — Mengelola dompet dan saldo.
+* `POST /api/v1/wallets/transfer` — Eksekusi transfer saldo antar-dompet.
+* `GET /api/v1/budgets` & `POST /api/v1/budgets` — Mengatur limit plafon pengeluaran.
+* `GET /api/v1/goals` & `POST /api/v1/goals` — Mengelola target tabungan.
+* `GET /api/v1/analytics/summary` — Ringkasan metrik kesehatan arus kas bulanan.
+* `GET /api/v1/export/excel` — Mengunduh file spreadsheet `.xlsx`.
 
-### Kategori & Analisis
-- `GET /api/v1/categories`: Daftar kategori bawaan dan milik user.
-- `POST /api/v1/categories`: Tambah kategori kustom.
-- `GET /api/v1/analytics/summary`: Ringkasan total income, expense, net savings, dan rasio tabungan.
-- `GET /api/v1/analytics/category-breakdown`: Persentase dan nominal per kategori.
-- `GET /api/v1/analytics/monthly-trend`: Tren keuangan 6 bulan terakhir.
-- `GET /api/v1/export/excel`: Mengunduh file laporan Excel.
+### Monetisasi & Checkout Pembayaran
+* `GET /api/v1/plans` — Daftar paket langganan aktif (Bulanan & Tahunan).
+* `GET /api/v1/payment/checkout/{order_id}` — Verifikasi status pembayaran order secara real-time.
+* `POST /api/webhook/midtrans` — Webhook otomatis verifikasi signature SHA512 aktivasi paket Pro.
 
 ---
 
-## 🧪 Automated Testing
+## 🧪 Automated Testing & Load Benchmark (k6)
 
-Proyek ini telah dilengkapi **68+ Automated Tests** (Unit & Feature Test) menggunakan **Pest PHP**:
+### 1. Automated Feature & Unit Tests (Pest PHP)
+Sistem memiliki cakupan **144 Automated Tests (100% Lulus)**:
 
 ```bash
 cd backend
 
-# Menjalankan seluruh test suite
+# Menjalankan seluruh 144 automated tests
 php artisan test
 
-# Menguji khusus parser bahasa Indonesia
-php artisan test tests/Unit/ParserServiceTest.php
+# Menjalankan pengujian spesifik webhook
+php artisan test --filter=WebhookTest
+```
 
-# Menguji integritas transaksi & mutasi saldo ACID
-php artisan test tests/Feature/FinanceServiceTest.php
+### 2. Stress & Performance Testing (Grafana k6)
+Pengujian beban performa concurrency tinggi telah disiapkan di folder `load-tests/`:
 
-# Menguji ekspor dokumen Excel
-php artisan test tests/Feature/ExcelExportTest.php
+```bash
+# Menjalankan uji performa endpoint REST API publik (Health, Plans, Menus):
+k6 run load-tests/api-benchmark.js
 
-# Menguji endpoint Webhook Baileys
-php artisan test tests/Feature/WebhookTest.php
+# Menjalankan simulasi banjir ratusan chat transaksi WhatsApp:
+k6 run load-tests/webhook-benchmark.js
+
+# Menjalankan uji ke alamat remote/domain produksi:
+k6 run -e BASE_URL=https://domain-anda.com load-tests/api-benchmark.js
 ```
 
 ---
 
 ## ⚙️ Konfigurasi Environment (.env)
 
-### `backend/.env`
-| Variabel | Default | Keterangan |
+| Variabel | Penjelasan | Contoh Nilai |
 | :--- | :--- | :--- |
-| `APP_URL` | `http://localhost:8000` | URL root backend Laravel |
-| `DB_CONNECTION` | `sqlite` | Koneksi database default |
-| `DB_DATABASE` | `database/database.sqlite` | Path database SQLite |
-| `GATEWAY_WEBHOOK_SECRET` | `change_me_in_production` | Secret token autentikasi webhook dari gateway |
-
-### `whatsapp-gateway/.env`
-| Variabel | Default | Keterangan |
-| :--- | :--- | :--- |
-| `PORT` | `3000` | Port sidecar gateway |
-| `LARAVEL_WEBHOOK_URL` | `http://127.0.0.1:8000/api/webhook/whatsapp` | URL endpoint Webhook Laravel |
-| `GATEWAY_WEBHOOK_SECRET` | `change_me_in_production` | Secret token (harus sama dengan backend) |
-| `PAIRING_PHONE_NUMBER` | *(kosong)* | Nomor HP WhatsApp bot untuk meminta pairing code |
+| `APP_ENV` | Mode lingkungan aplikasi | `production` / `local` |
+| `OCTANE_SERVER` | Engine high-performance server | `frankenphp` |
+| `DB_CONNECTION` | Driver database | `pgsql` / `sqlite` |
+| `DB_HOST` | Host database (disarankan pooler) | `pgbouncer` atau host Supabase Pooler |
+| `DB_PORT` | Port database | `6432` (PgBouncer) / `6543` / `5432` |
+| `CACHE_STORE` | Driver cache sistem | `redis` |
+| `QUEUE_CONNECTION` | Antrean proses background | `redis` |
+| `GATEWAY_WEBHOOK_SECRET`| Token keamanan gateway sidecar | `string_acak_rahasia_32_karakter` |
+| `MIDTRANS_SERVER_KEY` | Server Key resmi Midtrans | `Mid-server-xxxxxxxxxxxx` |
+| `MIDTRANS_IS_PRODUCTION`| Status environment pembayaran | `true` / `false` |
+| `WHATSAPP_PHONE_NUMBER_ID` | ID nomor Meta Cloud API (jika pakai Cloud API) | `1329679493558003` |
 
 ---
 
 ## 💡 Troubleshooting & FAQ
 
-### 1. Bagaimana jika sesi WhatsApp terputus atau ingin ganti nomor?
-Hapus folder sesi autentikasi Baileys lalu jalankan ulang gateway:
-```bash
-rm -rf whatsapp-gateway/auth_info_baileys
-cd whatsapp-gateway && npm run dev
-```
+### 1. Mengapa pesan `set pin` muncul saat transaksi pertama?
+HematWoy menerapkan arsitektur **Zero-Knowledge Encryption (AES-256-GCM)** untuk melindungi privasi data finansial Anda dari kebocoran server. Sebelum transaksi pertama tercatat, pengguna cukup mengetik `set pin 123456` (minimal 6 karakter, bebas angka atau huruf). Bot akan memberikan **Recovery Code 16-karakter** yang wajib disimpan sebagai kunci darurat.
 
-### 2. Apakah bot bisa digunakan oleh banyak orang sekaligus?
-**Bisa.** Arsitektur bot mengisolasi saldo, kategori, dan mutasi berdasarkan WhatsApp JID unik (`user_jid`). Data antar pengguna tidak akan pernah tercampur. Untuk rencana pengembangan menuju skala besar (>1.000.000 pengguna bersamaan), silakan pelajari dokumen [SCALABILITY_ROADMAP.md](SCALABILITY_ROADMAP.md).
+### 2. Bagaimana cara kerja Transaction Pooler (PgBouncer)?
+Dalam arsitektur produksi jutaan pengguna, koneksi database PostgreSQL tidak ditahan oleh satu client. PgBouncer di port `6432` bertindak sebagai gerbang: ribuan request konkuren dilayani bergantian secara cepat (*transaction-level pooling*), menjaga penggunaan RAM server tetap rendah dan mencegah error *"Too many connections"*.
 
-### 3. Mengapa ekspor Excel tidak terkirim di WhatsApp?
-Pastikan `APP_URL` di `backend/.env` dapat diakses oleh gateway. Jika menggunakan IP lokal atau ngrok untuk testing publik, pastikan path file dokumen diakses via URL yang valid.
+### 3. Mengapa tampilan web sempat blank putih saat dibuka lewat ngrok?
+Browser modern menerapkan aturan keamanan **Private Network Access (PNA)** yang melarang website HTTPS publik memuat aset dev server lokal `http://[::1]:5173`. Sistem ini telah dilengkapi proteksi otomatis di `AppServiceProvider`: ketika diakses via ngrok/domain publik, framework otomatis menyajikan aset build resmi dari domain yang sama tanpa memicu blokir CORS.
 
 ---
 
 ## 📄 Lisensi
 
-Proyek ini dilisensikan di bawah lisensi open-source [MIT License](LICENSE).
+Proyek ini dilisensikan di bawah lisensi resmi [MIT License](LICENSE).
+Hak Cipta © 2026 **HematWoy Team**. Seluruh hak cipta dilindungi undang-undang.
