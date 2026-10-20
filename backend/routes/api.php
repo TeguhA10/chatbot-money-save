@@ -3,12 +3,14 @@
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BudgetController;
+use App\Http\Controllers\Api\BotMenuController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MidtransWebhookController;
 use App\Http\Controllers\Api\PaymentCheckoutController;
+use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\SimulatorController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TransactionController;
@@ -62,6 +64,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::post('/',        [SimulatorController::class, 'simulate'])->name('api.simulator.simulate');
     });
 
+    // Public Dynamic Subscription Plans & Bot Menus
+    Route::get('/plans',     [PlanController::class, 'index'])->name('api.plans.index');
+    Route::get('/bot-menus', [BotMenuController::class, 'index'])->name('api.bot-menus.index');
+
     // ---------------------------------------------------------------------------
     // Authenticated Routes — Sanctum token required
     // ---------------------------------------------------------------------------
@@ -110,6 +116,12 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::get('/analytics/summary',            [AnalyticsController::class, 'summary'])->name('api.analytics.summary');
         Route::get('/analytics/category-breakdown', [AnalyticsController::class, 'categoryBreakdown'])->name('api.analytics.category-breakdown');
         Route::get('/analytics/monthly-trend',      [AnalyticsController::class, 'monthlyTrend'])->name('api.analytics.monthly-trend');
+
+        // Subscription & Web Upgrade
+        Route::prefix('subscription')->group(function () {
+            Route::get('/status',        [SubscriptionController::class, 'status'])->name('api.subscription.status');
+            Route::post('/create-order', [SubscriptionController::class, 'createOrder'])->name('api.subscription.create-order');
+        });
     });
 
     // Excel Export via Temporary Signed URL with unique single-use export_id

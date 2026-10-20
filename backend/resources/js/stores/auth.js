@@ -12,12 +12,22 @@ export const useAuthStore = defineStore('auth', {
                 return null;
             }
         })(),
+        subscription: null,
         loading: false,
         error: null,
     }),
 
     getters: {
         isAuthenticated: (state) => !!state.token,
+        isPro: (state) => {
+            if (state.subscription?.is_pro) return true;
+            if (state.user?.is_pro === true) return true;
+            if (state.user?.tier === 'PREMIUM') {
+                if (!state.user.subscription_expires_at) return true;
+                return new Date(state.user.subscription_expires_at) > new Date();
+            }
+            return false;
+        },
     },
 
     actions: {
@@ -62,6 +72,18 @@ export const useAuthStore = defineStore('auth', {
                 localStorage.setItem('user', JSON.stringify(this.user));
             } catch (err) {
                 console.error('Failed to fetch profile', err);
+            }
+        },
+
+        async fetchSubscription() {
+            if (!this.token) return null;
+            try {
+                const res = await api.get('/subscription/status');
+                this.subscription = res.data.data;
+                return this.subscription;
+            } catch (err) {
+                console.error('Failed to fetch subscription status', err);
+                return null;
             }
         },
 

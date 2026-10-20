@@ -14,7 +14,7 @@ export const useVaultStore = defineStore('vault', {
         cooldownSeconds: 0,
         cooldownTimer: null,
         inactivityTimer: null,
-        isModalDismissed: false,
+        isModalDismissed: true,
         forceShowModal: false,
     }),
 
@@ -22,6 +22,8 @@ export const useVaultStore = defineStore('vault', {
         isLocked: (state) => !state.isUnlocked,
         isSetupNeeded: (state) => state.pinStatus === 'PENDING_SETUP',
         isModalOpen: (state) => {
+            const token = localStorage.getItem('token');
+            if (!token) return false;
             if (state.forceShowModal) return true;
             if (state.isUnlocked) return false;
             if (state.isModalDismissed) return false;
@@ -41,6 +43,8 @@ export const useVaultStore = defineStore('vault', {
         },
 
         async fetchStatus() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
             try {
                 const res = await api.get('/vault/status');
                 if (res.data.success) {
@@ -51,6 +55,8 @@ export const useVaultStore = defineStore('vault', {
                         this.isModalDismissed = true;
                         this.forceShowModal = false;
                         this.resetInactivityTimer();
+                    } else if (this.isSetupNeeded) {
+                        this.isModalDismissed = false;
                     }
                 }
             } catch (err) {

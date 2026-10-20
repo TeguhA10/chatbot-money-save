@@ -210,11 +210,14 @@ class AuthController extends Controller
             'data'    => [
                 'token' => $token,
                 'user'  => [
-                    'jid'             => $user->jid,
-                    'phone'           => $phone,
-                    'display_name'    => $user->display_name ?: $phone,
-                    'name'            => $user->display_name ?: $phone,
-                    'current_balance' => $user->current_balance,
+                    'jid'                     => $user->jid,
+                    'phone'                   => $phone,
+                    'display_name'            => $user->display_name ?: $phone,
+                    'name'                    => $user->display_name ?: $phone,
+                    'current_balance'         => $user->current_balance,
+                    'tier'                    => $user->tier,
+                    'is_pro'                  => $user->hasActivePremium(),
+                    'subscription_expires_at' => $user->subscription_expires_at?->toISOString(),
                 ],
             ],
         ]);
@@ -248,10 +251,14 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'jid'             => $user->jid,
-                'display_name'    => $user->display_name,
-                'current_balance' => $user->current_balance,
-                'created_at'      => $user->created_at?->toISOString(),
+                'jid'                     => $user->jid,
+                'phone'                   => $user->phone_number ?: str_replace('@s.whatsapp.net', '', $user->jid),
+                'display_name'            => $user->display_name,
+                'current_balance'         => $user->current_balance,
+                'tier'                    => $user->tier,
+                'is_pro'                  => $user->hasActivePremium(),
+                'subscription_expires_at' => $user->subscription_expires_at?->toISOString(),
+                'created_at'              => $user->created_at?->toISOString(),
             ],
         ]);
     }

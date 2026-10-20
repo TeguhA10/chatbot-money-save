@@ -137,39 +137,23 @@
 
         <!-- Checkout Buttons -->
         <div class="pt-3 space-y-3">
-          <!-- Primary Midtrans Snap Button (If Snap Token Available) -->
+          <!-- Primary Payment Button -->
           <button
             v-if="order.snap_token"
             @click="openSnapPopup"
             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2"
           >
-            <span>💳 Bayar Sekarang via Midtrans</span>
+            <span>💳 Bayar Sekarang (Pilih QRIS / VA / e-Wallet)</span>
           </button>
 
-          <!-- Direct Payment Redirect URL (Fallback) -->
+          <!-- Direct Payment Fallback -->
           <a
-            v-else-if="order.payment_url && order.payment_url.includes('midtrans.com')"
+            v-else-if="order.payment_url"
             :href="order.payment_url"
             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition flex items-center justify-center gap-2"
           >
-            <span>💳 Buka Halaman Pembayaran Midtrans</span>
+            <span>💳 Lanjutkan Pembayaran</span>
           </a>
-
-          <!-- Instant Simulation Button for Sandbox/Demo Testing -->
-          <div class="pt-2 border-t border-slate-800">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-[11px] text-slate-400">Metode Pengujian / Sandbox:</span>
-              <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">Dev & Demo</span>
-            </div>
-            <button
-              @click="simulatePayment"
-              :disabled="simulating"
-              class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <span v-if="simulating" class="w-3.5 h-3.5 border-2 border-slate-200 border-t-transparent rounded-full animate-spin"></span>
-              <span>⚡ Konfirmasi Pembayaran Instan (Simulasi QRIS)</span>
-            </button>
-          </div>
         </div>
 
         <!-- Trust Badges -->
@@ -276,7 +260,7 @@ async function simulatePayment() {
     const res = await axios.post(`/api/v1/payment/simulate/${orderId}`);
     order.value = res.data.order;
   } catch (err) {
-    alert(err.response?.data?.error || 'Gagal melakukan simulasi pembayaran.');
+    alert(err.response?.data?.error || 'Gagal memproses pembayaran. Silakan coba lagi.');
   } finally {
     simulating.value = false;
   }

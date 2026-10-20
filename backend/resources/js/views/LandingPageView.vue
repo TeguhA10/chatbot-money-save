@@ -27,32 +27,33 @@
           <a href="#faq" class="hover:text-emerald-400 transition">FAQ</a>
         </div>
 
-        <!-- Action CTAs -->
-        <div class="flex items-center gap-3">
-          <!-- Auth Dynamic Button: Login if guest, Dashboard if authenticated -->
-          <router-link
-            v-if="!authStore.isAuthenticated"
-            to="/login"
-            class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition"
+        <!-- Action CTAs: Dashboard Direct Access & WhatsApp Button -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Dashboard Direct Button -->
+          <button
+            type="button"
+            @click="handleDashboardClick"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 text-slate-200 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-950/40 hover:shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
           >
-            Login
-          </router-link>
-
-          <router-link
-            v-else
-            to="/dashboard"
-            class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5"
-          >
+            <span class="text-emerald-400 group-hover:scale-110 transition-transform">📊</span>
             <span>Dashboard</span>
-            <span>&rarr;</span>
-          </router-link>
+            <span
+              v-if="authStore.isAuthenticated && authStore.isPro"
+              class="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
+            >
+              PRO
+            </span>
+          </button>
 
+          <!-- WhatsApp Chat Button -->
           <a
             :href="whatsappDirectUrl"
             target="_blank"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 hover:opacity-95 transition cursor-pointer"
+            class="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
           >
-            <span>💬 Chat WhatsApp</span>
+            <span>💬</span>
+            <span class="hidden sm:inline">Chat</span>
+            <span>WhatsApp</span>
           </a>
         </div>
       </div>
@@ -122,10 +123,10 @@
     <!-- SECTION 2: LIVE SIMULATOR -->
     <section id="simulator" class="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       <div class="text-center mb-8">
-        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Simulasi Interaktif Real-Time</span>
-        <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Coba Langsung Respon Asli Bot WhatsApp</h2>
+        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Uji Coba Interaktif</span>
+        <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Coba Langsung Respon Cerdas Bot WhatsApp</h2>
         <p class="text-xs sm:text-sm text-slate-400 mt-2">
-          Simulator ini memproses input menggunakan engine parser resmi WhatsApp HematWoy.
+          Ketik contoh pengeluaran atau pemasukanmu untuk merasakan pengalaman pencatatan otomatis secara instan.
         </p>
       </div>
 
@@ -140,13 +141,13 @@
             💬
           </div>
           <div class="inline-block px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-bold mb-3 tracking-wide">
-            KUOTA COBA DEMO SELESAI (3/3)
+            DEMO SELESAI (3/3)
           </div>
           <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
             Suka dengan Respon Cepat Bot?
           </h3>
           <p class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mb-6 leading-relaxed">
-            Kamu telah mencoba 3 kali simulasi di website. Sekarang, saatnya merasakan kemudahan mencatat keuangan pribadi secara nyata langsung di aplikasi WhatsApp kamu!
+            Kamu telah mencoba demo di website. Sekarang, rasakan langsung kemudahan mencatat keuangan harian secara nyata di aplikasi WhatsApp kamu!
           </p>
 
           <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 max-w-xs mx-auto mb-6 text-xs text-slate-300">
@@ -255,7 +256,7 @@
           </form>
 
           <p class="text-[10px] text-slate-500 text-center mt-2.5">
-            Maksimal 3 kali simulasi di browser. Setelah itu, kamu bisa lanjut sepuasnya di WhatsApp!
+            Coba 3 kali demo di browser, lalu lanjutkan pencatatan keuangan harian sepuasnya di WhatsApp!
           </p>
         </div>
       </div>
@@ -367,70 +368,66 @@
           <a
             :href="whatsappDirectUrl"
             target="_blank"
-            class="mt-8 w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition block"
+            class="mt-8 w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition block cursor-pointer"
           >
-            Mulai Gratis
+            Mulai Gratis di WhatsApp
           </a>
         </div>
 
         <!-- Tier 2: Pro Bulanan (Recommended) -->
         <div class="bg-slate-900 border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 flex flex-col justify-between relative shadow-2xl shadow-emerald-500/10">
-          <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-[10px] tracking-wider uppercase rounded-full">
-            Paling Populer
+          <div v-if="monthlyPlan.badge" class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-[10px] tracking-wider uppercase rounded-full">
+            {{ monthlyPlan.badge }}
           </div>
 
           <div>
-            <h3 class="text-lg font-bold text-white mb-1">Pro Bulanan</h3>
-            <p class="text-xs text-slate-400 mb-6">Untuk profesional & pencatat rutin</p>
+            <h3 class="text-lg font-bold text-white mb-1">{{ monthlyPlan.name }}</h3>
+            <p class="text-xs text-slate-400 mb-6">{{ monthlyPlan.tagline || 'Untuk profesional & pencatat rutin' }}</p>
             <div class="text-3xl font-black text-emerald-400 mb-6">
-              Rp 25.000 <span class="text-xs font-normal text-slate-400">/ 30 hari</span>
+              {{ monthlyPlan.formatted_price }} <span class="text-xs font-normal text-slate-400">/ {{ monthlyPlan.duration_days }} hari</span>
             </div>
 
             <ul class="space-y-3 text-xs text-slate-300">
-              <li class="flex items-center gap-2">⭐ <strong>Unlimited</strong> Pencatatan Transaksi</li>
-              <li class="flex items-center gap-2">⭐ Multi-Dompet (BCA, Mandiri, Cash, e-Wallet)</li>
-              <li class="flex items-center gap-2">⭐ Plafon Anggaran & Anti-Boncos Alert</li>
-              <li class="flex items-center gap-2">⭐ 1-Klik Ekspor Laporan Excel Lengkap</li>
-              <li class="flex items-center gap-2">⭐ AI Financial Spending Insights</li>
-              <li class="flex items-center gap-2">⭐ Akses Penuh Web App Dashboard</li>
+              <li v-for="(feat, idx) in monthlyPlan.features" :key="idx" class="flex items-center gap-2">
+                <span>⭐</span> <span>{{ feat }}</span>
+              </li>
             </ul>
           </div>
 
           <a
             :href="whatsappDirectUrlWithPlan"
             target="_blank"
-            class="mt-8 w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs text-center shadow-lg shadow-emerald-500/20 hover:opacity-95 transition block"
+            class="mt-8 w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs text-center shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition block cursor-pointer"
           >
-            Daftar Pro Sekarang
+            Daftar {{ monthlyPlan.name }} via WhatsApp 💬
           </a>
         </div>
 
         <!-- Tier 3: Pro Tahunan -->
         <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between">
           <div>
-            <div class="inline-block px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-400 text-[10px] font-bold mb-2">
-              HEMAT 35%
+            <div v-if="annualPlan.badge" class="inline-block px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-400 text-[10px] font-bold mb-2">
+              {{ annualPlan.badge }}
             </div>
-            <h3 class="text-lg font-bold text-white mb-1">Pro 1 Tahun</h3>
-            <p class="text-xs text-slate-400 mb-6">Disiplin finansial sepanjang tahun</p>
+            <h3 class="text-lg font-bold text-white mb-1">{{ annualPlan.name }}</h3>
+            <p class="text-xs text-slate-400 mb-6">{{ annualPlan.tagline || 'Disiplin finansial sepanjang tahun' }}</p>
             <div class="text-3xl font-black text-white mb-6">
-              Rp 199.000 <span class="text-xs font-normal text-slate-400">/ tahun</span>
+              {{ annualPlan.formatted_price }} <span class="text-xs font-normal text-slate-400">/ tahun</span>
             </div>
 
             <ul class="space-y-3 text-xs text-slate-300">
-              <li class="flex items-center gap-2">✓ Seluruh Fitur Paket Pro</li>
-              <li class="flex items-center gap-2">✓ Masa Aktif 365 Hari Penuh</li>
-              <li class="flex items-center gap-2">✓ Hemat Rp 101.000 dibanding bulanan</li>
-              <li class="flex items-center gap-2">✓ Prioritas Fitur AI Baru Mendatang</li>
+              <li v-for="(feat, idx) in annualPlan.features" :key="idx" class="flex items-center gap-2">
+                <span>✓</span> <span>{{ feat }}</span>
+              </li>
             </ul>
           </div>
 
           <a
             :href="whatsappDirectUrlWithAnnualPlan"
             target="_blank"
-            class="mt-8 w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition block"
+            class="mt-8 w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black text-xs text-center shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 transition block cursor-pointer"
           >
-            Pilih Paket Tahunan
+            Pilih {{ annualPlan.name }} via WhatsApp 💬
           </a>
         </div>
       </div>
@@ -485,31 +482,101 @@
       <p class="font-bold text-slate-400">HematWoy — Smart WhatsApp Personal Finance Tracker</p>
       <p>&copy; {{ currentYear }} HematWoy Indonesia. Seluruh hak cipta dilindungi undang-undang.</p>
     </footer>
+
+    <!-- Dashboard Paywall & WhatsApp Trial Modal -->
+    <DashboardPaywallModal
+      :isOpen="showPaywallModal"
+      :botRawNumber="botRawNumber"
+      @close="showPaywallModal = false"
+      @upgraded="onSubscriptionUpgraded"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
+import DashboardPaywallModal from '../components/modals/DashboardPaywallModal.vue';
 
+const router = useRouter();
 const authStore = useAuthStore();
+const showPaywallModal = ref(false);
+
+function handleDashboardClick() {
+  if (authStore.isAuthenticated && authStore.isPro) {
+    router.push('/dashboard');
+    return;
+  }
+  showPaywallModal.value = true;
+}
+
+function onSubscriptionUpgraded() {
+  if (authStore.isAuthenticated) {
+    authStore.fetchProfile();
+    authStore.fetchSubscription();
+  }
+}
+
 const currentYear = new Date().getFullYear();
 
 // WhatsApp Bot Number from .env with fallback
 const botRawNumber = import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '15556711016';
 const botNumberDisplay = '+1 (555) 671-1016';
 
+const plans = ref([
+  {
+    code: 'monthly',
+    name: 'Pro Bulanan',
+    tagline: 'Untuk profesional & pencatat rutin',
+    duration_days: 30,
+    price: 25000,
+    formatted_price: 'Rp 25.000',
+    badge: 'Paling Populer',
+    features: [
+      'Unlimited Pencatatan Transaksi',
+      'Multi-Dompet (BCA, Mandiri, Cash, e-Wallet)',
+      'Plafon Anggaran & Anti-Boncos Alert',
+      '1-Klik Ekspor Laporan Excel Lengkap',
+      'AI Financial Spending Insights',
+      'Akses Penuh Web App Dashboard',
+    ],
+  },
+  {
+    code: 'annual',
+    name: 'Pro 1 Tahun',
+    tagline: 'Disiplin finansial sepanjang tahun',
+    duration_days: 365,
+    price: 199000,
+    formatted_price: 'Rp 199.000',
+    badge: 'HEMAT 35%',
+    features: [
+      'Seluruh Fitur Paket Pro',
+      'Masa Aktif 365 Hari Penuh',
+      'Hemat Rp 101.000 dibanding bulanan',
+      'Prioritas Fitur AI Baru Mendatang',
+    ],
+  },
+]);
+
+const monthlyPlan = computed(() => plans.value.find(p => p.code === 'monthly') || plans.value[0]);
+const annualPlan = computed(() => plans.value.find(p => p.code === 'annual') || plans.value[1] || plans.value[0]);
+
 const whatsappDirectUrl = computed(() => {
   return `https://wa.me/${botRawNumber}?text=Halo%20HematWoy,%20saya%20mau%20coba%20catat%20keuangan!`;
 });
 
 const whatsappDirectUrlWithPlan = computed(() => {
-  return `https://wa.me/${botRawNumber}?text=Halo%20HematWoy,%20saya%20mau%20langganan%20Paket%20Pro!`;
+  const p = monthlyPlan.value;
+  const planText = encodeURIComponent(`Halo HematWoy, saya mau langganan ${p.name} (${p.formatted_price})!`);
+  return `https://wa.me/${botRawNumber}?text=${planText}`;
 });
 
 const whatsappDirectUrlWithAnnualPlan = computed(() => {
-  return `https://wa.me/${botRawNumber}?text=Halo%20HematWoy,%20saya%20mau%20langganan%20Paket%20Tahunan!`;
+  const p = annualPlan.value;
+  const planText = encodeURIComponent(`Halo HematWoy, saya mau langganan ${p.name} (${p.formatted_price})!`);
+  return `https://wa.me/${botRawNumber}?text=${planText}`;
 });
 
 // Simulator state & anti-refresh attempts management
@@ -518,13 +585,32 @@ const isLocked = ref(false);
 const sending = ref(false);
 const visitorToken = ref('');
 
-const presetChips = [
+const presetChips = ref([
   'keluar 25rb kopi kenangan via bca',
   '+1.5jt freelance website',
   'saldo',
   'budget makan 1jt',
   'langganan',
-];
+]);
+
+async function fetchDynamicData() {
+  try {
+    const [plansRes, menusRes] = await Promise.allSettled([
+      axios.get('/api/v1/plans'),
+      axios.get('/api/v1/bot-menus'),
+    ]);
+
+    if (plansRes.status === 'fulfilled' && plansRes.value.data?.success && plansRes.value.data.data?.length) {
+      plans.value = plansRes.value.data.data;
+    }
+
+    if (menusRes.status === 'fulfilled' && menusRes.value.data?.success && menusRes.value.data.quick_commands?.length) {
+      presetChips.value = menusRes.value.data.quick_commands.map(item => item.command);
+    }
+  } catch (err) {
+    // fallback gracefully
+  }
+}
 
 const chatMessages = ref([
   {
@@ -639,6 +725,11 @@ async function sendCustomChat() {
 
 onMounted(() => {
   checkSimulatorStatus();
+  fetchDynamicData();
+  if (authStore.isAuthenticated) {
+    authStore.fetchProfile();
+    authStore.fetchSubscription();
+  }
 });
 
 const faqs = ref([
@@ -659,7 +750,7 @@ const faqs = ref([
   },
   {
     q: 'Metode pembayaran apa saja yang diterima untuk paket Pro?',
-    a: 'Kami mendukung pembayaran instan via Midtrans: QRIS (GoPay, OVO, Dana, ShopeePay, BCA Mobile), Transfer Bank (BCA, Mandiri, BNI, BRI), dan Alfamart/Indomaret.',
+    a: 'Kami mendukung pembayaran instan otomatis: QRIS (GoPay, OVO, Dana, ShopeePay, BCA Mobile), Transfer Bank Virtual Account (BCA, Mandiri, BNI, BRI), dan Alfamart/Indomaret.',
     open: false,
   },
 ]);

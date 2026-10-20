@@ -1,8 +1,26 @@
+# ------------------------------------------------------------------------------
+# Stage 1: PHP Dependencies (Vendor)
+# ------------------------------------------------------------------------------
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --classmap-authoritative
 
+# ------------------------------------------------------------------------------
+# Stage 2: Frontend Assets Builder (Vue + Vite)
+# ------------------------------------------------------------------------------
+FROM node:22-alpine AS frontend-builder
+WORKDIR /app
+COPY package.json yarn.lock* ./
+RUN yarn install --frozen-lockfile || npm install
+COPY vite.config.js ./
+COPY resources ./resources
+COPY public ./public
+RUN yarn build || npm run build
+
+# ------------------------------------------------------------------------------
+# Stage 3: Production Runtime (FrankenPHP Octane)
+# ------------------------------------------------------------------------------
 FROM dunglas/frankenphp:latest-php8.3-alpine
 
 WORKDIR /var/www
@@ -10,10 +28,29 @@ WORKDIR /var/www
 # Install high-performance production extensions
 RUN install-php-extensions pdo_pgsql pdo_sqlite redis pcntl opcache bcmath
 
+# Production OPcache configuration for ultra-low latency & high throughput
+RUN { \
+    echo 'opcache.enable=1'; \
+    echo 'opcache.enable_cli=1'; \
+    echo 'opcache.memory_consumption=256'; \
+    echo 'opcache.interned_strings_buffer=16'; \
+    echo 'opcache.max_accelerated_files=30000'; \
+    echo 'opcache.validate_timestamps=0'; \
+    echo 'opcache.save_comments=1'; \
+    echo 'opcache.fast_shutdown=1'; \
+} > /usr/local/etc/php/conf.d/opcache-prod.ini
+
 ENV OCTANE_SERVER=frankenphp
 
+# Copy backend dependencies and app code
 COPY --from=vendor /app/vendor ./vendor
 COPY . .
+# Copy compiled frontend assets from Stage 2
+COPY --from=frontend-builder /app/public/build ./public/build
+
+# Setup entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Ensure storage directories exist and have proper permissions
 RUN mkdir -p storage/framework/cache/data \
@@ -28,4 +65,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=5s --retries=3 \
     CMD php -r "exit(@file_get_contents('http://127.0.0.1:8000/api/health/live') ? 0 : 1);"
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8000 --workers=auto"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8000", "--workers=auto"]

@@ -15,7 +15,8 @@
 
 1. [Fitur Utama](#-fitur-utama)
 2. [Commercial Scale Roadmap (100K-1M Users)](./COMMERCIAL_ROADMAP.md)
-3. [Arsitektur Sistem](#-arsitektur-sistem)
+3. [Integrasi Pembayaran Web & WhatsApp](./PAYMENT_FLOW_INTEGRATION_PLAN.md)
+4. [Arsitektur Sistem](#-arsitektur-sistem)
 3. [Struktur Direktori](#-struktur-direktori)
 4. [Prasyarat Sistem](#-prasyarat-sistem)
 5. [Panduan Instalasi](#-panduan-instalasi)

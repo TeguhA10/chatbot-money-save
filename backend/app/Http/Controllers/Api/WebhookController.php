@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\BotMenu;
 use App\Models\ProcessedMessage;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\BudgetService;
 use App\Services\FinanceService;
@@ -243,6 +245,48 @@ class WebhookController extends Controller
     }
 
     /**
+     * Send outbound interactive message (buttons/list) via Meta WhatsApp Cloud API.
+     */
+    public function sendMetaInteractive(string $toPhone, array $interactive): bool
+    {
+        $phoneNumberId = config('services.whatsapp.phone_number_id', env('WHATSAPP_PHONE_NUMBER_ID'));
+        $accessToken = config('services.whatsapp.access_token', env('WHATSAPP_ACCESS_TOKEN'));
+        $version = config('services.whatsapp.api_version', env('WHATSAPP_API_VERSION', 'v21.0'));
+
+        if (!$phoneNumberId || !$accessToken) {
+            Log::warning("Meta WhatsApp Cloud API: Missing Phone Number ID or Access Token in .env");
+            return false;
+        }
+
+        try {
+            $resp = Http::withToken($accessToken)
+                ->timeout(10)
+                ->post("https://graph.facebook.com/{$version}/{$phoneNumberId}/messages", [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type'    => 'individual',
+                    'to'                => $toPhone,
+                    'type'              => 'interactive',
+                    'interactive'       => $interactive,
+                ]);
+
+            if ($resp->failed()) {
+                Log::error("Meta WhatsApp Cloud API Send Interactive Failed", [
+                    'to'     => $toPhone,
+                    'status' => $resp->status(),
+                    'body'   => $resp->json(),
+                ]);
+                return false;
+            }
+
+            Log::info("Meta WhatsApp Cloud API interactive message sent to {$toPhone}");
+            return true;
+        } catch (\Throwable $e) {
+            Log::error("Meta WhatsApp Cloud API Interactive Exception: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Process message through the financial engine and command router.
      */
     public function processMessage(string $messageId, string $fromJid, string $pushName, string $messageText): JsonResponse
@@ -338,42 +382,30 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^(?:set|buat|bikin|atur)\s+pin\s+(\S{6,64})$/i', $messageText, $matches)) {
-            try { $code = $this->pins->setup($user, $matches[1]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>"PIN aktif. Recovery Code (simpan sekali ini): `{$code}`. Kirim ulang transaksi Anda."]); }
-            catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
+            try {
+                $code = $this->pins->setup($user, $matches[1]);
+                $reply = "✅ *Master PIN / Kata Sandi Aktif!* 🔐\n\n"
+                    . "🔑 *Recovery Code Darurat:* `{$code}`\n\n"
+                    . "⚠️ *PENTING:* Simpan Recovery Code di atas di tempat aman (catatan pribadi). Kode ini adalah satu-satunya kunci darurat jika kamu lupa PIN.\n\n"
+                    . "Sekarang akunmu sudah siap mencatat keuangan! Silakan kirim ulang transaksi atau ketik `menu` untuk panduan. 🚀";
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $reply]);
+            } catch (\RuntimeException $e) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $e->getMessage()]);
+            }
         }
         if (preg_match('/^reset pin\s+([A-Z0-9]{16})\s+(\S{6,64})$/i', $messageText, $matches)) {
-            try { $this->pins->reset($user, $matches[1], $matches[2]); return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'PIN berhasil direset.']); }
-            catch (\RuntimeException $e) { return response()->json(['action'=>'REPLY_TEXT','reply_text'=>$e->getMessage()]); }
+            try {
+                $this->pins->reset($user, $matches[1], $matches[2]);
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "✅ *PIN Berhasil Diperbarui!* 🔐\n\nPIN baru kamu sudah aktif dan data keuanganmu terlindungi kembali. Silakan lanjutkan pencatatan transaksi! 😊",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ ' . $e->getMessage()]);
+            }
         }
-        // Subscription & Pricing — High-Converting In-Chat Checkout
-        if (preg_match('/^(?:beli\s+pro|langganan|upgrade(?:\s+pro)?|paket\s+pro|berlangganan|premium)$/i', $lowerText)) {
-            $order = $this->midtrans->createOrder($user);
-            $payUrl = $order->payment_url ?: url("/pay/{$order->order_id}");
-
-            $text  = "⭐ *HematWoy Pro — Akses Tanpa Batas*\n";
-            $text .= "───────────────────────\n";
-            $text .= "Kelola seluruh keuanganmu dengan fitur premium tanpa batasan:\n\n";
-            $text .= "✨ *Fitur Spesial Pro:*\n";
-            $text .= "• 🚀 Catat transaksi tanpa batas kuota\n";
-            $text .= "• 👛 Multi-Dompet (BCA, Mandiri, GoPay, OVO, Cash)\n";
-            $text .= "• 📊 Download Laporan Excel (.xlsx) instan\n";
-            $text .= "• 🎯 Plafon Anggaran (Budget) & Peringatan Boncos\n";
-            $text .= "• 🤖 Evaluasi & Analisis Pengeluaran Pintar\n\n";
-            $text .= "💳 *Pilihan Paket:*\n";
-            $text .= "• Paket Bulanan : *Rp25.000* / 30 hari\n";
-            $text .= "• Paket Tahunan : *Rp199.000* / tahun _(Hemat 35%)_\n\n";
-            $text .= "👉 *Klik link berikut untuk pembayaran (QRIS / GoPay / ShopeePay / VA):*\n";
-            $text .= "{$payUrl}\n\n";
-            $text .= "_Akun Pro akan otomatis aktif seketika setelah pembayaran berhasil diproses! 🚀_";
-
-            return response()->json([
-                'action'     => 'REPLY_TEXT',
-                'reply_text' => $text,
-            ]);
-        }
-
-        // Quota & Subscription Status
-        if (preg_match('/^(?:kuota|status\s+langganan|sisa\s+kuota|cek\s+paket|paket\s+saya)$/i', $lowerText)) {
+        // 1. Quota & Subscription Status Check (Must be evaluated before purchase intent so "status langganan" or "cek status kuota" shows quota)
+        if (preg_match('/^(?:kuota|status\s*(?:langganan|paket|kuota)?|sisa\s+kuota|cek\s+(?:status\s*)?(?:kuota|paket|langganan)|paket\s+saya)$/i', $lowerText)) {
             $status = $this->subscriptions->status($user);
             $isPro = $status['tier'] === 'PREMIUM';
 
@@ -385,6 +417,7 @@ class WebhookController extends Controller
                 $card .= "📅 Berlaku Sampai : *{$expiry}*\n";
                 $card .= "💬 Kuota Pesan : *Unlimited (Tanpa Batas)*\n\n";
                 $card .= "Terima kasih telah menjadi pelanggan setia HematWoy! 🚀";
+                $interactive = null;
             } else {
                 $used = 100 - $status['remaining'];
                 $percentage = min(100, max(0, (int) round(($used / 100) * 100)));
@@ -398,11 +431,215 @@ class WebhookController extends Controller
                 $card .= "📈 Penggunaan     : {$progressBar} {$percentage}%\n\n";
                 $card .= "💡 *Mau catat tanpa batas & kelola banyak dompet?*\n";
                 $card .= "Ketik: `langganan` untuk upgrade ke HematWoy Pro! ⭐";
+
+                $plans = SubscriptionPlan::active()->get();
+                $quotaButtons = [];
+                if ($plans->isNotEmpty()) {
+                    foreach ($plans->take(2) as $p) {
+                        $quotaButtons[] = [
+                            'type' => 'reply',
+                            'reply' => [
+                                'id' => "langganan {$p->code}",
+                                'title' => "{$p->name} ({$p->short_price})",
+                            ],
+                        ];
+                    }
+                } else {
+                    $quotaButtons = [
+                        [
+                            'type' => 'reply',
+                            'reply' => [
+                                'id' => 'langganan bulanan',
+                                'title' => 'Pro Bulanan (25rb)',
+                            ],
+                        ],
+                        [
+                            'type' => 'reply',
+                            'reply' => [
+                                'id' => 'langganan tahunan',
+                                'title' => 'Pro 1 Tahun (199rb)',
+                            ],
+                        ],
+                    ];
+                }
+
+                $interactive = [
+                    'type' => 'button',
+                    'header' => [
+                        'type' => 'text',
+                        'text' => '📊 Status Kuota Anda',
+                    ],
+                    'body' => [
+                        'text' => $card,
+                    ],
+                    'footer' => [
+                        'text' => 'Klik tombol untuk upgrade akun',
+                    ],
+                    'action' => [
+                        'buttons' => $quotaButtons,
+                    ],
+                ];
             }
 
             return response()->json([
-                'action'     => 'REPLY_TEXT',
-                'reply_text' => $card,
+                'action'      => 'REPLY_TEXT',
+                'reply_text'  => $card,
+                'interactive' => $interactive,
+            ]);
+        }
+
+        // 2. Subscription & Pricing — High-Converting In-Chat & Web-Integrated Checkout
+        $isFinancialInput = (bool) preg_match('/^(?:keluar|masuk|\+|\-|\d)/i', $lowerText);
+        $isGoalCommand = (bool) preg_match('/^(?:daftar\s+target|target\s+tabungan|daftar\s+goals?|buat\s+target|tabung\s+\d+)/i', $lowerText);
+        $isRecurringSchedule = (bool) preg_match('/^(?:daftar\s+langganan|hapus\s+langganan|(?:langganan|buat\s+langganan)\s+.+?\s+[0-9.,]+.*setiap\s+tanggal)/i', $lowerText);
+        $isCategoryOrWallet = (bool) preg_match('/^(?:daftar\s+(?:dompet|kategori)|tambah\s+(?:dompet|kategori))/i', $lowerText);
+
+        $isSubscriptionIntent = ! $isFinancialInput && ! $isRecurringSchedule && ! $isGoalCommand && ! $isCategoryOrWallet && (
+            preg_match('/^(?:halo\s+hematwoy[,.!]?\s*)?(?:saya\s+)?(?:mau|ingin|pengen|bisa)?\s*(?:beli|upgrade|ambil|daftar|berlangganan|langganan)\s+(?:ke\s+)?(?:hematwoy\s*)?(?:paket\s*)?(?:pro|tahunan|bulanan|premium)/i', $lowerText)
+            || preg_match('/\b(?:langganan|berlangganan|upgrade)\b/i', $lowerText)
+            || preg_match('/\b(?:paket\s+(?:pro|tahunan|bulanan)|premium)\b/i', $lowerText)
+        );
+
+        if ($isSubscriptionIntent) {
+            $plans = SubscriptionPlan::active()->get();
+            $isAnnual = (bool) preg_match('/(?:tahun|annual|199)/i', $lowerText);
+
+            $selectedPlan = null;
+            if ($plans->isNotEmpty()) {
+                if ($isAnnual) {
+                    $selectedPlan = $plans->firstWhere('code', 'annual') ?? $plans->first();
+                } else {
+                    $selectedPlan = $plans->first(function ($p) use ($lowerText) {
+                        return str_contains($lowerText, $p->code) || str_contains($lowerText, strtolower($p->name));
+                    }) ?? $plans->firstWhere('code', 'monthly') ?? $plans->first();
+                }
+            }
+
+            $amount = $selectedPlan ? (int) $selectedPlan->price : ($isAnnual ? MidtransService::ANNUAL_PRICE : MidtransService::PRICE);
+            $planName = $selectedPlan ? "HematWoy {$selectedPlan->name}" : ($isAnnual ? 'HematWoy Pro 1 Tahun' : 'HematWoy Pro 30 Hari');
+
+            // Resolve dynamic public base URL for public checkout links (e.g. Ngrok / Custom Domain)
+            $req = request();
+            $requestHost = $req ? ($req->header('X-Forwarded-Host') ?: $req->getHost()) : null;
+            $requestScheme = $req ? ($req->header('X-Forwarded-Proto') ?: $req->getScheme()) : null;
+            $requestPort = $req ? ($req->header('X-Forwarded-Port') ?: $req->getPort()) : null;
+
+            $portSuffix = '';
+            if ($requestPort && !in_array((int) $requestPort, [80, 443], true) && $requestHost && !str_contains($requestHost, ':')) {
+                $portSuffix = ":{$requestPort}";
+            }
+            $baseUrl = ($requestHost && $requestScheme) ? "{$requestScheme}://{$requestHost}{$portSuffix}" : url('/');
+
+            $order = $this->midtrans->createOrder($user, $amount, $planName, $baseUrl);
+            $payUrl = $order->payment_url ?: "{$baseUrl}/pay/{$order->order_id}";
+
+            $formattedAmount = 'Rp' . number_format($amount, 0, ',', '.');
+            $featuresList = ($selectedPlan && !empty($selectedPlan->features)) ? $selectedPlan->features : [
+                'Catat transaksi tanpa batas kuota (Unlimited)',
+                'Multi-Dompet (BCA, Mandiri, Cash, GoPay, OVO)',
+                'Download Laporan Excel (.xlsx) instan',
+                'Plafon Anggaran (Budget) & Peringatan Boncos',
+                'Evaluasi & Analisis Pengeluaran Pintar',
+            ];
+
+            $headerTitle = $isAnnual ? 'HematWoy Pro 1 Tahun — Akses Tanpa Batas' : 'HematWoy Pro — Akses Tanpa Batas';
+            $text  = "⭐ *{$headerTitle}*\n";
+            $text .= "───────────────────────\n";
+            $text .= "Kelola seluruh keuanganmu dengan fitur premium tanpa batasan:\n\n";
+            $text .= "✨ *Fitur Spesial Pro:*\n";
+            foreach ($featuresList as $feat) {
+                $text .= "• 🚀 {$feat}\n";
+            }
+
+            if ($plans->isNotEmpty()) {
+                $text .= "\n💳 *Pilihan Paket:*\n";
+                foreach ($plans as $p) {
+                    $discountNote = $p->discount_percentage > 0 ? " _(Hemat {$p->discount_percentage}%)_" : '';
+                    $text .= "• {$p->name} : *{$p->formatted_price}* / " . ($p->duration_days >= 365 ? 'tahun' : "{$p->duration_days} hari") . "{$discountNote}\n";
+                }
+            } else {
+                $text .= "\n💳 *Pilihan Paket:*\n";
+                $text .= "• Paket Bulanan : *Rp25.000* / 30 hari\n";
+                $text .= "• Paket Tahunan : *Rp199.000* / tahun _(Hemat 35%)_\n";
+            }
+
+            $text .= "\n👉 *Klik link berikut untuk pembayaran {$planName} ({$formattedAmount}):*\n";
+            $text .= "{$payUrl}\n\n";
+
+            if ($plans->isNotEmpty()) {
+                foreach ($plans as $altPlan) {
+                    if (!$selectedPlan || $altPlan->code !== $selectedPlan->code) {
+                        $text .= "_💡 Mau {$altPlan->name} ({$altPlan->formatted_price})? Ketik: `langganan {$altPlan->code}`_\n";
+                    }
+                }
+            } else {
+                $text .= $isAnnual
+                    ? "_💡 Mau Paket Bulanan (Rp25.000 / 30 hari)? Ketik: `langganan bulanan`_\n"
+                    : "_💡 Mau langsung ambil Paket Tahunan Rp199.000? Ketik: `langganan tahunan`_\n";
+            }
+            $text .= "_Akun Pro akan otomatis aktif seketika setelah pembayaran berhasil diproses! 🚀_";
+
+            $replyButtons = [];
+            if ($plans->isNotEmpty()) {
+                foreach ($plans->take(2) as $p) {
+                    $replyButtons[] = [
+                        'type' => 'reply',
+                        'reply' => [
+                            'id' => "langganan {$p->code}",
+                            'title' => "{$p->name} ({$p->short_price})",
+                        ],
+                    ];
+                }
+            } else {
+                $replyButtons = [
+                    [
+                        'type' => 'reply',
+                        'reply' => [
+                            'id' => 'langganan bulanan',
+                            'title' => 'Pro Bulanan (25rb)',
+                        ],
+                    ],
+                    [
+                        'type' => 'reply',
+                        'reply' => [
+                            'id' => 'langganan tahunan',
+                            'title' => 'Pro 1 Tahun (199rb)',
+                        ],
+                    ],
+                ];
+            }
+            $replyButtons[] = [
+                'type' => 'reply',
+                'reply' => [
+                    'id' => 'status langganan',
+                    'title' => 'Cek Status Kuota',
+                ],
+            ];
+
+            $interactive = [
+                'type' => 'button',
+                'header' => [
+                    'type' => 'text',
+                    'text' => "⭐ {$planName}",
+                ],
+                'body' => [
+                    'text' => "Tingkatkan ke *{$planName}* untuk akses tanpa batas!\n\n"
+                        . "✨ Akses penuh Web Dashboard, Unlimited Catat, Multi-Dompet & Ekspor Excel.\n\n"
+                        . "👉 Link Bayar ({$formattedAmount}):\n{$payUrl}\n\n"
+                        . "Atau klik tombol pilihan di bawah:",
+                ],
+                'footer' => [
+                    'text' => 'Pilih paket di bawah untuk ganti opsi',
+                ],
+                'action' => [
+                    'buttons' => $replyButtons,
+                ],
+            ];
+
+            return response()->json([
+                'action'      => 'REPLY_TEXT',
+                'reply_text'  => $text,
+                'interactive' => $interactive,
             ]);
         }
 
@@ -812,8 +1049,30 @@ class WebhookController extends Controller
             ]);
         }
 
-        if ($user->pin_status !== 'ACTIVE') return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Sebelum transaksi pertama, buat PIN 6 digit: `set pin 123456`.']);
-        if (!$this->subscriptions->canRecord($user)) return response()->json(['action'=>'REPLY_TEXT','reply_text'=>'Kuota gratis sudah habis. Ketik `beli pro` untuk lanjut tanpa batas.']);
+        if ($user->pin_status !== 'ACTIVE') {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "👋 Halo! Demi menjaga kerahasiaan keuanganmu, buat PIN atau Kata Sandi akunmu dulu yuk 🔐\n\n"
+                    . "🔒 *Keamanan Data Pribadi (Zero-Knowledge Enkripsi)*\n"
+                    . "Data nominalmu dienkripsi rapat sehingga hanya kamu yang dapat melihatnya.\n\n"
+                    . "👉 Cukup ketik: `set pin <pin_pilihanmu>`\n"
+                    . "• Contoh angka: `set pin 123456`\n"
+                    . "• Contoh kata sandi: `set pin rahasia123`\n"
+                    . "_(Minimal 6 karakter, bebas kombinasi angka atau huruf)_\n\n"
+                    . "Setelah PIN dibuat, transaksi pertamamu bisa langsung dicatat! 🚀",
+            ]);
+        }
+        if (!$this->subscriptions->canRecord($user)) {
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "⭐ *Kuota Gratis 100 Pesan Telah Selesai* ⭐\n"
+                    . "───────────────────────\n"
+                    . "Terima kasih sudah rajin mencatat keuangan di *HematWoy*! 🎉\n\n"
+                    . "Untuk melanjutkan pencatatan tanpa batas, pengelolaan multi-dompet, dan ekspor laporan Excel otomatis:\n\n"
+                    . "👉 Ketik: `langganan` untuk memilih paket Pro (mulai Rp25.000/bln)!\n\n"
+                    . "_Akun Pro akan otomatis aktif seketika setelah pembayaran berhasil diproses. 🚀_",
+            ]);
+        }
         return $this->handleTransaction($user, $parsed, $messageId);
     }
 
@@ -1257,7 +1516,9 @@ class WebhookController extends Controller
             $text .= "💡 *Aksi Cepat:*\n";
             $text .= "• Koreksi nominal: `koreksi 30rb`\n";
             $text .= "• Batalkan: _Ketik \"batal\" jika ingin membatalkan transaksi ini._";
-            if ($user->tier === 'FREE' && $remaining <= 10) $text .= "\n\nSisa kuota gratis: {$remaining} pesan. Ketik `beli pro` untuk tanpa batas.";
+            if ($user->tier === 'FREE' && $remaining <= 10) {
+                $text .= "\n\n💡 *Info Kuota:* Sisa kuota gratis kamu: *{$remaining} transaksi*. Ketik `langganan` untuk upgrade akun Pro tanpa batas! ⭐";
+            }
 
             return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
 
@@ -1281,8 +1542,8 @@ class WebhookController extends Controller
         return "👋 Halo *{$name}*! Selamat datang di *HematWoy* 💰\n\n"
             . "Asisten finansial pintar harianmu langsung dari WhatsApp!\n\n"
             . "🔒 *Langkah Awal (Keamanan Data):*\n"
-            . "Sebelum transaksi pertama, buat PIN 6 digit terlebih dahulu:\n"
-            . "👉 `set pin 123456`\n\n"
+            . "Sebelum transaksi pertama, buat Master PIN atau kata sandi pengaman (min. 6 karakter, bebas angka atau huruf):\n"
+            . "👉 `set pin 123456` atau `set pin rahasia123`\n\n"
             . "⚡ *Contoh Perintah Cepat:*\n"
             . "• *Catat*: `keluar 25rb makan` atau `+1.5jt gaji`\n"
             . "• *Dompet*: `saldo` atau `transfer 50rb dari Cash ke BCA`\n"
@@ -1294,6 +1555,26 @@ class WebhookController extends Controller
 
     private function buildHelpMessage(): string
     {
+        $groupedMenus = BotMenu::active()->get()->groupBy('category');
+
+        if ($groupedMenus->isNotEmpty()) {
+            $text = "📚 *Panduan WA Finance Bot (HematWoy)*\n\n";
+
+            foreach ($groupedMenus as $category => $items) {
+                $icon = $items->first()->category_icon ? $items->first()->category_icon . ' ' : '';
+                $text .= "{$icon}*{$category}:*\n";
+                foreach ($items as $item) {
+                    $desc = $item->description ? " ({$item->description})" : '';
+                    $text .= "  • `{$item->command}`{$desc}\n";
+                }
+                $text .= "\n";
+            }
+
+            $text .= "_💡 Format nominal fleksibel: 25000, 25.000, 25k, 25rb, 1.5jt_";
+
+            return trim($text);
+        }
+
         return "📚 *Panduan WA Finance Bot (HematWoy)*\n\n"
             . "💸 *Catat Pengeluaran:*\n"
             . "  • `keluar 25000 makan siang`\n"
@@ -1339,15 +1620,31 @@ class WebhookController extends Controller
     private function buildUnrecognizedMessage(
         string $message
     ): string {
-        return "🤔 Maaf, saya belum mengenali format pesan:\n"
+        $quickItems = BotMenu::where('is_quick_command', true)->orderBy('sort_order')->take(5)->get();
+
+        $text = "🤔 Maaf, saya belum mengenali format pesan:\n"
             . "\"_{$message}_\"\n\n"
-            . "💡 *Pilihan Bantuan Cepat:*\n"
-            . "1️⃣ *Catat Pengeluaran* 👉 `keluar 25000 makan siang`\n"
-            . "2️⃣ *Catat Pemasukan*   👉 `masuk 500000 gaji`\n"
-            . "3️⃣ *Cek Saldo*          👉 `saldo`\n"
-            . "4️⃣ *Buka Dashboard*     👉 `web`\n"
-            . "5️⃣ *Panduan Lengkap*    👉 `menu`\n\n"
-            . "_Ketik salah satu perintah di atas ya! 😊_";
+            . "💡 *Pilihan Bantuan Cepat:*\n";
+
+        if ($quickItems->isNotEmpty()) {
+            $emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
+            $i = 0;
+            foreach ($quickItems as $item) {
+                $emoji = $emojis[$i] ?? "•";
+                $text .= "{$emoji} *{$item->category}* 👉 `{$item->command}`\n";
+                $i++;
+            }
+        } else {
+            $text .= "1️⃣ *Catat Pengeluaran* 👉 `keluar 25000 makan siang`\n"
+                . "2️⃣ *Catat Pemasukan*   👉 `masuk 500000 gaji`\n"
+                . "3️⃣ *Cek Saldo*          👉 `saldo`\n"
+                . "4️⃣ *Buka Dashboard*     👉 `web`\n"
+                . "5️⃣ *Panduan Lengkap*    👉 `menu`\n";
+        }
+
+        $text .= "\n_Ketik salah satu perintah di atas ya! 😊_";
+
+        return $text;
     }
 
     // ---------------------------------------------------------------------------

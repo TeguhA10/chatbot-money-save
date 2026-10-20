@@ -1,11 +1,12 @@
 <template>
   <div class="min-h-screen bg-slate-950 font-sans">
-    <component :is="isPublicPage ? 'div' : AppLayout" @open-transaction-modal="showTransactionModal = true">
+    <component :is="isAppLayout ? AppLayout : 'div'" @open-transaction-modal="showTransactionModal = true">
       <RouterView @open-transaction-modal="showTransactionModal = true" />
     </component>
 
-    <!-- Global Transaction Modal -->
+    <!-- Global Transaction Modal (Only for Authenticated Dashboard) -->
     <TransactionModal
+      v-if="authStore.isAuthenticated"
       :isOpen="showTransactionModal"
       :transaction="modalTransaction"
       @close="closeTransactionModal"
@@ -29,7 +30,17 @@ const financeStore = useFinanceStore();
 const showTransactionModal = ref(false);
 const modalTransaction = ref(null);
 
-const isPublicPage = computed(() => ['landing', 'login', 'checkout'].includes(route.name) || route.meta?.isPublic);
+const isPublicPage = computed(() => {
+  if (['landing', 'login', 'checkout'].includes(route.name) || route.meta?.isPublic || route.meta?.guestOnly) {
+    return true;
+  }
+  const path = route.path || (typeof window !== 'undefined' ? window.location.pathname : '/');
+  return path === '/' || path.startsWith('/login') || path.startsWith('/pay');
+});
+
+const isAppLayout = computed(() => {
+  return !isPublicPage.value && authStore.isAuthenticated;
+});
 
 function closeTransactionModal() {
   showTransactionModal.value = false;

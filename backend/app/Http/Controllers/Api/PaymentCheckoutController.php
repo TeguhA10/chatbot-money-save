@@ -6,10 +6,12 @@ use App\Models\PaymentOrder;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\MidtransService;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * PaymentCheckoutController
@@ -19,6 +21,12 @@ use Illuminate\Support\Facades\DB;
  */
 class PaymentCheckoutController extends Controller
 {
+    public function __construct(
+        protected ?WhatsAppNotificationService $notificationService = null
+    ) {
+        $this->notificationService = $notificationService ?? app(WhatsAppNotificationService::class);
+    }
+
     /**
      * GET /api/v1/payment/order/{orderId}
      * Retrieve order details for checkout page.
@@ -67,7 +75,8 @@ class PaymentCheckoutController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($order) {
+        $user = null;
+        DB::transaction(function () use ($order, &$user) {
             /** @var User $user */
             $user = User::whereKey($order->user_jid)->lockForUpdate()->firstOrFail();
 
@@ -95,6 +104,14 @@ class PaymentCheckoutController extends Controller
         });
 
         $order->refresh();
+        if ($user) {
+            $user->refresh();
+            try {
+                $this->notificationService?->sendPaymentSuccessNotification($order, $user);
+            } catch (\Throwable $e) {
+                Log::warning('PaymentCheckoutController: Error sending simulation notification: ' . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'message' => 'Pembayaran berhasil dikonfirmasi! Akun HematWoy Pro aktif.',

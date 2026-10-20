@@ -1,9 +1,38 @@
 services:
   backend:
-    environment: { APP_ENV: production, APP_DEBUG: "false" }
-    deploy: { resources: { limits: { memory: 512M } } }
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      RUN_MIGRATIONS: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
   worker:
-    environment: { APP_ENV: production, APP_DEBUG: "false" }
-    deploy: { resources: { limits: { memory: 256M } } }
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      RUN_MIGRATIONS: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.2"
+          memory: 128M
+
   gateway:
-    deploy: { resources: { limits: { memory: 384M } } }
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.2"
+          memory: 128M

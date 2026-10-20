@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PaymentOrder;
 use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -23,15 +24,42 @@ class MidtransService
     public const ANNUAL_PRICE = 199000;
 
     /**
+     * Get price for given plan code from database, with fallback to constants.
+     */
+    public static function getPriceForPlan(string $planCode = 'monthly'): int
+    {
+        $plan = SubscriptionPlan::where('code', $planCode)->where('is_active', true)->first();
+        if ($plan) {
+            return (int) $plan->price;
+        }
+
+        return $planCode === 'annual' ? self::ANNUAL_PRICE : self::PRICE;
+    }
+
+    /**
+     * Get SubscriptionPlan model for plan code.
+     */
+    public static function getPlan(string $planCode = 'monthly'): ?SubscriptionPlan
+    {
+        return SubscriptionPlan::where('code', $planCode)->where('is_active', true)->first();
+    }
+
+    public function __construct(
+        protected ?WhatsAppNotificationService $notificationService = null
+    ) {
+        $this->notificationService = $notificationService ?? app(WhatsAppNotificationService::class);
+    }
+
+    /**
      * Create a new payment order for user subscription with Midtrans Snap integration.
      */
-    public function createOrder(User $user, int $amount = self::PRICE, string $planName = 'HematWoy Pro 30 Hari'): PaymentOrder
+    public function createOrder(User $user, int $amount = self::PRICE, string $planName = 'HematWoy Pro 30 Hari', ?string $baseUrl = null): PaymentOrder
     {
         $orderId = 'SUB-' . Str::upper(Str::random(18));
         $serverKey = config('services.midtrans.server_key');
 
         $snapToken = null;
-        $paymentUrl = url("/pay/{$orderId}");
+        $paymentUrl = $baseUrl ? rtrim($baseUrl, '/') . "/pay/{$orderId}" : url("/pay/{$orderId}");
 
         if (!empty($serverKey)) {
             try {
@@ -70,10 +98,6 @@ class MidtransService
 
                 if ($response->successful()) {
                     $snapToken = $response->json('token');
-                    $snapRedirect = $response->json('redirect_url');
-                    if ($snapRedirect) {
-                        $paymentUrl = $snapRedirect;
-                    }
                 } else {
                     Log::warning('Midtrans Snap API Warning', [
                         'status' => $response->status(),
@@ -167,6 +191,12 @@ class MidtransService
                 'ends_at'         => $end,
                 'source_order_id' => $order->order_id,
             ]);
+
+            try {
+                $this->notificationService?->sendPaymentSuccessNotification($order, $user);
+            } catch (\Throwable $e) {
+                Log::warning('Failed sending payment notification via MidtransService: ' . $e->getMessage());
+            }
 
             return $order;
         });

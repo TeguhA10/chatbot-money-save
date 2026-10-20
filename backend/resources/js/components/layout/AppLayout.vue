@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
-    <!-- Desktop Sidebar -->
-    <aside class="hidden md:flex flex-col w-64 bg-slate-900/80 border-r border-slate-800/80 p-5 backdrop-blur-xl shrink-0 justify-between">
+  <div class="h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row overflow-hidden">
+    <!-- Desktop Sidebar (Fixed viewport height, never stretches with content) -->
+    <aside class="hidden md:flex flex-col w-64 h-full bg-slate-900/80 border-r border-slate-800/80 p-5 backdrop-blur-xl shrink-0 justify-between overflow-y-auto">
       <div>
         <!-- Logo & Brand -->
         <div class="flex items-center gap-3 px-2 mb-8">
@@ -74,8 +74,43 @@
         </div>
       </div>
 
+      <!-- Subscription Quota & Upgrade Banner -->
+      <div class="pt-4 border-t border-slate-800/80 mb-2">
+        <!-- Active Pro Status -->
+        <div v-if="isPro" class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between shadow-sm">
+          <div class="flex items-center gap-2">
+            <span class="text-base">⭐</span>
+            <div>
+              <span class="text-xs font-bold text-amber-300 block">HematWoy PRO</span>
+              <span class="text-[10px] text-slate-400 block">{{ expiryDisplay }}</span>
+            </div>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">AKTIF</span>
+        </div>
+
+        <!-- Free Tier Quota & Upgrade CTA -->
+        <div v-else class="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2.5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-slate-300">Paket Gratis</span>
+            <span class="text-[10px] font-mono text-emerald-400 font-semibold">{{ remainingQuota }}/100 Kuota</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+            <div
+              class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full transition-all duration-500"
+              :style="{ width: `${quotaPercentage}%` }"
+            ></div>
+          </div>
+          <button
+            @click="openPricingModal('monthly')"
+            class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 via-emerald-400 to-teal-400 text-slate-950 font-black text-xs hover:opacity-95 shadow-md shadow-amber-500/10 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+          >
+            <span>⭐ Upgrade ke Pro</span>
+          </button>
+        </div>
+      </div>
+
       <!-- User Profile & Logout -->
-      <div class="pt-4 border-t border-slate-800/80">
+      <div class="pt-2 border-t border-slate-800/80">
         <div class="flex items-center justify-between p-2 rounded-xl bg-slate-800/40 border border-slate-800">
           <div class="flex items-center gap-2.5 truncate">
             <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs uppercase border border-emerald-500/30">
@@ -106,6 +141,22 @@
         <span class="font-bold text-base text-white">HematWoy</span>
       </div>
       <div class="flex items-center gap-2">
+        <!-- Upgrade Button on Mobile -->
+        <button
+          v-if="!isPro"
+          @click="openPricingModal('monthly')"
+          class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow cursor-pointer"
+        >
+          <span>⭐</span>
+          <span>Pro</span>
+        </button>
+        <span
+          v-else
+          class="px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[10px] flex items-center gap-1"
+        >
+          ⭐ PRO
+        </span>
+
         <!-- Privacy Eye on Mobile -->
         <button
           @click="vaultStore.toggleMask"
@@ -132,7 +183,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-w-0 pb-20 md:pb-6 overflow-y-auto">
+    <main class="flex-1 flex flex-col min-w-0 h-full pb-20 md:pb-6 overflow-y-auto">
       <div class="max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <slot />
       </div>
@@ -158,6 +209,14 @@
     <!-- Global Interactive Toast Notifications -->
     <ToastContainer />
 
+    <!-- In-App Subscription Upgrade Modal -->
+    <PricingModal
+      :isOpen="showPricingModal"
+      :initialPlan="pricingModalPlan"
+      @close="showPricingModal = false"
+      @upgraded="onSubscriptionUpgraded"
+    />
+
     <!-- Confirmation Modal for Logout -->
     <ConfirmModal
       :isOpen="showLogoutModal"
@@ -176,12 +235,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 import { useVaultStore } from '../../stores/vault';
 import { useToastStore } from '../../stores/toast';
 import VaultModal from '../vault/VaultModal.vue';
 import ToastContainer from '../common/ToastContainer.vue';
 import ConfirmModal from '../common/ConfirmModal.vue';
+import PricingModal from '../subscription/PricingModal.vue';
 
 const emit = defineEmits(['open-transaction-modal']);
 
@@ -192,9 +253,62 @@ const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 
 const showLogoutModal = ref(false);
+const showPricingModal = ref(false);
+const pricingModalPlan = ref('monthly');
+const subscription = ref(null);
+
+async function fetchSubscriptionStatus() {
+  try {
+    const res = await api.get('/subscription/status');
+    subscription.value = res.data.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+}
+
+const isPro = computed(() => {
+  return subscription.value?.is_pro || authStore.user?.tier === 'PREMIUM';
+});
+
+const remainingQuota = computed(() => {
+  return subscription.value?.remaining ?? 85;
+});
+
+const quotaPercentage = computed(() => {
+  const rem = remainingQuota.value;
+  return Math.min(100, Math.max(5, ((100 - rem) / 100) * 100));
+});
+
+const expiryDisplay = computed(() => {
+  const exp = subscription.value?.expires_at || authStore.user?.subscription_expires_at;
+  if (!exp) return 'Aktif';
+  try {
+    const d = new Date(exp);
+    return 's/d ' + d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return 'Aktif';
+  }
+});
+
+function openPricingModal(plan = 'monthly') {
+  pricingModalPlan.value = plan;
+  showPricingModal.value = true;
+}
+
+async function onSubscriptionUpgraded() {
+  await fetchSubscriptionStatus();
+  await authStore.fetchProfile();
+}
 
 onMounted(() => {
+  if (!authStore.isAuthenticated) return;
+
   vaultStore.fetchStatus();
+  fetchSubscriptionStatus();
+
+  if (route.query.upgrade === 'pro') {
+    openPricingModal(route.query.plan === 'annual' ? 'annual' : 'monthly');
+  }
 });
 
 function toggleVaultLock() {

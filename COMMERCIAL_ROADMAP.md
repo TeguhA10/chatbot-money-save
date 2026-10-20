@@ -2,8 +2,9 @@
 ## Chatbot Money Save (HematWoy) — Target: 100K to 1M+ Active Subscribers
 
 > **Dokumen Strategis & Blueprint Produk Komersial**  
-> Dibuat: 19 Oktober 2026 | Versi: 1.0  
-> Status: Active Implementation Blueprint
+> Dibuat: 19 Oktober 2026 | Versi: 1.1  
+> Status: Active Implementation Blueprint  
+> Rencana Teknis Terintegrasi: [PAYMENT_FLOW_INTEGRATION_PLAN.md](file:///d:/Project%20Personal/chatbot%20money%20save/PAYMENT_FLOW_INTEGRATION_PLAN.md)
 
 ---
 

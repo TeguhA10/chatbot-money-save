@@ -394,5 +394,50 @@ class WebhookTest extends TestCase
         $this->assertEquals('REPLY_TEXT', $res2['action']);
         $this->assertStringContainsString('Panduan', $res2['reply_text']);
     }
+
+    public function test_it_handles_natural_language_pro_subscription_intent()
+    {
+        $res = $this->sendChat('Halo HematWoy, saya mau langganan Paket Pro!');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('HematWoy Pro — Akses Tanpa Batas', $res['reply_text']);
+        $this->assertStringContainsString('Rp25.000', $res['reply_text']);
+        $this->assertTrue(str_contains($res['reply_text'], '/pay/SUB-') || str_contains($res['reply_text'], 'midtrans.com'));
+    }
+
+    public function test_it_handles_natural_language_annual_subscription_intent()
+    {
+        $res = $this->sendChat('Halo HematWoy, saya mau langganan Paket Tahunan!');
+        $this->assertEquals('REPLY_TEXT', $res['action']);
+        $this->assertStringContainsString('HematWoy Pro 1 Tahun', $res['reply_text']);
+        $this->assertStringContainsString('Rp199.000', $res['reply_text']);
+        $this->assertTrue(str_contains($res['reply_text'], '/pay/SUB-') || str_contains($res['reply_text'], 'midtrans.com'));
+    }
+
+    public function test_it_handles_subscription_from_web_landing_page_messages_without_pin()
+    {
+        $res1 = $this->sendChat('Halo HematWoy, saya mau langganan Pro Bulanan (Rp 25.000)!');
+        $this->assertEquals('REPLY_TEXT', $res1['action']);
+        $this->assertStringContainsString('HematWoy Pro — Akses Tanpa Batas', $res1['reply_text']);
+        $this->assertStringContainsString('Rp25.000', $res1['reply_text']);
+        $this->assertTrue(str_contains($res1['reply_text'], '/pay/SUB-') || str_contains($res1['reply_text'], 'midtrans.com'));
+
+        $res2 = $this->sendChat('Halo HematWoy, saya mau langganan Pro 1 Tahun (Rp 199.000)!');
+        $this->assertEquals('REPLY_TEXT', $res2['action']);
+        $this->assertStringContainsString('HematWoy Pro 1 Tahun', $res2['reply_text']);
+        $this->assertStringContainsString('Rp199.000', $res2['reply_text']);
+        $this->assertTrue(str_contains($res2['reply_text'], '/pay/SUB-') || str_contains($res2['reply_text'], 'midtrans.com'));
+    }
+
+    public function test_it_handles_status_langganan_and_cek_status_kuota_button_click()
+    {
+        $res1 = $this->sendChat('status langganan');
+        $this->assertEquals('REPLY_TEXT', $res1['action']);
+        $this->assertStringContainsString('Status Kuota Finansial', $res1['reply_text']);
+        $this->assertStringContainsString('100', $res1['reply_text']);
+
+        $res2 = $this->sendChat('Cek Status Kuota');
+        $this->assertEquals('REPLY_TEXT', $res2['action']);
+        $this->assertStringContainsString('Status Kuota Finansial', $res2['reply_text']);
+    }
 }
 

@@ -64,7 +64,11 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
 
             // Dispatch outbound reply based on source
             if ($this->source === 'meta' && $this->fromPhone) {
-                if (!empty($data['reply_text'])) {
+                $sentInteractive = false;
+                if (!empty($data['interactive'])) {
+                    $sentInteractive = $controller->sendMetaInteractive($this->fromPhone, $data['interactive']);
+                }
+                if (!$sentInteractive && !empty($data['reply_text'])) {
                     $controller->sendMetaReply($this->fromPhone, $data['reply_text']);
                 }
             } elseif ($this->source === 'baileys') {

@@ -66,11 +66,16 @@ class SubscriptionService
     public function status(User $user): array
     {
         $user->refresh();
+        $isPro = $user->hasActivePremium();
 
         return [
-            'tier'       => $user->hasActivePremium() ? 'PREMIUM' : 'FREE',
-            'remaining'  => max(0, self::FREE_LIMIT - $user->free_financial_message_count),
-            'expires_at' => $user->subscription_expires_at,
+            'tier'         => $isPro ? 'PREMIUM' : 'FREE',
+            'is_pro'       => $isPro,
+            'remaining'    => max(0, self::FREE_LIMIT - (int) $user->free_financial_message_count),
+            'free_limit'   => self::FREE_LIMIT,
+            'used'         => (int) $user->free_financial_message_count,
+            'expires_at'   => $user->subscription_expires_at,
+            'plan_display' => $isPro ? 'HematWoy Pro' : 'Gratis (Freemium)',
         ];
     }
 }
