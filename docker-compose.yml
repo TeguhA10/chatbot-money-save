@@ -16,7 +16,7 @@ services:
       REDIS_PORT: 6379
       OCTANE_SERVER: frankenphp
       GATEWAY_OUTBOUND_URL: http://gateway:3001/send
-    ports: ["8000:8000"]
+    ports: ["${BACKEND_PORT:-8001}:8000"]
     volumes: ["backend_storage:/var/www/storage"]
     depends_on:
       redis: { condition: service_healthy }
@@ -41,6 +41,11 @@ services:
       REDIS_PORT: 6379
       GATEWAY_OUTBOUND_URL: http://gateway:3001/send
     volumes: ["backend_storage:/var/www/storage"]
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan queue:work' > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -95,6 +100,17 @@ services:
     ports: ["6432:6432"]
     depends_on:
       postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http backend:8000
+    env_file:
+      - ./backend/.env
+    ports:
+      - "4040:4040"
+    depends_on:
+      backend: { condition: service_healthy }
     restart: unless-stopped
 
 volumes:

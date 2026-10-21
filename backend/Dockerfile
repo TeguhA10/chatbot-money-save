@@ -4,7 +4,7 @@
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --classmap-authoritative
+RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --ignore-platform-req=ext-gd
 
 # ------------------------------------------------------------------------------
 # Stage 2: Frontend Assets Builder (Vue + Vite)
@@ -21,12 +21,12 @@ RUN yarn build || npm run build
 # ------------------------------------------------------------------------------
 # Stage 3: Production Runtime (FrankenPHP Octane)
 # ------------------------------------------------------------------------------
-FROM dunglas/frankenphp:latest-php8.3-alpine
+FROM dunglas/frankenphp:1-php8.4-alpine
 
 WORKDIR /var/www
 
 # Install high-performance production extensions
-RUN install-php-extensions pdo_pgsql pdo_sqlite redis pcntl opcache bcmath
+RUN install-php-extensions pdo_pgsql pdo_sqlite redis pcntl opcache bcmath gd
 
 # Production OPcache configuration for ultra-low latency & high throughput
 RUN { \
@@ -42,11 +42,17 @@ RUN { \
 
 ENV OCTANE_SERVER=frankenphp
 
+# Copy composer binary from vendor stage
+COPY --from=vendor /usr/bin/composer /usr/bin/composer
+
 # Copy backend dependencies and app code
 COPY --from=vendor /app/vendor ./vendor
 COPY . .
 # Copy compiled frontend assets from Stage 2
 COPY --from=frontend-builder /app/public/build ./public/build
+
+# Generate optimized authoritative classmap including app code and discover packages
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 # Setup entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

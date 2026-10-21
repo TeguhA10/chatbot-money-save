@@ -25,7 +25,7 @@ npm run dev
 
 ```env
 PORT=3000
-LARAVEL_WEBHOOK_URL=http://127.0.0.1:8000/api/webhook/whatsapp
+LARAVEL_WEBHOOK_URL=http://127.0.0.1:8001/api/webhook/whatsapp
 GATEWAY_WEBHOOK_SECRET=local_dev_secret_12345
 
 # Masukkan nomor HP (format: 628xxx) untuk pairing code di terminal

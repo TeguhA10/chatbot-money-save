@@ -170,11 +170,12 @@ chatbot-money-save/
 
 | Komponen | Kebutuhan Minimum | Rekomendasi Produksi |
 | :--- | :--- | :--- |
-| **PHP** | `^8.2` atau `8.3 / 8.4` | `PHP 8.3` (Ekstensi: `pdo_pgsql`, `redis`, `opcache`, `bcmath`, `pcntl`) |
-| **Runtime Server** | `php artisan serve` (Dev) | **FrankenPHP Octane Worker Mode** |
+| **PHP** | `^8.3` atau `>= 8.4.1` | **PHP 8.4** (Ekstensi: `pdo_pgsql`, `redis`, `opcache`, `bcmath`, `pcntl`, `gd`) |
+| **Runtime Server** | `php artisan serve` (Dev) | **FrankenPHP Octane Worker Mode (`dunglas/frankenphp:1-php8.4-alpine`)** |
 | **Database** | SQLite (Uji Coba Lokal) | **PostgreSQL 16 + PgBouncer (Transaction Pooling)** |
 | **Cache & Queue** | File / Database driver | **Redis 7 (AOF Enabled)** |
 | **Node.js** | `v20.x+` atau `v22.x+` | `Node.js 22 Alpine` & `Yarn` |
+| **Tunneling (Lokal)** | **Ngrok v3+** (Wajib untuk webhook publik di lokal) | Cloudflare Tunnel / Ngrok Pro / Domain Resmi |
 | **Container Engine** | Docker Desktop | **Docker Engine 26+ & Docker Compose v2** |
 
 ---
@@ -214,44 +215,121 @@ npm install
 npm run build
 ```
 
+### 4. Instalasi & Setup Ngrok (Wajib untuk Webhook Publik Lokal)
+Ngrok diperlukan saat development lokal agar server lokal Anda (`http://localhost:8001`) dapat menerima kiriman webhook HTTPS dari luar (Meta WhatsApp Cloud API, callback pembayaran Midtrans, atau akses web dashboard dari HP).
+
+#### A. Cara Instalasi Ngrok:
+- **Windows (Terminal / PowerShell):**
+  ```powershell
+  winget install ngrok.ngrok
+  # atau via Chocolatey: choco install ngrok
+  # atau download installer resmi di https://ngrok.com/download
+  ```
+- **macOS (Homebrew):**
+  ```bash
+  brew install ngrok/ngrok/ngrok
+  ```
+- **Linux (Debian/Ubuntu):**
+  ```bash
+  curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+  echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+  sudo apt update && sudo apt install ngrok
+  ```
+- **Via Node.js / NPM (Semua OS):**
+  ```bash
+  npm install -g ngrok
+  ```
+
+#### B. Menghubungkan Akun Ngrok (Authtoken):
+1. Daftar akun gratis di [ngrok.com](https://dashboard.ngrok.com/signup).
+2. Salin token dari menu [Your Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken).
+3. Jalankan di terminal:
+   ```bash
+   ngrok config add-authtoken <TOKEN_ANDA>
+   ```
+
 ---
 
 ## ▶️ Cara Menjalankan
 
-### Mode 1: Development Lokal
+### Mode 1: Development Lokal (Termasuk Ngrok Webhook Tunnel)
 
-Buka 3 tab terminal:
+Untuk menjalankan seluruh ekosistem di mode development lokal, buka **4 tab terminal**:
 
-* **Terminal 1 (Backend Server):**
+* **Terminal 1 — Backend API & Web Server:**
   ```bash
   cd backend
-  php artisan serve --port 8000
+  php artisan serve --port 8001
   ```
-* **Terminal 2 (Frontend Dev HMR - Opsional):**
+
+* **Terminal 2 — Frontend Dev Server (Vite HMR):**
   ```bash
   cd backend
   yarn dev
   ```
-* **Terminal 3 (WhatsApp Gateway):**
+
+* **Terminal 3 — WhatsApp Gateway (Baileys Engine):**
   ```bash
   cd whatsapp-gateway
   npm run dev
   ```
   *Terminal akan menampilkan **Kode Pairing 8-Karakter**. Buka WhatsApp di smartphone Anda $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ **Tautkan dengan nomor telepon** $\rightarrow$ Masukkan kode tersebut.*
 
+* **Terminal 4 — Ngrok HTTPS Public Tunnel:**
+  ```bash
+  ngrok http 8001
+  ```
+  Ngrok akan menampilkan URL publik HTTPS (contoh: `https://abcd-123.ngrok-free.app`).
+
+#### 🔗 Menghubungkan URL Ngrok ke Project:
+1. Buka file `backend/.env` dan ubah `APP_URL`:
+   ```env
+   APP_URL=https://abcd-123.ngrok-free.app
+   ```
+2. Salin URL tersebut untuk kebutuhan integrasi pihak ketiga:
+   - **Meta WhatsApp Cloud API Webhook URL**:
+     `https://abcd-123.ngrok-free.app/api/webhook/whatsapp`
+   - **Midtrans Payment Notification URL**:
+     `https://abcd-123.ngrok-free.app/api/webhook/midtrans`
+   - **Web Dashboard Mobile**: Buka langsung `https://abcd-123.ngrok-free.app` di browser smartphone Anda.
+
 ---
 
-### Mode 2: Production Skala Besar (Docker Compose)
+### Mode 2: Full-Stack Docker Container (Termasuk Ngrok Otomatis)
 
-Untuk menjalankan seluruh stack (FrankenPHP Octane + Queue Worker + PostgreSQL + PgBouncer Pooler + Redis + WhatsApp Gateway) dalam container terisolasi:
+Untuk menjalankan seluruh stack (FrankenPHP Octane PHP 8.4 + Queue Worker + PostgreSQL + PgBouncer Pooler + Redis + WhatsApp Gateway + **Ngrok Public Tunnel**) dalam container terisolasi secara instan:
 
 ```bash
-# Jalankan seluruh stack dengan alokasi resource produksi
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Jalankan seluruh stack (ngrok akan otomatis aktif dan tunneling ke backend)
+docker compose up -d
 
-# Pantau log server
-docker compose logs -f backend
+# Atau untuk rebuild image terbaru:
+docker compose up -d --build
+
+# Verifikasi seluruh container berjalan dan berstatus healthy
+docker compose ps
 ```
+
+#### 🌐 Cara Melihat Public URL Ngrok dari Docker:
+Saat container `ngrok` berjalan, Anda dapat melihat URL HTTPS publik dan inspeksi lalu-lintas request dengan dua cara:
+1. **Buka Web UI Inspector di Browser**:
+   Kunjungi [http://localhost:4040](http://localhost:4040) untuk melihat status tunnel, URL publik aktif, dan realtime request inspector.
+2. **Cek URL Publik via Terminal**:
+   - **PowerShell (Windows)**:
+     ```powershell
+     (Invoke-RestMethod -Uri 'http://localhost:4040/api/tunnels').tunnels.public_url
+     ```
+   - **Bash / Linux / Mac**:
+     ```bash
+     curl -s http://localhost:4040/api/tunnels | grep -o 'https://[^"]*ngrok-free[^"]*'
+     ```
+
+Stack Docker dilengkapi:
+- **Ngrok Tunnel (`port 4040`)**: Otomatis mengekspos `backend:8000` ke internet publik menggunakan `NGROK_AUTHTOKEN` dari `backend/.env`.
+- **FrankenPHP Octane PHP 8.4**: Runtime server in-memory berperforma tinggi dengan ekstensi `pdo_pgsql`, `redis`, `opcache`, `bcmath`, `pcntl`, dan `gd`.
+- **PgBouncer 6432**: Transaction-level connection pooler di depan PostgreSQL 16.
+- **Dedicated Queue Worker**: Memproses antrean pesan WhatsApp & export Excel di background dengan *process healthcheck* mandiri.
+- **Node 22 Baileys Gateway**: Sidecar WhatsApp terisolasi dengan persistent storage sesi QR/pairing.
 
 ---
 
@@ -379,6 +457,15 @@ Dalam arsitektur produksi jutaan pengguna, koneksi database PostgreSQL tidak dit
 
 ### 3. Mengapa tampilan web sempat blank putih saat dibuka lewat ngrok?
 Browser modern menerapkan aturan keamanan **Private Network Access (PNA)** yang melarang website HTTPS publik memuat aset dev server lokal `http://[::1]:5173`. Sistem ini telah dilengkapi proteksi otomatis di `AppServiceProvider`: ketika diakses via ngrok/domain publik, framework otomatis menyajikan aset build resmi dari domain yang sama tanpa memicu blokir CORS.
+
+### 4. Mengapa Docker runtime menggunakan PHP 8.4 dan ekstensi GD?
+Komponen framework dan library modern yang terkunci di `composer.lock` (seperti `symfony/* 8.1`) memiliki prasyarat PHP versi `>= 8.4.1`. Oleh karena itu, runtime image menggunakan `dunglas/frankenphp:1-php8.4-alpine`. Selain itu, ekstensi `gd` dipasang wajib di container runtime untuk mendukung manipulasi file spreadsheet dan grafik laporan oleh `phpoffice/phpspreadsheet` / `maatwebsite/excel`.
+
+### 5. Bagaimana cara kerja Multi-Stage Build & Healthcheck di Docker?
+- **Stage 1 (Vendor)**: Menjalankan `composer install` dengan opsi `--ignore-platform-req=ext-gd` dan `--no-scripts` agar dependency resolver ringan tidak terhalang sebelum file aplikasi disalin.
+- **Stage 2 (Frontend)**: Mengompilasi asset Vue 3 + Tailwind CSS via Node 22 Alpine ke `public/build`.
+- **Stage 3 (FrankenPHP Runtime)**: Menggabungkan vendor, kode aplikasi, dan asset terkompilasi, lalu mengeksekusi `composer dump-autoload --optimize --classmap-authoritative --no-dev` untuk mendaftarkan seluruh kelas `App\` dan service provider package.
+- **Healthchecks**: Service `backend` dipantau lewat HTTP endpoint `/api/health/live`, sedangkan service `worker` dipantau melalui pemeriksaan proses antrean mandiri (`pgrep -f 'artisan queue:work'`).
 
 ---
 
