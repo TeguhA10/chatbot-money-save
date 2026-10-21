@@ -113,11 +113,14 @@ class TransactionParserService
         }
 
         // 1. Detect amount
-        $amount = $this->extractAmount($message);
+        $amountInfo = $this->extractAmountDetails($message);
 
-        if ($amount === null || $amount <= 0) {
+        if ($amountInfo === null || $amountInfo['amount'] <= 0) {
             return null;
         }
+
+        $amount = $amountInfo['amount'];
+        $rawMatched = $amountInfo['raw_matched'];
 
         // 2. Detect transaction direction
         $type = $this->detectType($message);
@@ -140,7 +143,7 @@ class TransactionParserService
         }
 
         // 3. Extract description (words remaining after removing direction keyword + amount)
-        $description = $this->extractDescription($message);
+        $description = $this->extractDescription($message, $rawMatched);
 
         // 4. Detect optional category hint
         $categoryHint = $this->detectCategoryHint($message);
@@ -161,7 +164,7 @@ class TransactionParserService
      */
     public function parseAddWallet(string $message): ?array
     {
-        if (preg_match('/^(?:tambah|buat)\s+dompet\s+([a-zA-Z0-9_\-\s]+?)(?:\s+saldo\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?))?$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:tambah|buat)\s+dompet\s+([a-zA-Z0-9_\-\s]+?)(?:\s+saldo\s+(.+))?$/i', trim($message), $matches)) {
             $name = trim($matches[1]);
             $initialBalance = 0;
             if (!empty($matches[2])) {
@@ -185,7 +188,7 @@ class TransactionParserService
      */
     public function parseTransfer(string $message): ?array
     {
-        if (preg_match('/^(?:transfer|trf|tarik tunai)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+dari\s+([a-zA-Z0-9_\-\s]+?)\s+ke\s+([a-zA-Z0-9_\-\s]+)$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:transfer|trf|tarik tunai)\s+(.+?)\s+dari\s+([a-zA-Z0-9_\-\s]+?)\s+ke\s+([a-zA-Z0-9_\-\s]+)$/i', trim($message), $matches)) {
             $amount = $this->extractAmount($matches[1]);
             $fromWallet = trim($matches[2]);
             $toWallet = trim($matches[3]);
@@ -209,7 +212,7 @@ class TransactionParserService
      */
     public function parseRecurringSchedule(string $message): ?array
     {
-        if (preg_match('/^(?:langganan|buat langganan)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+setiap\s+tanggal\s+(\d{1,2})(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:langganan|buat langganan)\s+(.+?)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)\s+setiap\s+tanggal\s+(\d{1,2})(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
             $name = trim($matches[1]);
             $amount = $this->extractAmount($matches[2]);
             $dayOfMonth = (int) $matches[3];
@@ -236,7 +239,7 @@ class TransactionParserService
      */
     public function parseCreateGoal(string $message): ?array
     {
-        if (preg_match('/^(?:buat\s+target|target)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:buat\s+target|target)\s+(.+?)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
             $name = trim($matches[1]);
             $amount = $this->extractAmount($matches[2]);
             if (!empty($name) && $amount && $amount > 0) {
@@ -257,7 +260,7 @@ class TransactionParserService
      */
     public function parseGoalContribution(string $message): ?array
     {
-        if (preg_match('/^(?:tambah\s+tabungan|tabung)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)\s+untuk\s+(.+?)(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:tambah\s+tabungan|tabung)\s+(.+?)\s+untuk\s+(.+?)(?:\s+via\s+([a-zA-Z0-9_\-]+))?$/i', trim($message), $matches)) {
             $amount = $this->extractAmount($matches[1]);
             $goalName = trim($matches[2]);
             $walletName = !empty($matches[3]) ? trim($matches[3]) : null;
@@ -278,103 +281,187 @@ class TransactionParserService
     // ---------------------------------------------------------------------------
 
     /**
-     * Extract and normalize amount from the message to integer Rupiah.
+     * Master method to extract amount and the exact substring matched.
      *
-     * Supported formats:
-     *   25000, 25.000, 25,000  → 25000
-     *   25k, 25rb, 25ribu      → 25000
-     *   1.5jt, 1,5juta         → 1500000
-     *   2jt                    → 2000000
+     * Supports:
+     * 1. Compound Million + Thousand:
+     *    - "6jt850rb", "6jt 850rb", "6juta 850ribu", "6jt850k", "6jt 850k", "1jt 50rb"
+     * 2. Compound Million + Shorthand Thousand (without suffix):
+     *    - "6jt 850", "6jt850", "1jt 500", "2jt 250", "1jt 50"
+     * 3. Compound Thousand + Hundreds:
+     *    - "25rb 500", "25k 500", "25rb 500 perak", "15rb 500 rupiah"
+     * 4. Single Unit with Multiplier Suffix:
+     *    - "6.850jt", "6,850jt", "6.85jt", "6.8jt", "2jt" -> Million
+     *    - "1.5m", "1,5milyar" -> Billion
+     *    - "1.5k", "2.5rb", "25k", "500rb", "1.500k" -> Thousand
+     * 5. Standard Currency Numbers:
+     *    - "6.850.000", "1.500.000", "25.000", "25000", "500"
+     *    - With "Rp" or "Rp." prefix: "Rp 25.000", "Rp. 6.850.000", "rp 6jt850rb"
+     *
+     * @return array{amount: int, raw_matched: string}|null
      */
-    private function extractAmount(string $message): ?int
+    public function extractAmountDetails(string $message): ?array
     {
-        if (!preg_match(self::AMOUNT_REGEX, $message, $matches)) {
-            return null;
+        $text = trim($message);
+
+        // 1. Compound: Million + Thousand with suffix (e.g. "6jt850rb", "6jt 850rb", "6juta 850ribu", "6jt 850k")
+        if (preg_match('/(?:rp\.?\s*)?(\d+(?:[.,]\d+)?)\s*(jt|juta)\s*(\d+(?:[.,]\d+)?)\s*(rb|ribu|k)\b/i', $text, $m)) {
+            $mAmount = $this->parseSingleNumber($m[1], $m[2]);
+            $kAmount = $this->parseSingleNumber($m[3], $m[4]);
+            $total = $mAmount + $kAmount;
+            if ($total > 0) {
+                return ['amount' => $total, 'raw_matched' => $m[0]];
+            }
         }
 
-        // $matches[2] = digits (possibly with . or , separators)
-        // $matches[3] = multiplier suffix (optional)
-        $rawNumber  = $matches[2] ?? '';
-        $multiplier = strtolower($matches[3] ?? '');
-
-        if (empty($rawNumber)) {
-            return null;
+        // 2. Compound: Million + Shorthand Thousand (e.g. "6jt 850", "6jt850", "1jt 500", "2jt 50")
+        // Disallows units like pcs, lembar, dll.
+        if (preg_match('/(?:rp\.?\s*)?(\d+(?:[.,]\d+)?)\s*(jt|juta)\s*(\d{2,3})\b(?!\s*(?:pcs|pc|item|biji|buah|lembar|porsi|ekor|kg|gram|gr|meter|m|hari|bln|bulan|thn|tahun|kali|x)\b)/i', $text, $m)) {
+            $mAmount = $this->parseSingleNumber($m[1], $m[2]);
+            $kAmount = ((int) $m[3]) * 1000;
+            $total = $mAmount + $kAmount;
+            if ($total > 0) {
+                return ['amount' => $total, 'raw_matched' => $m[0]];
+            }
         }
 
-        // Normalize: remove thousand separators (dot or comma when followed by 3 digits)
-        // Handle decimal comma (e.g. 1,5) vs thousand comma (e.g. 1,500)
-        // Strategy: if there are digits after separator AND length <= 2 → decimal
-        //           if 3 digits after separator → thousand separator
-        $normalized = $this->normalizeNumber($rawNumber);
-
-        if ($normalized === null) {
-            return null;
+        // 3. Compound: Thousand + Hundreds (e.g. "25rb 500", "25k 500", "25rb 500 perak")
+        if (preg_match('/(?:rp\.?\s*)?(\d+(?:[.,]\d+)?)\s*(rb|ribu|k)\s*(\d{1,3})\s*(?:perak|rupiah)?\b(?!\s*(?:pcs|pc|item|biji|buah|lembar|porsi|ekor|kg|gram|gr|meter|m|hari|bln|bulan|thn|tahun|kali|x)\b)/i', $text, $m)) {
+            $kAmount = $this->parseSingleNumber($m[1], $m[2]);
+            $hAmount = (int) $m[3];
+            $total = $kAmount + $hAmount;
+            if ($total > 0) {
+                return ['amount' => $total, 'raw_matched' => $m[0]];
+            }
         }
 
-        // Apply multiplier
-        $amount = match (true) {
-            in_array($multiplier, ['k', 'rb', 'ribu']) => (int) round($normalized * 1000),
-            in_array($multiplier, ['jt', 'juta'])      => (int) round($normalized * 1000000),
-            default                                     => (int) $normalized,
-        };
+        // 4. Single with multiplier suffix (e.g. "6.850jt", "6,850jt", "6.85jt", "2jt", "1.5m", "25k", "500rb", "1.500k")
+        if (preg_match('/(?:rp\.?\s*)?(\d+(?:[.,]\d+)*)\s*(jt|juta|m|milyar|miliar|rb|ribu|k)\b/i', $text, $m)) {
+            $amount = $this->parseSingleNumber($m[1], $m[2]);
+            if ($amount > 0) {
+                return ['amount' => $amount, 'raw_matched' => $m[0]];
+            }
+        }
 
-        return $amount > 0 ? $amount : null;
+        // 5. Standard currency numbers without suffix:
+        // Either numbers formatted with thousand separators ("6.850.000", "25.000") or plain digits ("25000", "500")
+        if (preg_match('/(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+)\b/i', $text, $m)) {
+            $amount = $this->parseSingleNumber($m[1], null);
+            if ($amount > 0) {
+                return ['amount' => $amount, 'raw_matched' => $m[0]];
+            }
+        }
+
+        return null;
     }
 
     /**
-     * Normalize raw number string to a float value.
-     * Handles both:
-     *   - Thousand separators: "25.000" → 25000, "1.500.000" → 1500000
-     *   - Decimal notations: "1.5" → 1.5, "1,5" → 1.5
+     * Extract and normalize amount from the message to integer Rupiah.
      */
-    private function normalizeNumber(string $raw): ?float
+    public function extractAmount(string $message): ?int
     {
-        // Count separators
-        $dotCount   = substr_count($raw, '.');
-        $commaCount = substr_count($raw, ',');
+        $details = $this->extractAmountDetails($message);
+        return $details['amount'] ?? null;
+    }
 
-        if ($dotCount === 0 && $commaCount === 0) {
-            // Plain integer
-            return (float) $raw;
+    /**
+     * Parse a single numeric token with an optional multiplier unit.
+     */
+    private function parseSingleNumber(string $rawNum, ?string $unit): int
+    {
+        $rawNum = trim($rawNum);
+        $unit = $unit !== null ? strtolower(trim($unit)) : null;
+
+        $dotCount = substr_count($rawNum, '.');
+        $commaCount = substr_count($rawNum, ',');
+        $totalSep = $dotCount + $commaCount;
+
+        if ($unit === 'jt' || $unit === 'juta') {
+            // E.g.: "6.850jt", "6,850jt", "6.85jt", "1.5jt", "2jt"
+            if ($totalSep === 1) {
+                // Single separator: always decimal in million!
+                // "6.850" -> 6.85 * 1,000,000 = 6,850,000
+                // "6.85"  -> 6.85 * 1,000,000 = 6,850,000
+                // "1.500" -> 1.5 * 1,000,000  = 1,500,000
+                $decimalStr = str_replace(',', '.', $rawNum);
+                return (int) round(((float) $decimalStr) * 1_000_000);
+            }
+            if ($totalSep > 1) {
+                $clean = str_replace(['.', ','], '', $rawNum);
+                return (int) round(((float) $clean) * 1_000_000);
+            }
+            return (int) round(((float) $rawNum) * 1_000_000);
         }
 
-        // Check if it's a decimal (dot/comma followed by 1-2 digits at end)
-        if (preg_match('/^(\d+)[.,](\d{1,2})$/', $raw, $m)) {
-            // e.g. "1.5" or "1,5" → decimal
-            return (float) ($m[1] . '.' . $m[2]);
+        if (in_array($unit, ['m', 'milyar', 'miliar'], true)) {
+            if ($totalSep === 1) {
+                $decimalStr = str_replace(',', '.', $rawNum);
+                return (int) round(((float) $decimalStr) * 1_000_000_000);
+            }
+            $clean = str_replace(['.', ','], '', $rawNum);
+            return (int) round(((float) $clean) * 1_000_000_000);
         }
 
-        // Remove thousand separators (dots or commas before 3-digit groups)
-        $clean = preg_replace('/[.,](\d{3})/', '$1', $raw);
-        $clean = str_replace(['.', ','], '', $clean ?? $raw);
+        if (in_array($unit, ['rb', 'ribu', 'k'], true)) {
+            if ($totalSep === 1) {
+                // If separator is followed by 1 or 2 digits -> decimal (e.g. 1.5k = 1500, 2.5rb = 2500)
+                if (preg_match('/[.,]\d{1,2}$/', $rawNum)) {
+                    $decimalStr = str_replace(',', '.', $rawNum);
+                    return (int) round(((float) $decimalStr) * 1_000);
+                }
+                // If separator followed by 3 digits (e.g. 1.500k -> 1,500,000)
+                $clean = str_replace(['.', ','], '', $rawNum);
+                return (int) round(((float) $clean) * 1_000);
+            }
+            if ($totalSep > 1) {
+                $clean = str_replace(['.', ','], '', $rawNum);
+                return (int) round(((float) $clean) * 1_000);
+            }
+            return (int) round(((float) $rawNum) * 1_000);
+        }
 
-        return is_numeric($clean) ? (float) $clean : null;
+        // Standard number without unit suffix (e.g. "6.850.000", "25.000", "25000", "500")
+        $clean = str_replace(['.', ','], '', $rawNum);
+        return is_numeric($clean) ? (int) $clean : 0;
     }
 
     /**
      * Detect whether the transaction is EXPENSE or INCOME based on:
      * 1. Explicit +/- sign prefix
-     * 2. Indonesian directional keywords
+     * 2. Indonesian directional keywords (leading keywords prioritized, with word boundaries)
      */
     private function detectType(string $message): ?string
     {
-        $lowerMessage = strtolower($message);
+        $lowerMessage = strtolower(trim($message));
 
         // Explicit sign prefix takes priority
         if (preg_match('/^[+-]/', $message)) {
             return str_starts_with($message, '+') ? 'INCOME' : 'EXPENSE';
         }
 
-        // Check income keywords FIRST (higher specificity words like 'dapat' must win)
+        // Check if message STARTS with an income or expense keyword
         foreach (self::INCOME_KEYWORDS as $keyword) {
-            if (str_contains($lowerMessage, $keyword)) {
+            if (preg_match('/^' . preg_quote($keyword, '/') . '\b/i', $lowerMessage)) {
                 return 'INCOME';
             }
         }
 
-        // Check expense keywords
         foreach (self::EXPENSE_KEYWORDS as $keyword) {
-            if (str_contains($lowerMessage, $keyword)) {
+            if (preg_match('/^' . preg_quote($keyword, '/') . '\b/i', $lowerMessage)) {
+                return 'EXPENSE';
+            }
+        }
+
+        // Check income keywords with word boundaries
+        foreach (self::INCOME_KEYWORDS as $keyword) {
+            if (preg_match('/\b' . preg_quote($keyword, '/') . '\b/i', $lowerMessage)) {
+                return 'INCOME';
+            }
+        }
+
+        // Check expense keywords with word boundaries
+        foreach (self::EXPENSE_KEYWORDS as $keyword) {
+            if (preg_match('/\b' . preg_quote($keyword, '/') . '\b/i', $lowerMessage)) {
                 return 'EXPENSE';
             }
         }
@@ -386,7 +473,7 @@ class TransactionParserService
     /**
      * Extract description by removing direction keywords, amount tokens, and stop words.
      */
-    private function extractDescription(string $message): string
+    private function extractDescription(string $message, ?string $rawMatched = null): string
     {
         $cleaned = trim($message);
 
@@ -403,10 +490,17 @@ class TransactionParserService
             }
         }
 
-        // Remove amount token (number + optional suffix)
-        $cleaned = preg_replace('/\d+(?:[.,]\d+)?\s*(?:k|rb|ribu|jt|juta)?\s*/i', '', $cleaned) ?? $cleaned;
+        // Remove the matched amount token cleanly
+        if (!empty($rawMatched)) {
+            $cleaned = preg_replace('/' . preg_quote($rawMatched, '/') . '/i', '', $cleaned, 1) ?? $cleaned;
+        } else {
+            // Fallback: remove amount pattern
+            $cleaned = preg_replace('/\d+(?:[.,]\d+)*\s*(?:k|rb|ribu|jt|juta|m|milyar|miliar)?\s*/i', '', $cleaned) ?? $cleaned;
+        }
 
-        // Trim and normalize whitespace
+        // Clean any leftover "rp" or "rp." or leading/trailing punctuation
+        $cleaned = preg_replace('/\brp\.?\s*/i', '', $cleaned) ?? $cleaned;
+        $cleaned = trim(preg_replace('/^[:\-+\s]+|[:\-+\s]+$/', '', $cleaned) ?? $cleaned);
         $description = trim(preg_replace('/\s+/', ' ', $cleaned) ?? $cleaned);
 
         return $description;
@@ -443,7 +537,7 @@ class TransactionParserService
      */
     public function parseBudgetSet(string $message): ?array
     {
-        if (preg_match('/^(?:budget|anggaran)\s+(.+?)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)$/i', trim($message), $matches)) {
+        if (preg_match('/^(?:budget|anggaran)\s+(.+?)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
             $catName = trim($matches[1]);
             $amount = $this->extractAmount($matches[2]);
             if ($amount && $amount > 0 && !empty($catName)) {
@@ -504,9 +598,9 @@ class TransactionParserService
             // Transaksi
             '/^pengeluaran/i',
             '/^pemasukan/i',
-            '/^ubah transaksi/i',
-            '/^hapus transaksi/i',
-            '/^batal$/i',
+            '/^(ubah|ganti|edit)(\s+transaksi)?/i',
+            '/^(hapus|delete)(\s+transaksi)?/i',
+            '/^batal/i',
 
             // Bantuan
             '/^bantuan$/i',

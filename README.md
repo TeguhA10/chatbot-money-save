@@ -45,7 +45,9 @@ Pengguna dapat mencatat pemasukan dan pengeluaran semudah mengirim chat teks bia
 - **Koreksi & Pembatalan Transaksi Cepat:**
   - `koreksi 35rb`: Koreksi nominal transaksi terakhir secara instan tanpa perlu repot mengetik ID.
   - `batal`: Batalkan (*undo*) transaksi terakhir seketika dan saldo otomatis pulih.
-  - `ubah transaksi <ID> <Nominal> <Keterangan>` & `hapus transaksi <ID>`.
+  - `hapus 2` / `hapus no 2`: Hapus transaksi dengan mudah hanya menggunakan nomor urut dari daftar transaksi.
+  - `ubah 2 50rb bensin`: Ubah nominal atau keterangan transaksi langsung via nomor urut.
+  - Opsi ID tetap didukung: `hapus <ID>` atau `ubah <ID> 50rb bensin`.
 
 ### 👛 2. Manajemen Multi-Dompet (Multi-Wallets)
 - Buat dan pantau banyak dompet: Tunai (`Cash`), Rekening Bank (`BCA`, `Mandiri`, `BRI`), hingga e-Wallet (`GoPay`, `OVO`, `DANA`).
@@ -342,7 +344,9 @@ Kirimkan pesan berikut langsung ke nomor WhatsApp bot:
 | :--- | :--- | :--- |
 | **Pengeluaran** | `keluar 25000 nasi padang`<br>`beli bensin 50rb via bca`<br>`bayar listrik 150.000`<br>`-35k parkir mall` | Mengurangi saldo dompet & mencocokkan kategori otomatis |
 | **Pemasukan** | `masuk 5000000 gaji bulanan`<br>`terima 250k bonus ke mandiri`<br>`+1.5jt freelance website` | Menambah saldo dompet tertuju |
-| **Koreksi Instan** | `koreksi 30rb` | Mengubah nominal transaksi terakhir secara langsung |
+| **Hapus (Nomor Urut)** | `hapus 2` atau `hapus no 2` | Menghapus transaksi sesuai nomor urut di daftar |
+| **Ubah (Nomor Urut)** | `ubah 2 50rb bensin` | Mengubah nominal/keterangan transaksi via nomor urut |
+| **Koreksi Terakhir** | `koreksi 30rb` | Mengubah nominal transaksi terakhir secara langsung |
 | **Batal (Undo)** | `batal` | Membatalkan transaksi terakhir & saldo otomatis kembali |
 
 ### 2. 👛 Dompet & Saldo

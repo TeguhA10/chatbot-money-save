@@ -24,6 +24,9 @@ export default defineConfig({
             '@': '/resources/js',
         },
     },
+    build: {
+        emptyOutDir: false,
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

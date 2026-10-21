@@ -16,6 +16,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <script>
+        window.__BOT_CONFIG__ = {
+            free_limit: {{ (int) \App\Models\BotSetting::get('max_free_financial_messages', 100) }}
+        };
+    </script>
+    
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased font-sans min-h-screen selection:bg-emerald-500 selection:text-white">

@@ -31,11 +31,11 @@ const showTransactionModal = ref(false);
 const modalTransaction = ref(null);
 
 const isPublicPage = computed(() => {
-  if (['landing', 'login', 'checkout'].includes(route.name) || route.meta?.isPublic || route.meta?.guestOnly) {
+  if (['landing', 'login', 'checkout', 'documentation'].includes(route.name) || route.meta?.isPublic || route.meta?.guestOnly) {
     return true;
   }
   const path = route.path || (typeof window !== 'undefined' ? window.location.pathname : '/');
-  return path === '/' || path.startsWith('/login') || path.startsWith('/pay');
+  return path === '/' || path.startsWith('/login') || path.startsWith('/pay') || path.startsWith('/dokumentasi') || path.startsWith('/docs');
 });
 
 const isAppLayout = computed(() => {

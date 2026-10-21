@@ -49,7 +49,7 @@ class User extends Authenticatable
         'current_balance',
         'is_active',
         'blocked_reason',
-        'tier', 'subscription_expires_at', 'free_financial_message_count', 'pin_status',
+        'tier', 'subscription_expires_at', 'free_financial_message_count', 'max_free_financial_messages', 'pin_status',
         'pin_hash', 'recovery_code_hash', 'encryption_salt', 'key_version',
         'encrypted_current_balance', 'last_pin_verified_at',
     ];
@@ -64,6 +64,7 @@ class User extends Authenticatable
         'subscription_expires_at' => 'datetime',
         'last_pin_verified_at' => 'datetime',
         'free_financial_message_count' => 'integer',
+        'max_free_financial_messages' => 'integer',
         'key_version' => 'integer',
     ];
 
@@ -139,5 +140,19 @@ class User extends Authenticatable
             return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_current_balance']);
         }
         return (int) $value;
+    }
+
+    /**
+     * Get effective maximum free financial messages for this user.
+     * Uses per-user override from users table if set, otherwise falls back to bot_settings table.
+     */
+    public function getEffectiveFreeLimit(): int
+    {
+        if ($this->max_free_financial_messages !== null && (int) $this->max_free_financial_messages > 0) {
+            return (int) $this->max_free_financial_messages;
+        }
+
+        $val = \App\Models\BotSetting::get('max_free_financial_messages', 100);
+        return (int) $val;
     }
 }

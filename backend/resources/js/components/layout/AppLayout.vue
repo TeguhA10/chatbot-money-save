@@ -92,7 +92,7 @@
         <div v-else class="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2.5 shadow-sm">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold text-slate-300">Paket Gratis</span>
-            <span class="text-[10px] font-mono text-emerald-400 font-semibold">{{ remainingQuota }}/100 Kuota</span>
+            <span class="text-[10px] font-mono text-emerald-400 font-semibold">{{ remainingQuota }}/{{ freeLimit }} Kuota</span>
           </div>
           <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
             <div
@@ -270,13 +270,18 @@ const isPro = computed(() => {
   return subscription.value?.is_pro || authStore.user?.tier === 'PREMIUM';
 });
 
+const freeLimit = computed(() => {
+  return subscription.value?.free_limit ?? (typeof window !== 'undefined' && window.__BOT_CONFIG__?.free_limit ? window.__BOT_CONFIG__.free_limit : 100);
+});
+
 const remainingQuota = computed(() => {
-  return subscription.value?.remaining ?? 85;
+  return subscription.value?.remaining ?? (freeLimit.value - (subscription.value?.used ?? 0));
 });
 
 const quotaPercentage = computed(() => {
-  const rem = remainingQuota.value;
-  return Math.min(100, Math.max(5, ((100 - rem) / 100) * 100));
+  const limit = freeLimit.value || 100;
+  const used = subscription.value?.used ?? (limit - remainingQuota.value);
+  return limit > 0 ? Math.min(100, Math.max(5, Math.round((used / limit) * 100))) : 100;
 });
 
 const expiryDisplay = computed(() => {

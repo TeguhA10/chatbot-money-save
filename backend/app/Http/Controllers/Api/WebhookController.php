@@ -419,15 +419,16 @@ class WebhookController extends Controller
                 $card .= "Terima kasih telah menjadi pelanggan setia HematWoy! 🚀";
                 $interactive = null;
             } else {
-                $used = 100 - $status['remaining'];
-                $percentage = min(100, max(0, (int) round(($used / 100) * 100)));
+                $limit = $status['free_limit'];
+                $used = $status['used'];
+                $percentage = $limit > 0 ? min(100, max(0, (int) round(($used / $limit) * 100))) : 100;
                 $barFilled = (int) round($percentage / 5);
                 $progressBar = str_repeat('█', $barFilled) . str_repeat('░', 20 - $barFilled);
 
                 $card  = "📊 *Status Kuota Finansial*\n";
                 $card .= "───────────────────────\n";
                 $card .= "🏷️ Paket Saat Ini : *GRATIS (Freemium)*\n";
-                $card .= "💬 Sisa Kuota     : *{$status['remaining']}* dari 100 transaksi gratis\n";
+                $card .= "💬 Sisa Kuota     : *{$status['remaining']}* dari {$limit} pesan finansial gratis\n";
                 $card .= "📈 Penggunaan     : {$progressBar} {$percentage}%\n\n";
                 $card .= "💡 *Mau catat tanpa batas & kelola banyak dompet?*\n";
                 $card .= "Ketik: `langganan` untuk upgrade ke HematWoy Pro! ⭐";
@@ -658,13 +659,17 @@ class WebhookController extends Controller
 
         // Balance inquiry & Wallets (Typo-tolerant & Natural phrasing)
         if (preg_match('/^(?:saldo+|saldu|cek saldo|dompet|list dompet|daftar dompet|rekening|sisa saldo|saldo ku|cek dompet|uang(?:ku)?|sisa uang(?:ku)?|duit(?:ku)?|cek duit|cek uang|total saldo|total uang|sisa dana|uang(?:ku)? (?:ada|sisa|tinggal) berapa|sisa (?:uang|saldo|dana)(?:ku)?(?: berapa)?|(?:uang|duit|saldo)(?:ku)? (?:tinggal |sisa )?berapa)$/i', $lowerText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleBalanceInquiry($user);
         }
 
         // Add wallet: "tambah dompet <nama> [saldo <nominal>]"
         if ($addWallet = $this->parser->parseAddWallet($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             try {
                 $wallet = $this->financeService->addWallet($user, $addWallet['name'], $addWallet['initial_balance']);
+                $this->consumeFinancialQuota($user, $messageId);
                 $initText = $addWallet['initial_balance'] > 0
                     ? ' (Saldo Awal: ' . $this->formatRupiah($addWallet['initial_balance']) . ')'
                     : '';
@@ -682,16 +687,21 @@ class WebhookController extends Controller
 
         // Rekap hari ini (Typo-tolerant: rekap hr ini, rekap harian)
         if (preg_match('/^rekap\s+(?:hari ini|hr ini|harii ini|harian)$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleDailySummary($user);
         }
 
         // Rekap bulan ini (Typo-tolerant: rekap bln ini, rekap bulanan)
         if (preg_match('/^rekap(?:\s+(?:bulan ini|bln ini|blan ini|bulanan))?$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleMonthlySummary($user);
         }
 
         // Inter-wallet transfer: "transfer <nominal> dari <asal> ke <tujuan>"
         if ($transferData = $this->parser->parseTransfer($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $fromWallet = $this->financeService->findWalletByName($user, $transferData['from_wallet']);
             $toWallet   = $this->financeService->findWalletByName($user, $transferData['to_wallet']);
 
@@ -717,6 +727,7 @@ class WebhookController extends Controller
                     $transferData['amount']
                 );
 
+                $this->consumeFinancialQuota($user, $messageId, 1);
                 $fromWallet->refresh();
                 $toWallet->refresh();
                 $user->refresh();
@@ -742,6 +753,7 @@ class WebhookController extends Controller
 
         // Recurring schedules / Langganan
         if ($recData = $this->parser->parseRecurringSchedule($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $wallet = null;
             if (!empty($recData['wallet_name'])) {
                 $wallet = $this->financeService->findWalletByName($user, $recData['wallet_name']);
@@ -758,6 +770,7 @@ class WebhookController extends Controller
                 'type'         => $recData['type'],
             ]);
 
+            $this->consumeFinancialQuota($user, $messageId);
             $amountFmt = $this->formatRupiah($schedule->amount);
             $nextFmt   = \Carbon\Carbon::parse($schedule->next_run_date)->format('d M Y');
 
@@ -775,6 +788,8 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^(?:daftar|list)\s+langganan$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->recurringService->renderSchedulesCard($user),
@@ -782,8 +797,10 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^hapus\s+langganan\s+(.+)$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $canceled = $this->recurringService->cancelSchedule($user, trim($matches[1]));
             if ($canceled) {
+                $this->consumeFinancialQuota($user, $messageId);
                 return response()->json([
                     'action'     => 'REPLY_TEXT',
                     'reply_text' => "✅ Transaksi rutin *{$canceled->description}* berhasil dibatalkan.",
@@ -797,7 +814,9 @@ class WebhookController extends Controller
 
         // Financial Goals (Target Tabungan)
         if ($goalData = $this->parser->parseCreateGoal($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $goal = $this->financeService->createGoal($user, $goalData['name'], $goalData['target_amount']);
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->financeService->renderGoalCreatedCard($goal),
@@ -805,6 +824,7 @@ class WebhookController extends Controller
         }
 
         if ($contribData = $this->parser->parseGoalContribution($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $goal = $this->financeService->findGoalByNameOrId($user, $contribData['goal_name']);
             if (!$goal) {
                 return response()->json([
@@ -820,6 +840,7 @@ class WebhookController extends Controller
                     $contribData['amount'],
                     $contribData['wallet_name']
                 );
+                $this->consumeFinancialQuota($user, $messageId);
                 return response()->json([
                     'action'     => 'REPLY_TEXT',
                     'reply_text' => $this->financeService->renderGoalContributionCard($result),
@@ -833,6 +854,8 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^(?:daftar|list)\s+target$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->financeService->renderGoalsListCard($user),
@@ -858,6 +881,8 @@ class WebhookController extends Controller
 
         // Contextual spending insights (US7)
         if (preg_match('/^(?:bulan ini boros|apakah boros|evaluasi pengeluaran)/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->insightsService->renderVarianceAnalysisCard($user),
@@ -866,6 +891,8 @@ class WebhookController extends Controller
 
         // Freelancer & Projects summary (US8)
         if (preg_match('/^rekap\s+(?:freelance|bisnis|proyek)/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->financeService->renderFreelanceSummaryCard($user),
@@ -874,6 +901,8 @@ class WebhookController extends Controller
 
         // UMKM / Merchant summary (US8)
         if (preg_match('/^(?:omzet|laba)/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->financeService->renderUmkmSummaryCard($user),
@@ -887,11 +916,15 @@ class WebhookController extends Controller
 
         // Export Excel (Typo-tolerant: ekspor excel, unduh excel)
         if (preg_match('/^(?:export excel|ekspor excel|laporan excel|download laporan|download excel|unduh excel)$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleExcelExport($user);
         }
 
         // Check budgets
         if (preg_match('/^(?:cek|status|list)\s+budg?et$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->budgetService->renderAllBudgetsCard($user),
@@ -900,11 +933,13 @@ class WebhookController extends Controller
 
         // Set budget: "budget <kategori> <nominal>"
         if ($budgetData = $this->parser->parseBudgetSet($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $cat = $this->financeService->matchCategory($user, $budgetData['category'], 'EXPENSE');
             if (!$cat) {
                 $cat = $this->financeService->addCustomCategory($user, $budgetData['category'], 'EXPENSE');
             }
             $budget = $this->budgetService->setBudget($user, $cat->id, $budgetData['amount']);
+            $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->budgetService->renderSetBudgetCard($budget),
@@ -913,15 +948,21 @@ class WebhookController extends Controller
 
         // Category list
         if (preg_match('/^(kategori|daftar kategori|list kategori)$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleListCategories($user);
         }
 
         // Add category: "tambah kategori <name>"
         if (preg_match('/^tambah kategori\s+(.+)$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleAddCategory($user, trim($matches[1]));
         }
 
         if (preg_match('/^pengeluaran hari ini$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionList(
                 $user,
                 'EXPENSE',
@@ -930,6 +971,8 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^pemasukan hari ini$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionList(
                 $user,
                 'INCOME',
@@ -938,6 +981,8 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^pengeluaran bulan ini$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionList(
                 $user,
                 'EXPENSE',
@@ -946,6 +991,8 @@ class WebhookController extends Controller
         }
 
         if (preg_match('/^pemasukan bulan ini$/i', $messageText, $matches)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionList(
                 $user,
                 'INCOME',
@@ -957,15 +1004,26 @@ class WebhookController extends Controller
         // Quick Correction (Koreksi transaksi terakhir secara instan tanpa ID UUID)
         // Contoh: "koreksi 35rb" atau "ganti nominal 50rb makan siang"
         // ---------------------------------------------------------------------
+        // ---------------------------------------------------------------------
+        // Koreksi Nominal Transaksi Terakhir (Contoh: "koreksi 30rb", "koreksi 6.850jt", "koreksi 6jt850rb")
+        // ---------------------------------------------------------------------
         if (
             preg_match(
-                '/^(?:koreksi|ganti nominal|ubah nominal)\s+([0-9.,]+(?:\s*(?:jt|juta|rb|ribu|k))?)(?:\s+(.+))?$/i',
+                '/^(?:koreksi|ganti nominal|ubah nominal)\s+(.+)$/i',
                 $messageText,
                 $matches
             )
         ) {
-            $amount = $this->parseAmount($matches[1]);
-            $newDesc = !empty($matches[2]) ? trim($matches[2]) : null;
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $rawInput = trim($matches[1]);
+            $amountDetails = $this->parser->extractAmountDetails($rawInput);
+            $amount = $amountDetails['amount'] ?? 0;
+            $newDesc = null;
+            if ($amountDetails) {
+                $rem = trim(preg_replace('/' . preg_quote($amountDetails['raw_matched'], '/') . '/i', '', $rawInput, 1));
+                $newDesc = !empty($rem) ? $rem : null;
+            }
+
             $lastTx = $user->transactions()->latest('id')->first();
 
             if (!$lastTx) {
@@ -976,6 +1034,7 @@ class WebhookController extends Controller
                 return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nominal koreksi tidak valid. Contoh: `koreksi 35rb`']);
             }
 
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionUpdate(
                 $user,
                 (string) $lastTx->id,
@@ -985,29 +1044,63 @@ class WebhookController extends Controller
         }
 
         // ---------------------------------------------------------------------
-        // Update Transaction with ID
-        //
-        // Example:
-        // ubah transaksi a82f31c2 75000 makan siang
+        // Update Transaction by Number (Contoh: "ubah 2 50rb makan", "ubah no 2 6.850jt")
         // ---------------------------------------------------------------------
-
         if (
             preg_match(
-                '/^ubah transaksi\s+([a-f0-9-]+)\s+([0-9.,]+)\s+(.+)$/i',
+                '/^(?:ubah|ganti|edit)(?:\s+transaksi)?\s+(?:no\.?|nomor\s+)?(\d+)\s+(.+)$/i',
                 $messageText,
                 $matches
             )
         ) {
-            $transactionId = trim($matches[1]);
-            $amountText     = trim($matches[2]);
-            $description    = trim($matches[3]);
-
-            $amount = $this->parseAmount($amountText);
-
-            if ($amount <= 0) {
-                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nominal tidak valid. Contoh: `ubah transaksi a82f31c2 75000 makan siang`']);
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $itemNumber = (int) $matches[1];
+            $rawInput = trim($matches[2]);
+            $amountDetails = $this->parser->extractAmountDetails($rawInput);
+            $amount = $amountDetails['amount'] ?? 0;
+            $description = null;
+            if ($amountDetails) {
+                $rem = trim(preg_replace('/' . preg_quote($amountDetails['raw_matched'], '/') . '/i', '', $rawInput, 1));
+                $description = !empty($rem) ? $rem : null;
             }
 
+            if ($amount <= 0) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nominal tidak valid. Contoh: `ubah 2 50rb makan siang`']);
+            }
+
+            $this->consumeFinancialQuota($user, $messageId);
+            return $this->handleUpdateByNumber($user, $itemNumber, $amount, $description);
+        }
+
+        // ---------------------------------------------------------------------
+        // Update Transaction with ID
+        //
+        // Example:
+        // ubah transaksi a82f31c2 6jt850rb makan siang
+        // ---------------------------------------------------------------------
+        if (
+            preg_match(
+                '/^(?:ubah|ganti|edit)(?:\s+transaksi)?\s+([a-f0-9-]+)\s+(.+)$/i',
+                $messageText,
+                $matches
+            )
+        ) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $transactionId = trim($matches[1]);
+            $rawInput = trim($matches[2]);
+            $amountDetails = $this->parser->extractAmountDetails($rawInput);
+            $amount = $amountDetails['amount'] ?? 0;
+            $description = null;
+            if ($amountDetails) {
+                $rem = trim(preg_replace('/' . preg_quote($amountDetails['raw_matched'], '/') . '/i', '', $rawInput, 1));
+                $description = !empty($rem) ? $rem : null;
+            }
+
+            if ($amount <= 0) {
+                return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => "⚠️ Nominal tidak valid. Contoh: `ubah transaksi {$transactionId} 75000 makan siang`"]);
+            }
+
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionUpdate(
                 $user,
                 $transactionId,
@@ -1016,14 +1109,33 @@ class WebhookController extends Controller
             );
         }
 
-        // Delete Transaction
+        // ---------------------------------------------------------------------
+        // Delete Transaction by Number (Contoh: "hapus 2", "hapus no 2", "hapus nomor 3", "delete 1")
+        // ---------------------------------------------------------------------
         if (
             preg_match(
-                '/^hapus transaksi\s+([a-f0-9-]+)$/i',
+                '/^(?:hapus|delete|batal)(?:\s+transaksi)?\s+(?:no\.?|nomor\s+)?(\d+)$/i',
                 $messageText,
                 $matches
             )
         ) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
+            return $this->handleDeleteByNumber($user, (int) $matches[1]);
+        }
+
+        // ---------------------------------------------------------------------
+        // Delete Transaction with ID (Contoh: "hapus transaksi a82f31c2", "hapus a82f31c2", "delete a82f31c2")
+        // ---------------------------------------------------------------------
+        if (
+            preg_match(
+                '/^(?:hapus|delete)(?:\s+transaksi)?\s+([a-f0-9-]+)$/i',
+                $messageText,
+                $matches
+            )
+        ) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->consumeFinancialQuota($user, $messageId);
             return $this->handleTransactionDelete(
                 $user,
                 trim($matches[1])
@@ -1062,16 +1174,8 @@ class WebhookController extends Controller
                     . "Setelah PIN dibuat, transaksi pertamamu bisa langsung dicatat! 🚀",
             ]);
         }
-        if (!$this->subscriptions->canRecord($user)) {
-            return response()->json([
-                'action'     => 'REPLY_TEXT',
-                'reply_text' => "⭐ *Kuota Gratis 100 Pesan Telah Selesai* ⭐\n"
-                    . "───────────────────────\n"
-                    . "Terima kasih sudah rajin mencatat keuangan di *HematWoy*! 🎉\n\n"
-                    . "Untuk melanjutkan pencatatan tanpa batas, pengelolaan multi-dompet, dan ekspor laporan Excel otomatis:\n\n"
-                    . "👉 Ketik: `langganan` untuk memilih paket Pro (mulai Rp25.000/bln)!\n\n"
-                    . "_Akun Pro akan otomatis aktif seketika setelah pembayaran berhasil diproses. 🚀_",
-            ]);
+        if ($quotaResp = $this->checkFinancialQuota($user)) {
+            return $quotaResp;
         }
         return $this->handleTransaction($user, $parsed, $messageId);
     }
@@ -1131,10 +1235,10 @@ class WebhookController extends Controller
                     . $transaction->category->name
                 : '📦 Lain-lain';
 
+            // Mengambil 8 karakter terakhir UUID v7 agar unik (menghindari timestamp kembar di depan)
             $shortId = substr(
                 (string) $transaction->id,
-                0,
-                8
+                -8
             );
 
             $text .= "*{$number}. {$category}*\n";
@@ -1154,6 +1258,9 @@ class WebhookController extends Controller
             $text .= "   🆔 `{$shortId}`\n\n";
         }
 
+        // Simpan referensi ID transaksi terakhir yang dilihat pengguna untuk kemudahan perintah "hapus 2"
+        Cache::put("user_recent_tx:{$user->jid}", $transactions->pluck('id')->values()->all(), now()->addHours(2));
+
         $text .= "━━━━━━━━━━━━━━━━━\n";
         $text .= "💰 Saldo: "
             . $this->formatRupiah(
@@ -1161,13 +1268,87 @@ class WebhookController extends Controller
             )
             . "\n\n";
 
-        $text .= "_Gunakan:_\n";
-        $text .= "`ubah transaksi ID nominal keterangan`\n";
-        $text .= "`hapus transaksi ID`";
+        $text .= "_Pilihan Cepat:_\n";
+        $text .= "• `hapus <nomor>` (contoh: *hapus 2*)\n";
+        $text .= "• `ubah <nomor> <nominal> <ket>` (contoh: *ubah 2 50rb bensin*)\n";
+        $text .= "• Atau via ID: `hapus {$shortId}`";
 
         return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
     }
 
+
+    // =========================================================================
+    // Number-Based Handlers (UX Ramah Pengguna)
+    // =========================================================================
+
+    private function handleDeleteByNumber(User $user, int $itemNumber): JsonResponse
+    {
+        if ($itemNumber <= 0) {
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nomor transaksi harus minimal 1. Contoh: `hapus 1`']);
+        }
+
+        $txIds = Cache::get("user_recent_tx:{$user->jid}");
+        $targetTxId = null;
+
+        if (is_array($txIds) && isset($txIds[$itemNumber - 1])) {
+            $targetTxId = $txIds[$itemNumber - 1];
+        } else {
+            // Fallback: cari dari transaksi aktif terbaru pengguna
+            $recent = $user->transactions()
+                ->where('status', 'ACTIVE')
+                ->orderByDesc('transaction_date')
+                ->orderByDesc('id')
+                ->skip($itemNumber - 1)
+                ->first();
+
+            if ($recent) {
+                $targetTxId = $recent->id;
+            }
+        }
+
+        if (!$targetTxId) {
+            return response()->json([
+                'action' => 'REPLY_TEXT',
+                'reply_text' => "⚠️ Transaksi nomor {$itemNumber} tidak ditemukan. Ketik `pemasukan hari ini` atau `pengeluaran hari ini` untuk melihat daftar transaksi aktif.",
+            ]);
+        }
+
+        return $this->handleTransactionDelete($user, $targetTxId, $itemNumber);
+    }
+
+    private function handleUpdateByNumber(User $user, int $itemNumber, int $amount, ?string $description): JsonResponse
+    {
+        if ($itemNumber <= 0) {
+            return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '⚠️ Nomor transaksi harus minimal 1. Contoh: `ubah 1 50000 makan`']);
+        }
+
+        $txIds = Cache::get("user_recent_tx:{$user->jid}");
+        $targetTxId = null;
+
+        if (is_array($txIds) && isset($txIds[$itemNumber - 1])) {
+            $targetTxId = $txIds[$itemNumber - 1];
+        } else {
+            $recent = $user->transactions()
+                ->where('status', 'ACTIVE')
+                ->orderByDesc('transaction_date')
+                ->orderByDesc('id')
+                ->skip($itemNumber - 1)
+                ->first();
+
+            if ($recent) {
+                $targetTxId = $recent->id;
+            }
+        }
+
+        if (!$targetTxId) {
+            return response()->json([
+                'action' => 'REPLY_TEXT',
+                'reply_text' => "⚠️ Transaksi nomor {$itemNumber} tidak ditemukan. Ketik `pemasukan hari ini` atau `pengeluaran hari ini` untuk melihat daftar transaksi aktif.",
+            ]);
+        }
+
+        return $this->handleTransactionUpdate($user, $targetTxId, $amount, $description ?: '', $itemNumber);
+    }
 
     // =========================================================================
     // Update
@@ -1177,7 +1358,8 @@ class WebhookController extends Controller
         User $user,
         string $transactionId,
         int $amount,
-        string $description
+        string $description,
+        ?int $itemNumber = null
     ): JsonResponse {
         try {
             $transaction = $this->financeService
@@ -1194,7 +1376,7 @@ class WebhookController extends Controller
                 $user,
                 $transaction->id,
                 $amount,
-                $description
+                $description ?: $transaction->description
             );
 
             if (!$result) {
@@ -1213,7 +1395,11 @@ class WebhookController extends Controller
                     . $updated->category->name
                 : '📦 Lain-lain';
 
-            $text = "✅ *Transaksi Berhasil Diubah*\n";
+            $header = $itemNumber
+                ? "✅ *Transaksi #{$itemNumber} Berhasil Diubah*\n"
+                : "✅ *Transaksi Berhasil Diubah*\n";
+
+            $text = $header;
             $text .= "━━━━━━━━━━━━━━━━━\n";
             $text .= "📝 Keterangan: {$updated->description}\n";
             $text .= "🏷️ Kategori: {$category}\n";
@@ -1248,7 +1434,8 @@ class WebhookController extends Controller
 
     private function handleTransactionDelete(
         User $user,
-        string $transactionId
+        string $transactionId,
+        ?int $itemNumber = null
     ): JsonResponse {
         try {
             $transaction = $this->financeService
@@ -1270,13 +1457,24 @@ class WebhookController extends Controller
                 return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => '❌ Transaksi tidak ditemukan atau sudah dihapus.']);
             }
 
+            // Hapus dari cache recent jika ada
+            $txIds = Cache::get("user_recent_tx:{$user->jid}");
+            if (is_array($txIds)) {
+                $filtered = array_values(array_filter($txIds, fn ($id) => $id !== $transaction->id));
+                Cache::put("user_recent_tx:{$user->jid}", $filtered, now()->addHours(2));
+            }
+
             $voided = $result['voided'];
 
             $typeLabel = $voided->type === 'EXPENSE'
                 ? 'Pengeluaran'
                 : 'Pemasukan';
 
-            $text = "🗑️ *Transaksi Berhasil Dihapus*\n";
+            $header = $itemNumber
+                ? "🗑️ *Transaksi #{$itemNumber} Berhasil Dihapus*\n"
+                : "🗑️ *Transaksi Berhasil Dihapus*\n";
+
+            $text = $header;
             $text .= "━━━━━━━━━━━━━━━━━\n";
 
             if ($voided->description !== '') {
@@ -1648,31 +1846,117 @@ class WebhookController extends Controller
     }
 
     // ---------------------------------------------------------------------------
-    // Helpers
+    // Helpers & Quota Enforcement
     // ---------------------------------------------------------------------------
 
-        private function parseAmount(string $value): int
+    /**
+     * Check if user is allowed to perform a financial action or inquiry.
+     * If free quota is exhausted and user is not premium, returns the subscription upgrade response.
+     */
+    private function checkFinancialQuota(User $user): ?JsonResponse
     {
-        $value = strtolower(trim($value));
-        $value = str_replace(' ', '', $value);
-
-        if (preg_match('/^([\d.,]+)(jt|juta)$/i', $value, $m)) {
-            return (int) round(
-                (float) str_replace(',', '.', $m[1])
-                * 1_000_000
-            );
+        if ($this->subscriptions->canRecord($user)) {
+            return null; // Quota OK
         }
 
-        if (preg_match('/^([\d.,]+)(rb|ribu|k)$/i', $value, $m)) {
-            return (int) round(
-                (float) str_replace(',', '.', $m[1])
-                * 1_000
-            );
+        return $this->buildQuotaExhaustedResponse($user);
+    }
+
+    /**
+     * Deduct one unit of financial quota and record usage.
+     */
+    private function consumeFinancialQuota(User $user, string $messageId, int $transactionsRecorded = 0): void
+    {
+        try {
+            $this->subscriptions->consume($user, $messageId, $transactionsRecorded);
+        } catch (\Throwable $e) {
+            Log::warning("Quota consumption error for {$user->jid}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Build interactive quota exhausted response without hardcoded limits.
+     */
+    private function buildQuotaExhaustedResponse(User $user): JsonResponse
+    {
+        $status = $this->subscriptions->status($user);
+        $limit = $status['free_limit'];
+        $userName = $user->display_name ?: 'Kak';
+
+        $plans = SubscriptionPlan::active()->get();
+        $monthlyPlan = $plans->firstWhere('code', 'monthly') ?? $plans->first();
+        $priceDisplay = $monthlyPlan ? $monthlyPlan->formatted_price : 'Rp25.000';
+
+        // Dynamic base URL for payment link
+        $req = request();
+        $requestHost = $req ? ($req->header('X-Forwarded-Host') ?: $req->getHost()) : null;
+        $requestScheme = $req ? ($req->header('X-Forwarded-Proto') ?: $req->getScheme()) : null;
+        $requestPort = $req ? ($req->header('X-Forwarded-Port') ?: $req->getPort()) : null;
+        $portSuffix = '';
+        if ($requestPort && !in_array((int) $requestPort, [80, 443], true) && $requestHost && !str_contains($requestHost, ':')) {
+            $portSuffix = ":{$requestPort}";
+        }
+        $baseUrl = ($requestHost && $requestScheme) ? "{$requestScheme}://{$requestHost}{$portSuffix}" : url('/');
+
+        $order = null;
+        try {
+            $amount = $monthlyPlan ? (int) $monthlyPlan->price : MidtransService::PRICE;
+            $order = $this->midtrans->createOrder($user, $amount, 'HematWoy Pro 30 Hari', $baseUrl);
+        } catch (\Throwable $e) {
+            Log::warning("Could not auto-generate order for quota exhausted: " . $e->getMessage());
         }
 
-        $numeric = preg_replace('/[^\d]/', '', $value);
+        $payUrl = $order ? ($order->payment_url ?: "{$baseUrl}/pay/{$order->order_id}") : "{$baseUrl}/pricing";
 
-        return (int) ($numeric ?: 0);
+        $reply  = "⭐ *Batas Kuota Finansial Gratis Tercapai* ⭐\n";
+        $reply .= "───────────────────────\n";
+        $reply .= "Halo *{$userName}*! Kamu telah menggunakan seluruh kuota (*{$limit} pesan & pertanyaan finansial gratis*) di *HematWoy*. 🎉\n\n";
+        $reply .= "Untuk melanjutkan pencatatan, tanya saldo, rekap laporan, dan menikmati fitur tanpa batas:\n\n";
+        $reply .= "✨ *Keunggulan HematWoy Pro:*\n";
+        $reply .= "• Chat & Catat Keuangan Unlimited (Tanpa Batas)\n";
+        $reply .= "• Multi-Dompet (BCA, Mandiri, Cash, GoPay, OVO)\n";
+        $reply .= "• Download Laporan Excel (.xlsx) Kapan Saja\n";
+        $reply .= "• Analisis & Evaluasi Keuangan Pintar\n\n";
+        $reply .= "👉 *Upgrade sekarang (mulai {$priceDisplay}/bln):*\n";
+        $reply .= "Ketik: `langganan` untuk melihat semua pilihan paket\n\n";
+        $reply .= "💳 *Link Pembayaran Cepat:*\n";
+        $reply .= "{$payUrl}\n\n";
+        $reply .= "_Akun Pro akan langsung aktif otomatis seketika setelah pembayaran berhasil diproses! 🚀_";
+
+        $buttons = [];
+        if ($plans->isNotEmpty()) {
+            foreach ($plans->take(2) as $p) {
+                $buttons[] = [
+                    'type' => 'reply',
+                    'reply' => [
+                        'id' => "langganan {$p->code}",
+                        'title' => "{$p->name} ({$p->short_price})",
+                    ],
+                ];
+            }
+        } else {
+            $buttons = [
+                ['type' => 'reply', 'reply' => ['id' => 'langganan bulanan', 'title' => 'Pro Bulanan (25rb)']],
+                ['type' => 'reply', 'reply' => ['id' => 'langganan tahunan', 'title' => 'Pro 1 Tahun (199rb)']],
+            ];
+        }
+
+        return response()->json([
+            'action'      => 'REPLY_TEXT',
+            'reply_text'  => $reply,
+            'interactive' => [
+                'type' => 'button',
+                'header' => ['type' => 'text', 'text' => '⭐ Batas Kuota Gratis Tercapai'],
+                'body' => ['text' => $reply],
+                'footer' => ['text' => 'Pilih paket di bawah untuk lanjut berlangganan'],
+                'action' => ['buttons' => $buttons],
+            ],
+        ]);
+    }
+
+    private function parseAmount(string $value): int
+    {
+        return $this->parser->parseAmount($value) ?? 0;
     }
 
     /**

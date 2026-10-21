@@ -34,8 +34,9 @@ class PlanController extends Controller
             });
 
         return response()->json([
-            'success' => true,
-            'data'    => $plans,
+            'success'    => true,
+            'data'       => $plans,
+            'free_limit' => \App\Models\BotSetting::get('max_free_financial_messages', 100),
         ]);
     }
 }

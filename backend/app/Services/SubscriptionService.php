@@ -14,14 +14,22 @@ use RuntimeException;
  */
 class SubscriptionService
 {
-    public const FREE_LIMIT = 100;
+    /**
+     * Get dynamic free financial message limit for the given user.
+     * Evaluates users.max_free_financial_messages first, then bot_settings.max_free_financial_messages.
+     */
+    public function getFreeLimit(User $user): int
+    {
+        return $user->getEffectiveFreeLimit();
+    }
 
     /**
-     * Check if user is eligible to record a financial transaction.
+     * Check if user is eligible to record a financial transaction or ask a financial question.
      */
     public function canRecord(User $user): bool
     {
-        return $user->hasActivePremium() || $user->free_financial_message_count < self::FREE_LIMIT;
+        $limit = $this->getFreeLimit($user);
+        return $user->hasActivePremium() || (int) $user->free_financial_message_count < $limit;
     }
 
     /**
@@ -34,13 +42,14 @@ class SubscriptionService
         return DB::transaction(function () use ($user, $messageId, $transactionsRecorded) {
             /** @var User $locked */
             $locked = User::whereKey($user->jid)->lockForUpdate()->firstOrFail();
+            $limit = $this->getFreeLimit($locked);
 
             if (UsageLog::where('message_id', $messageId)->exists()) {
-                return self::FREE_LIMIT - $locked->free_financial_message_count;
+                return max(0, $limit - (int) $locked->free_financial_message_count);
             }
 
             if (!$locked->hasActivePremium()) {
-                if ($locked->free_financial_message_count >= self::FREE_LIMIT) {
+                if ((int) $locked->free_financial_message_count >= $limit) {
                     throw new RuntimeException('FREE_QUOTA_EXHAUSTED');
                 }
                 $locked->increment('free_financial_message_count');
@@ -54,26 +63,28 @@ class SubscriptionService
 
             $user->refresh();
 
-            return max(0, self::FREE_LIMIT - $locked->free_financial_message_count);
+            return max(0, $limit - (int) $locked->free_financial_message_count);
         });
     }
 
     /**
      * Get user's subscription tier and remaining message quota.
      *
-     * @return array{tier: string, remaining: int, expires_at: \Illuminate\Support\Carbon|null}
+     * @return array{tier: string, is_pro: bool, remaining: int, free_limit: int, used: int, expires_at: \Illuminate\Support\Carbon|null, plan_display: string}
      */
     public function status(User $user): array
     {
         $user->refresh();
         $isPro = $user->hasActivePremium();
+        $limit = $this->getFreeLimit($user);
+        $used = (int) $user->free_financial_message_count;
 
         return [
             'tier'         => $isPro ? 'PREMIUM' : 'FREE',
             'is_pro'       => $isPro,
-            'remaining'    => max(0, self::FREE_LIMIT - (int) $user->free_financial_message_count),
-            'free_limit'   => self::FREE_LIMIT,
-            'used'         => (int) $user->free_financial_message_count,
+            'remaining'    => max(0, $limit - $used),
+            'free_limit'   => $limit,
+            'used'         => $used,
             'expires_at'   => $user->subscription_expires_at,
             'plan_display' => $isPro ? 'HematWoy Pro' : 'Gratis (Freemium)',
         ];

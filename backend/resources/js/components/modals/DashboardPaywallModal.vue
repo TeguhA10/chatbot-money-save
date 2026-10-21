@@ -106,7 +106,7 @@
               <ul class="space-y-2 text-xs text-slate-300 mb-4">
                 <li class="flex items-center gap-2">
                   <span class="text-emerald-400 font-bold">✓</span>
-                  <span><strong>100 Transaksi Chat Gratis</strong></span>
+                  <span><strong>{{ freeLimit }} Transaksi Chat Gratis</strong></span>
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="text-emerald-400 font-bold">✓</span>
@@ -270,6 +270,10 @@ const props = defineProps({
   botRawNumber: {
     type: String,
     default: '15556711016',
+  },
+  freeLimit: {
+    type: [Number, String],
+    default: () => (typeof window !== 'undefined' && window.__BOT_CONFIG__?.free_limit ? window.__BOT_CONFIG__.free_limit : 100),
   },
 });
 

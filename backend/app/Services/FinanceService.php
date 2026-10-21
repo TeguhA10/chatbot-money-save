@@ -383,16 +383,35 @@ class FinanceService
                 ->first();
         }
 
-        // UUID prefix
-        $matches = Transaction::where('user_jid', $user->jid)
-            ->where('id', 'like', $id . '%')
+        // 1. Exact match
+        $exact = Transaction::where('user_jid', $user->jid)
+            ->where('id', $id)
             ->active()
-            ->limit(2)
+            ->first();
+
+        if ($exact) {
+            return $exact;
+        }
+
+        // 2. UUID suffix or prefix match
+        $matches = Transaction::where('user_jid', $user->jid)
+            ->where(function ($q) use ($id) {
+                $q->where('id', 'like', '%' . $id)
+                  ->orWhere('id', 'like', $id . '%');
+            })
+            ->active()
+            ->limit(3)
             ->get();
 
         if ($matches->count() > 1) {
+            // If one of them has exact suffix, prefer suffix
+            $suffixMatches = $matches->filter(fn ($t) => str_ends_with(strtolower($t->id), strtolower($id)));
+            if ($suffixMatches->count() === 1) {
+                return $suffixMatches->first();
+            }
+
             throw new \RuntimeException(
-                "ID transaksi '{$id}' tidak unik. Gunakan ID yang lebih panjang."
+                "ID '{$id}' mirip dengan beberapa transaksi. Silakan gunakan nomor urut: contoh `hapus 1` atau `hapus 2`."
             );
         }
 
@@ -444,7 +463,22 @@ class FinanceService
                 return null;
             }
 
+            $oldAmount = $transaction->amount;
+            $diff = $amount - $oldAmount;
+
             $transaction->update(['amount' => 0, 'encrypted_amount' => $this->encryption->encryptForStorage($amount), 'description' => $description]);
+
+            if ($transaction->wallet_id && $diff !== 0) {
+                $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+                if ($wallet) {
+                    if ($transaction->type === 'INCOME') {
+                        $wallet->balance = $wallet->balance + $diff;
+                    } elseif ($transaction->type === 'EXPENSE') {
+                        $wallet->balance = $wallet->balance - $diff;
+                    }
+                    $wallet->save();
+                }
+            }
 
             $newBalance = $this->recalculateUserLedger($user);
 
@@ -484,6 +518,35 @@ class FinanceService
 
             if (!$transaction) {
                 return null;
+            }
+
+            if ($transaction->type === 'TRANSFER') {
+                if ($transaction->wallet_id) {
+                    $src = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+                    if ($src) {
+                        $src->balance = $src->balance + $transaction->amount;
+                        $src->save();
+                    }
+                }
+                if ($transaction->to_wallet_id) {
+                    $dst = Wallet::where('id', $transaction->to_wallet_id)->lockForUpdate()->first();
+                    if ($dst) {
+                        $dst->balance = $dst->balance - $transaction->amount;
+                        $dst->save();
+                    }
+                }
+            } else {
+                if ($transaction->wallet_id) {
+                    $w = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+                    if ($w) {
+                        if ($transaction->type === 'INCOME') {
+                            $w->balance = $w->balance - $transaction->amount;
+                        } elseif ($transaction->type === 'EXPENSE') {
+                            $w->balance = $w->balance + $transaction->amount;
+                        }
+                        $w->save();
+                    }
+                }
             }
 
             $transaction->update([
@@ -550,8 +613,19 @@ class FinanceService
 
         $user->current_balance = $balance;
 
+        // Ensure single-wallet / default-wallet balance remains strictly consistent with running ledger balance
+        $wallets = Wallet::where('user_jid', $user->jid)->get();
+        if ($wallets->count() === 1 && $wallets->first()->is_default) {
+            $defaultWallet = $wallets->first();
+            if ($defaultWallet->balance !== $balance) {
+                $defaultWallet->balance = $balance;
+                $defaultWallet->save();
+            }
+        }
+
         return $balance;
     }
+
 
     // ---------------------------------------------------------------------------
     // Undo / Void — FR-013

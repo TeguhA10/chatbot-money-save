@@ -5,59 +5,8 @@
     <div class="absolute top-96 -left-48 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute top-[1200px] -right-48 w-96 h-96 bg-teal-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Sticky Navigation Bar -->
-    <nav class="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <!-- Logo -->
-        <router-link to="/" class="flex items-center gap-3 group">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-base shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
-            HW
-          </div>
-          <div>
-            <span class="font-black text-lg text-white tracking-tight">HematWoy</span>
-            <span class="text-[10px] text-emerald-400 font-bold block -mt-1 tracking-wider uppercase">Finance Bot</span>
-          </div>
-        </router-link>
-
-        <!-- Desktop Menu Links -->
-        <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-          <a href="#fitur" class="hover:text-emerald-400 transition">Fitur Utama</a>
-          <a href="#simulator" class="hover:text-emerald-400 transition">Coba Simulator</a>
-          <a href="#harga" class="hover:text-emerald-400 transition">Paket Harga</a>
-          <a href="#faq" class="hover:text-emerald-400 transition">FAQ</a>
-        </div>
-
-        <!-- Action CTAs: Dashboard Direct Access & WhatsApp Button -->
-        <div class="flex items-center gap-2 sm:gap-3">
-          <!-- Dashboard Direct Button -->
-          <button
-            type="button"
-            @click="handleDashboardClick"
-            class="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 text-slate-200 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-950/40 hover:shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
-          >
-            <span class="text-emerald-400 group-hover:scale-110 transition-transform">📊</span>
-            <span>Dashboard</span>
-            <span
-              v-if="authStore.isAuthenticated && authStore.isPro"
-              class="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
-            >
-              PRO
-            </span>
-          </button>
-
-          <!-- WhatsApp Chat Button -->
-          <a
-            :href="whatsappDirectUrl"
-            target="_blank"
-            class="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
-          >
-            <span>💬</span>
-            <span class="hidden sm:inline">Chat</span>
-            <span>WhatsApp</span>
-          </a>
-        </div>
-      </div>
-    </nav>
+    <!-- Sticky Navigation Bar (Shared Component) -->
+    <PublicNavbar activeRoute="landing" />
 
     <!-- HERO SECTION -->
     <section class="relative pt-16 sm:pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center">
@@ -88,15 +37,16 @@
           class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-extrabold text-base shadow-2xl shadow-emerald-500/30 hover:scale-105 active:scale-98 transition flex items-center justify-center gap-2.5 cursor-pointer"
         >
           <span>🚀 Mulai Gratis di WhatsApp</span>
-          <span class="text-xs font-normal opacity-80">(100 Chat Pertama Free)</span>
+          <span class="text-xs font-normal opacity-80">({{ freeLimit }} Chat Pertama Free)</span>
         </a>
 
-        <a
-          href="#simulator"
-          class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 font-bold text-sm transition flex items-center justify-center gap-2"
+        <router-link
+          to="/dokumentasi"
+          class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800 text-slate-200 font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/10"
         >
-          <span>👀 Coba Demo Interaktif</span>
-        </a>
+          <span>📖 Panduan & Demo Interaktif</span>
+          <span class="text-xs text-emerald-400 font-normal">→</span>
+        </router-link>
       </div>
 
       <!-- Trust Badges -->
@@ -120,144 +70,44 @@
       </div>
     </section>
 
-    <!-- SECTION 2: LIVE SIMULATOR -->
-    <section id="simulator" class="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-      <div class="text-center mb-8">
-        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Uji Coba Interaktif</span>
-        <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Coba Langsung Respon Cerdas Bot WhatsApp</h2>
-        <p class="text-xs sm:text-sm text-slate-400 mt-2">
-          Ketik contoh pengeluaran atau pemasukanmu untuk merasakan pengalaman pencatatan otomatis secara instan.
-        </p>
-      </div>
-
-      <!-- Simulator Box -->
-      <div class="max-w-xl mx-auto">
-        <!-- LOCKED STATE: Replaces chat card when 3 attempts have been reached -->
-        <div
-          v-if="isLocked || attempts >= 3"
-          class="p-7 sm:p-10 rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-950/40 border-2 border-emerald-500/50 text-center shadow-2xl shadow-emerald-500/10 backdrop-blur-xl animate-fade-in"
-        >
-          <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-emerald-500/20">
-            💬
+    <!-- SECTION 2: INTERACTIVE DOCS & SIMULATOR BANNER -->
+    <section class="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+      <div class="relative rounded-3xl p-8 sm:p-10 bg-gradient-to-r from-slate-900/95 via-slate-900 to-emerald-950/40 border border-emerald-500/30 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+        <div class="max-w-xl space-y-3 text-center md:text-left">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+            <span>⚡</span>
+            <span>Uji Coba Interaktif & Panduan Perintah</span>
           </div>
-          <div class="inline-block px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-bold mb-3 tracking-wide">
-            DEMO SELESAI (3/3)
-          </div>
-          <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-            Suka dengan Respon Cepat Bot?
-          </h3>
-          <p class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mb-6 leading-relaxed">
-            Kamu telah mencoba demo di website. Sekarang, rasakan langsung kemudahan mencatat keuangan harian secara nyata di aplikasi WhatsApp kamu!
+          <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Ingin Coba Perintah Bot Langsung di Browser?
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba simulator interaktif cerdas WhatsApp secara langsung dan melihat daftar lengkap format perintah (keluar, masuk, transfer dompet, budget, hingga ekspor Excel).
           </p>
-
-          <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 max-w-xs mx-auto mb-6 text-xs text-slate-300">
-            <span class="text-slate-400 text-[11px] block mb-1">Nomor WhatsApp Resmi HematWoy:</span>
-            <span class="font-mono font-black text-emerald-400 text-base">{{ botNumberDisplay }}</span>
+          <div class="pt-2 flex flex-wrap gap-2 justify-center md:justify-start">
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">keluar 25rb kopi</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">+1.5jt freelance</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">saldo</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">budget makan 1jt</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">export excel</span>
           </div>
+        </div>
 
+        <div class="shrink-0 flex flex-col sm:flex-row md:flex-col gap-3 w-full md:w-auto">
+          <router-link
+            to="/dokumentasi"
+            class="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
+          >
+            <span>📖 Buka Dokumentasi & Simulator</span>
+            <span>→</span>
+          </router-link>
           <a
             :href="whatsappDirectUrl"
             target="_blank"
-            class="inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 hover:scale-105 active:scale-98 transition cursor-pointer"
+            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs transition cursor-pointer"
           >
-            <span>💬 Pindah Catat di WhatsApp Sekarang</span>
+            <span>💬 Langsung Chat di WhatsApp</span>
           </a>
-        </div>
-
-        <!-- ACTIVE CHAT CARD: When attempts < 3 -->
-        <div
-          v-else
-          class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl backdrop-blur-xl"
-        >
-          <!-- Chat header (WhatsApp style) -->
-          <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-sm">
-                HW
-              </div>
-              <div>
-                <div class="font-bold text-sm text-white flex items-center gap-1.5">
-                  <span>HematWoy Finance Bot</span>
-                  <span class="text-[10px] text-emerald-400 bg-emerald-500/15 px-1.5 py-0.2 rounded font-semibold">Online</span>
-                </div>
-                <div class="text-[11px] text-slate-400 font-mono">{{ botNumberDisplay }}</div>
-              </div>
-            </div>
-
-            <!-- Attempt Counter Badge -->
-            <div class="text-right">
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 border border-slate-700 text-slate-300">
-                <span>Coba Web:</span>
-                <span class="text-emerald-400 font-mono">{{ attempts }}/3</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Preset Chips -->
-          <div class="mb-4">
-            <span class="text-[10px] text-slate-400 font-medium block mb-1.5">Klik contoh cepat di bawah:</span>
-            <div class="flex flex-wrap gap-1.5">
-              <button
-                v-for="chip in presetChips"
-                :key="chip"
-                @click="runPreset(chip)"
-                :disabled="sending"
-                class="text-[11px] px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 font-medium transition cursor-pointer disabled:opacity-50"
-              >
-                {{ chip }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Chat Conversation Area -->
-          <div class="space-y-3 mb-4 min-h-[220px] max-h-[320px] overflow-y-auto pr-1">
-            <div
-              v-for="(msg, idx) in chatMessages"
-              :key="idx"
-              class="flex flex-col"
-              :class="msg.sender === 'user' ? 'items-end' : 'items-start'"
-            >
-              <div
-                class="max-w-[90%] rounded-2xl px-4 py-3 text-xs leading-relaxed"
-                :class="msg.sender === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none font-mono whitespace-pre-wrap'"
-              >
-                {{ msg.text }}
-              </div>
-              <span class="text-[9px] text-slate-500 mt-0.5 px-1">{{ msg.time }}</span>
-            </div>
-
-            <!-- Typing indicator -->
-            <div v-if="sending" class="flex flex-col items-start">
-              <div class="bg-slate-950 border border-slate-800 text-slate-400 rounded-2xl rounded-tl-none px-4 py-2.5 text-xs flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></span>
-                <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                <span class="text-[11px] ml-1">HematWoy sedang memproses...</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Input Bar -->
-          <form @submit.prevent="sendCustomChat" class="flex gap-2">
-            <input
-              v-model="inputChat"
-              type="text"
-              :disabled="sending"
-              placeholder="Ketik: keluar 25rb kopi kenangan via bca..."
-              class="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500 transition disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              :disabled="sending || !inputChat.trim()"
-              class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition cursor-pointer disabled:opacity-50"
-            >
-              {{ sending ? 'Mengirim...' : 'Kirim' }}
-            </button>
-          </form>
-
-          <p class="text-[10px] text-slate-500 text-center mt-2.5">
-            Coba 3 kali demo di browser, lalu lanjutkan pencatatan keuangan harian sepuasnya di WhatsApp!
-          </p>
         </div>
       </div>
     </section>
@@ -357,7 +207,7 @@
             </div>
 
             <ul class="space-y-3 text-xs text-slate-300">
-              <li class="flex items-center gap-2">✓ 100 Kuota Transaksi Chat Gratis</li>
+              <li class="flex items-center gap-2">✓ {{ freeLimit }} Kuota Transaksi Chat Gratis</li>
               <li class="flex items-center gap-2">✓ 1 Dompet Kas Utama</li>
               <li class="flex items-center gap-2">✓ Rekap Pengeluaran Harian & Bulanan</li>
               <li class="flex items-center gap-2 text-slate-500">✕ Multi-Dompet Tanpa Batas</li>
@@ -451,7 +301,7 @@
             <span class="text-emerald-400 text-lg">{{ faq.open ? '−' : '+' }}</span>
           </div>
           <p v-if="faq.open" class="mt-3 text-xs sm:text-sm text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
-            {{ faq.a }}
+            {{ typeof faq.a === 'function' ? faq.a() : faq.a }}
           </p>
         </div>
       </div>
@@ -487,6 +337,7 @@
     <DashboardPaywallModal
       :isOpen="showPaywallModal"
       :botRawNumber="botRawNumber"
+      :freeLimit="freeLimit"
       @close="showPaywallModal = false"
       @upgraded="onSubscriptionUpgraded"
     />
@@ -498,6 +349,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
+import PublicNavbar from '../components/layout/PublicNavbar.vue';
 import DashboardPaywallModal from '../components/modals/DashboardPaywallModal.vue';
 
 const router = useRouter();
@@ -579,158 +431,37 @@ const whatsappDirectUrlWithAnnualPlan = computed(() => {
   return `https://wa.me/${botRawNumber}?text=${planText}`;
 });
 
-// Simulator state & anti-refresh attempts management
-const attempts = ref(0);
-const isLocked = ref(false);
-const sending = ref(false);
-const visitorToken = ref('');
-
-const presetChips = ref([
-  'keluar 25rb kopi kenangan via bca',
-  '+1.5jt freelance website',
-  'saldo',
-  'budget makan 1jt',
-  'langganan',
-]);
+const freeLimit = ref(typeof window !== 'undefined' && window.__BOT_CONFIG__?.free_limit ? window.__BOT_CONFIG__.free_limit : 100);
 
 async function fetchDynamicData() {
   try {
-    const [plansRes, menusRes] = await Promise.allSettled([
-      axios.get('/api/v1/plans'),
-      axios.get('/api/v1/bot-menus'),
-    ]);
+    const plansRes = await axios.get('/api/v1/plans');
 
-    if (plansRes.status === 'fulfilled' && plansRes.value.data?.success && plansRes.value.data.data?.length) {
-      plans.value = plansRes.value.data.data;
-    }
-
-    if (menusRes.status === 'fulfilled' && menusRes.value.data?.success && menusRes.value.data.quick_commands?.length) {
-      presetChips.value = menusRes.value.data.quick_commands.map(item => item.command);
+    if (plansRes.status === 200 && plansRes.data?.success) {
+      if (plansRes.data.data?.length) {
+        plans.value = plansRes.data.data;
+      }
+      if (plansRes.data.free_limit) {
+        freeLimit.value = plansRes.data.free_limit;
+        const quotaFaq = faqs.value.find(f => f.q.includes('batas penggunaan gratis'));
+        if (quotaFaq) {
+          quotaFaq.a = `Di WhatsApp, kamu mendapatkan ${freeLimit.value} kuota pencatatan percakapan finansial secara gratis! Setelah itu, kamu bisa berlangganan Paket Pro mulai Rp25.000/bulan.`;
+        }
+      }
     }
   } catch (err) {
     // fallback gracefully
   }
 }
 
-const chatMessages = ref([
-  {
-    sender: 'bot',
-    text: '👋 Halo! Saya asisten finansial resmi HematWoy 💰\nCoba ketik pengeluaranmu (misal: "keluar 25rb kopi kenangan via bca") atau klik tombol di atas!',
-    time: '09:00',
-  },
-]);
-
-const inputChat = ref('');
-
-function getOrCreateVisitorToken() {
-  let token = localStorage.getItem('hw_sim_visitor_token');
-  if (!token) {
-    token = 'tok_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    localStorage.setItem('hw_sim_visitor_token', token);
-  }
-  return token;
-}
-
-async function checkSimulatorStatus() {
-  visitorToken.value = getOrCreateVisitorToken();
-  const localAttempts = parseInt(localStorage.getItem('hw_sim_attempts') || '0', 10);
-  attempts.value = localAttempts;
-
-  if (localAttempts >= 3) {
-    isLocked.value = true;
-    return;
-  }
-
-  try {
-    const res = await axios.get(`/api/v1/simulator/status?visitor_token=${visitorToken.value}`);
-    if (res.data.is_locked || res.data.attempts >= 3) {
-      isLocked.value = true;
-      attempts.value = 3;
-      localStorage.setItem('hw_sim_attempts', '3');
-    } else {
-      attempts.value = Math.max(localAttempts, res.data.attempts);
-      localStorage.setItem('hw_sim_attempts', String(attempts.value));
-    }
-  } catch (err) {
-    // If offline or network issue, rely on localStorage
-    if (localAttempts >= 3) {
-      isLocked.value = true;
-    }
-  }
-}
-
-function runPreset(text) {
-  if (isLocked.value || attempts.value >= 3) return;
-  inputChat.value = text;
-  sendCustomChat();
-}
-
-async function sendCustomChat() {
-  const query = inputChat.value.trim();
-  if (!query || sending.value) return;
-
-  if (isLocked.value || attempts.value >= 3) {
-    isLocked.value = true;
-    return;
-  }
-
-  const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-  chatMessages.value.push({
-    sender: 'user',
-    text: query,
-    time: now,
-  });
-
-  inputChat.value = '';
-  sending.value = true;
-
-  try {
-    const res = await axios.post('/api/v1/simulator', {
-      message_text: query,
-      visitor_token: visitorToken.value,
-    });
-
-    const reply = res.data.reply_text;
-    attempts.value = res.data.attempts;
-    localStorage.setItem('hw_sim_attempts', String(attempts.value));
-
-    chatMessages.value.push({
-      sender: 'bot',
-      text: reply,
-      time: now,
-    });
-
-    if (attempts.value >= 3) {
-      setTimeout(() => {
-        isLocked.value = true;
-      }, 1800);
-    }
-  } catch (err) {
-    if (err.response?.status === 429 || err.response?.data?.status === 'LIMIT_REACHED') {
-      isLocked.value = true;
-      attempts.value = 3;
-      localStorage.setItem('hw_sim_attempts', '3');
-    } else {
-      chatMessages.value.push({
-        sender: 'bot',
-        text: '⚠️ Terjadi kendala teknis saat memproses simulator. Silakan coba lagi.',
-        time: now,
-      });
-    }
-  } finally {
-    sending.value = false;
-  }
-}
-
 onMounted(() => {
-  checkSimulatorStatus();
   fetchDynamicData();
   if (authStore.isAuthenticated) {
     authStore.fetchProfile();
     authStore.fetchSubscription();
   }
 });
+
 
 const faqs = ref([
   {
@@ -745,7 +476,7 @@ const faqs = ref([
   },
   {
     q: 'Berapa batas penggunaan gratis di WhatsApp?',
-    a: 'Di WhatsApp, kamu mendapatkan 100 kuota pencatatan percakapan finansial secara gratis! Setelah itu, kamu bisa berlangganan Paket Pro mulai Rp25.000/bulan.',
+    a: () => `Di WhatsApp, kamu mendapatkan ${freeLimit.value} kuota pencatatan percakapan finansial secara gratis! Setelah itu, kamu bisa berlangganan Paket Pro mulai Rp25.000/bulan.`,
     open: false,
   },
   {
