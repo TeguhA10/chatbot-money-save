@@ -400,12 +400,15 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .vault-card {
   position: relative;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
@@ -413,6 +416,7 @@ onMounted(() => {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
   text-align: center;
   animation: cardIn 0.25s ease-out;
+  margin: auto;
 }
 
 .vault-modal-close {

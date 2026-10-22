@@ -28,10 +28,22 @@ class PaymentCheckoutController extends Controller
     }
 
     /**
-     * GET /api/v1/payment/order/{orderId}
-     * Retrieve order details for checkout page.
+     * GET /api/v1/payment/channels
+     * Retrieve active/enabled payment methods directly from Midtrans merchant configuration.
      */
-    public function show(string $orderId): JsonResponse
+    public function channels(MidtransService $midtrans): JsonResponse
+    {
+        return response()->json([
+            'success'  => true,
+            'channels' => $midtrans->getEnabledPaymentChannels(),
+        ]);
+    }
+
+    /**
+     * GET /api/v1/payment/order/{orderId}
+     * Retrieve order details for checkout page with active Midtrans channels.
+     */
+    public function show(string $orderId, MidtransService $midtrans): JsonResponse
     {
         $order = PaymentOrder::where('order_id', $orderId)->first();
 
@@ -42,17 +54,18 @@ class PaymentCheckoutController extends Controller
         }
 
         return response()->json([
-            'order_id'      => $order->order_id,
-            'user_jid'      => $order->user_jid,
-            'gross_amount'  => $order->gross_amount,
-            'currency'      => $order->currency ?: 'IDR',
-            'status'        => $order->status,
-            'snap_token'    => $order->snap_token,
-            'payment_url'   => $order->payment_url,
-            'paid_at'       => $order->paid_at,
-            'client_key'    => config('services.midtrans.client_key'),
-            'is_production' => (bool) config('services.midtrans.is_production', false),
-            'plan_name'     => (int) $order->gross_amount >= 150000 ? 'HematWoy Pro 1 Tahun' : 'HematWoy Pro 30 Hari',
+            'order_id'         => $order->order_id,
+            'user_jid'         => $order->user_jid,
+            'gross_amount'     => $order->gross_amount,
+            'currency'         => $order->currency ?: 'IDR',
+            'status'           => $order->status,
+            'snap_token'       => $order->snap_token,
+            'payment_url'      => $order->payment_url,
+            'paid_at'          => $order->paid_at,
+            'client_key'       => config('services.midtrans.client_key'),
+            'is_production'    => (bool) config('services.midtrans.is_production', false),
+            'plan_name'        => (int) $order->gross_amount >= 150000 ? 'HematWoy Pro 1 Tahun' : 'HematWoy Pro 30 Hari',
+            'enabled_channels' => $midtrans->getEnabledPaymentChannels(),
         ]);
     }
 

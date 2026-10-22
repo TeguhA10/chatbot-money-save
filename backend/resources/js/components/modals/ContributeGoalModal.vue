@@ -1,14 +1,14 @@
 <template>
-  <div v-if="isOpen && goal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+  <div v-if="isOpen && goal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
       <button
         @click="$emit('close')"
-        class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+        class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition z-10"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
 
-      <div class="flex items-center gap-3 mb-1">
+      <div class="flex items-center gap-3 mb-2 shrink-0">
         <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
           💰
         </div>
@@ -18,8 +18,9 @@
         </div>
       </div>
 
-      <!-- Current Progress Summary -->
-      <div class="mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1.5 text-xs">
+      <div class="overflow-y-auto pr-1 flex-1">
+        <!-- Current Progress Summary -->
+        <div class="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1.5 text-xs">
         <div class="flex justify-between text-slate-400">
           <span>Terkumpul saat ini:</span>
           <span class="text-emerald-400 font-semibold">{{ formatRupiah(goal.current_amount) }}</span>
@@ -107,6 +108,7 @@
           </button>
         </div>
       </form>
+      </div>
     </div>
   </div>
 </template>

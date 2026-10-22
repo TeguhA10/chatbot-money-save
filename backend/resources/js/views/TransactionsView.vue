@@ -166,7 +166,8 @@
         </button>
       </div>
 
-      <div v-else class="overflow-x-auto">
+      <!-- Desktop / Tablet Table (Hidden on Mobile) -->
+      <div v-else class="hidden md:block overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead>
             <tr class="text-slate-400 bg-slate-950/60 border-b border-slate-800">
@@ -233,14 +234,14 @@
                 <div class="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100">
                   <button
                     @click="editTransaction(t)"
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition cursor-pointer"
                     title="Edit"
                   >
                     ✏️
                   </button>
                   <button
                     @click="promptDelete(t)"
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
                     title="Hapus"
                   >
                     🗑️
@@ -250,6 +251,60 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile App-Style Card List (Shown on Mobile screens) -->
+      <div v-if="financeStore.transactions.length > 0" class="md:hidden divide-y divide-slate-800/80">
+        <div
+          v-for="t in financeStore.transactions"
+          :key="'mobile-' + t.id"
+          class="p-3.5 hover:bg-slate-800/30 transition flex items-center justify-between gap-3"
+        >
+          <!-- Left: Category Icon & Details -->
+          <div class="flex items-center gap-3 min-w-0">
+            <div
+              class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 border"
+              :class="t.type === 'INCOME' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' : 'bg-rose-500/15 border-rose-500/30 text-rose-400')"
+            >
+              <span>{{ t.category?.icon || (t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '⇄' : '💸')) }}</span>
+            </div>
+            <div class="min-w-0">
+              <p class="font-bold text-xs text-white truncate">{{ t.description }}</p>
+              <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
+                <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
+                <span>•</span>
+                <span class="truncate">{{ t.category?.name || 'Umum' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Nominal & Action Buttons -->
+          <div class="text-right shrink-0">
+            <p
+              class="font-extrabold text-xs"
+              :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
+            >
+              <span v-if="vaultStore.isMasked">Rp ••••••••</span>
+              <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
+            </p>
+            <div class="flex items-center justify-end gap-2 mt-1">
+              <button
+                @click="editTransaction(t)"
+                class="text-[11px] text-slate-400 hover:text-emerald-400 cursor-pointer p-0.5"
+                title="Edit"
+              >
+                ✏️
+              </button>
+              <button
+                @click="promptDelete(t)"
+                class="text-[11px] text-slate-400 hover:text-rose-400 cursor-pointer p-0.5"
+                title="Hapus"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGINATION BAR -->

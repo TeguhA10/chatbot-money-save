@@ -45,7 +45,7 @@
                   v-model="phone"
                   required
                   placeholder="08123456789 atau 628..."
-                  class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-medium text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                  class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-medium text-base sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                 />
               </div>
               <p class="text-[11px] text-slate-500 mt-1.5">Contoh: 08123456789 atau 628123456789</p>
@@ -81,6 +81,9 @@
               <label class="block text-xs font-semibold text-slate-300 mb-1.5">Kode OTP 6 Digit</label>
               <input
                 type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="one-time-code"
                 v-model="otp"
                 required
                 maxlength="6"

@@ -47,12 +47,12 @@
       </div>
 
       <!-- Category Filter Pills -->
-      <div class="mt-6 flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+      <div class="mt-6 flex items-center justify-start sm:justify-center gap-2 max-w-4xl mx-auto overflow-x-auto pb-2 sm:pb-0 sm:flex-wrap">
         <button
           v-for="cat in categories"
           :key="cat.id"
           @click="activeCategory = cat.id"
-          class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+          class="shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
           :class="activeCategory === cat.id
             ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
             : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'"

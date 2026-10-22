@@ -1,35 +1,46 @@
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans">
+  <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-slate-950">
     <!-- Ambient glowing backgrounds -->
     <div class="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Header Navigation -->
-    <header class="w-full border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-      <div class="max-w-4xl mx-auto px-4 py-3.5 flex items-center justify-between">
+    <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-4 py-3 sm:py-3.5 flex items-center justify-between">
         <router-link to="/" class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-sm shadow-md shadow-emerald-500/20">
-            HW
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 border border-emerald-500/40 flex items-center justify-center p-1 shadow-md shadow-emerald-500/20">
+            <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
           </div>
-          <span class="font-extrabold text-base tracking-tight text-white">HematWoy <span class="text-emerald-400 font-semibold text-xs ml-1 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">Checkout</span></span>
+          <span class="font-extrabold text-sm sm:text-base tracking-tight text-white flex items-center gap-1.5">
+            <span>HematWoy</span>
+            <span class="text-emerald-400 font-semibold text-[11px] bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              Checkout
+            </span>
+          </span>
         </router-link>
 
-        <router-link to="/" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1.5">
-          <span>&larr; Kembali ke Beranda</span>
-        </router-link>
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex items-center gap-1.5 text-slate-400 text-xs">
+            <span>🔒</span>
+            <span>Enkripsi SSL 256-Bit</span>
+          </div>
+          <router-link to="/" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+            <span>&larr; Beranda</span>
+          </router-link>
+        </div>
       </div>
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-xl w-full mx-auto p-4 sm:p-6 my-auto relative z-10">
+    <main class="flex-1 w-full max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 my-auto relative z-10">
       <!-- Loading State -->
-      <div v-if="loading" class="bg-slate-900/80 border border-slate-800 rounded-3xl p-10 text-center backdrop-blur-xl">
+      <div v-if="loading" class="bg-slate-900/80 border border-slate-800 rounded-3xl p-10 text-center backdrop-blur-xl max-w-md mx-auto my-12">
         <div class="inline-block w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p class="text-sm text-slate-300 font-medium">Memuat rincian pesanan...</p>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="bg-slate-900/90 border border-rose-500/30 rounded-3xl p-8 text-center backdrop-blur-xl">
+      <div v-else-if="error" class="bg-slate-900/90 border border-rose-500/30 rounded-3xl p-8 text-center backdrop-blur-xl max-w-md mx-auto my-12">
         <div class="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">
           ⚠️
         </div>
@@ -41,16 +52,16 @@
       </div>
 
       <!-- Payment Success State -->
-      <div v-else-if="order && order.status === 'SETTLEMENT'" class="bg-slate-900/90 border border-emerald-500/40 rounded-3xl p-8 sm:p-10 text-center backdrop-blur-xl shadow-2xl shadow-emerald-500/10">
-        <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-5 text-3xl shadow-lg shadow-emerald-500/20">
+      <div v-else-if="order && order.status === 'SETTLEMENT'" class="bg-slate-900/90 border border-emerald-500/40 rounded-3xl p-6 sm:p-10 text-center backdrop-blur-xl shadow-2xl shadow-emerald-500/10 max-w-lg mx-auto my-6 animate-in fade-in zoom-in-95">
+        <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-emerald-500/20 border border-emerald-500/40">
           🎉
         </div>
         <div class="inline-block px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-bold mb-3">
           PEMBAYARAN BERHASIL
         </div>
-        <h2 class="text-2xl font-black text-white tracking-tight mb-2">Selamat! Akun Pro Aktif</h2>
-        <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mb-6">
-          Langganan <strong class="text-slate-200">{{ order.plan_name }}</strong> kamu telah berhasil diaktifkan. Sekarang kamu bisa mencatat keuangan tanpa batas di WhatsApp!
+        <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">Selamat! Akun Pro Aktif</h2>
+        <p class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mb-6 leading-relaxed">
+          Langganan <strong class="text-white">{{ order.plan_name }}</strong> kamu telah berhasil diaktifkan. Sekarang kamu bisa mencatat keuangan tanpa batas kuota di WhatsApp!
         </p>
 
         <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 text-left space-y-2 mb-6 text-xs">
@@ -64,7 +75,7 @@
           </div>
           <div class="flex justify-between text-slate-400">
             <span>Metode Bayar:</span>
-            <span class="text-slate-200 uppercase">{{ order.payment_type || 'Instant QRIS' }}</span>
+            <span class="text-slate-200 uppercase font-semibold">{{ order.payment_type || 'Instant QRIS' }}</span>
           </div>
         </div>
 
@@ -72,107 +83,103 @@
           <a
             :href="whatsappUrl"
             target="_blank"
-            class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs sm:text-sm hover:opacity-95 transition shadow-lg shadow-emerald-500/20 text-center"
+            class="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs sm:text-sm hover:opacity-95 transition shadow-lg shadow-emerald-500/20 text-center flex items-center justify-center gap-2"
           >
-            💬 Buka WhatsApp & Mulai Catat
+            <span>💬 Buka WhatsApp & Mulai Catat</span>
           </a>
           <router-link
             to="/dashboard"
-            class="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm transition text-center"
+            class="flex-1 py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 text-white font-bold text-xs sm:text-sm transition text-center flex items-center justify-center gap-1.5"
           >
-            Buka Web Dashboard
+            <span>Buka Web Dashboard</span>
           </router-link>
         </div>
       </div>
 
-      <!-- Pending Checkout Card -->
-      <div v-else-if="order" class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-        <!-- Plan Badge & Title -->
-        <div class="flex items-center justify-between pb-5 border-b border-slate-800">
-          <div>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-              ⭐ Langganan Resmi
-            </span>
-            <h1 class="text-xl font-black text-white tracking-tight">{{ order.plan_name }}</h1>
-          </div>
-          <div class="text-right">
-            <span class="text-[10px] text-slate-400 block uppercase font-medium">Total Tagihan</span>
-            <span class="text-xl sm:text-2xl font-black text-emerald-400">
-              Rp {{ formatNumber(order.gross_amount) }}
-            </span>
+      <!-- Pending Checkout Layout: Responsive 2-Col on Desktop, Smooth Single-Col on Mobile -->
+      <div v-else-if="order" class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        
+        <!-- LEFT COLUMN: Order Summary & Benefits (Sticky on Desktop) -->
+        <div class="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 backdrop-blur-xl shadow-xl space-y-5">
+            <!-- Plan Badge & Title -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                  ⭐ Langganan Resmi
+                </span>
+                <h1 class="text-lg sm:text-xl font-black text-white tracking-tight">{{ order.plan_name }}</h1>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-400 block uppercase font-medium">Total Tagihan</span>
+                <span class="text-xl sm:text-2xl font-black text-emerald-400">
+                  Rp {{ formatNumber(order.gross_amount) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Benefits Checklist -->
+            <div class="space-y-2.5 text-xs text-slate-300">
+              <div class="flex items-start gap-2.5">
+                <span class="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                <span>Pencatatan transaksi tanpa batas kuota (Unlimited)</span>
+              </div>
+              <div class="flex items-start gap-2.5">
+                <span class="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                <span>Kelola Multi-Dompet (BCA, Mandiri, Cash, GoPay, OVO)</span>
+              </div>
+              <div class="flex items-start gap-2.5">
+                <span class="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                <span>1-Klik Ekspor Laporan Excel Lengkap (.xlsx)</span>
+              </div>
+              <div class="flex items-start gap-2.5">
+                <span class="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                <span>Peringatan Plafon Anggaran Anti-Boncos Otomatis</span>
+              </div>
+            </div>
+
+            <!-- Order Metadata -->
+            <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl text-xs text-slate-400 space-y-1.5">
+              <div class="flex justify-between items-center">
+                <span>Nomor Pesanan:</span>
+                <span class="font-mono text-slate-200 font-semibold">{{ order.order_id }}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span>WhatsApp Tertaut:</span>
+                <span class="font-medium text-emerald-400">{{ formatPhone(order.user_jid) }}</span>
+              </div>
+            </div>
+
+            <!-- Security Badges -->
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-4 text-[10px] text-slate-500">
+              <span class="flex items-center gap-1">🔒 SSL 256-Bit</span>
+              <span>•</span>
+              <span>⚡ Aktivasi Otomatis</span>
+              <span>•</span>
+              <span>🇮🇩 Bank Indonesia QRIS</span>
+            </div>
           </div>
         </div>
 
-        <!-- Benefits checklist -->
-        <div class="py-4 space-y-2.5 border-b border-slate-800/80">
-          <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="text-emerald-400 font-bold">✓</span>
-            <span>Pencatatan transaksi tanpa batas kuota (Unlimited)</span>
-          </div>
-          <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="text-emerald-400 font-bold">✓</span>
-            <span>Kelola Multi-Dompet (BCA, Mandiri, Cash, GoPay, OVO)</span>
-          </div>
-          <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="text-emerald-400 font-bold">✓</span>
-            <span>1-Klik Ekspor Laporan Excel Lengkap (.xlsx)</span>
-          </div>
-          <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="text-emerald-400 font-bold">✓</span>
-            <span>Peringatan Plafon Anggaran Anti-Boncos Otomatis</span>
-          </div>
-        </div>
-
-        <!-- Order Metadata -->
-        <div class="py-4 text-xs text-slate-400 space-y-1.5">
-          <div class="flex justify-between">
-            <span>Nomor Pesanan:</span>
-            <span class="font-mono text-slate-300 font-medium">{{ order.order_id }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span>WhatsApp Tertaut:</span>
-            <span class="font-medium text-slate-300">{{ formatPhone(order.user_jid) }}</span>
-          </div>
-        </div>
-
-        <!-- Checkout Buttons -->
-        <div class="pt-3 space-y-3">
-          <!-- Primary Payment Button -->
-          <button
-            @click="showCustomPayment = true"
-            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span>💳 Bayar Sekarang (Pilih QRIS / Virtual Account)</span>
-          </button>
-        </div>
-
-        <!-- Trust Badges -->
-        <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-center gap-4 text-[11px] text-slate-500">
-          <span class="flex items-center gap-1">🔒 256-Bit SSL Enkripsi</span>
-          <span>•</span>
-          <span>⚡ Aktivasi Otomatis</span>
-          <span>•</span>
-          <span>🇮🇩 QRIS / VA Resmi</span>
+        <!-- RIGHT COLUMN: Embedded Native Payment Panel (No popup needed!) -->
+        <div class="lg:col-span-7">
+          <CustomPaymentModal
+            :embedded="true"
+            :orderId="order.order_id"
+            :grossAmount="order.gross_amount"
+            :planName="order.plan_name"
+            :isProduction="order.is_production"
+            :enabledChannels="order.enabled_channels"
+            @settled="onPaymentSettled"
+          />
         </div>
       </div>
     </main>
 
     <!-- Footer -->
-    <footer class="w-full py-4 text-center text-xs text-slate-500 border-t border-slate-900">
+    <footer class="w-full py-4 text-center text-xs text-slate-500 border-t border-slate-900 mt-auto">
       &copy; {{ currentYear }} HematWoy. Seluruh hak cipta dilindungi.
     </footer>
-
-    <!-- Custom In-App Payment Modal (No Midtrans Popup) -->
-    <CustomPaymentModal
-      v-if="order"
-      :isOpen="showCustomPayment"
-      :orderId="order.order_id"
-      :grossAmount="order.gross_amount"
-      :planName="order.plan_name"
-      :isProduction="order.is_production"
-      @close="showCustomPayment = false"
-      @settled="onPaymentSettled"
-    />
   </div>
 </template>
 
@@ -188,8 +195,6 @@ const orderId = route.params.orderId;
 const order = ref(null);
 const loading = ref(true);
 const error = ref('');
-const simulating = ref(false);
-const showCustomPayment = ref(false);
 
 const currentYear = new Date().getFullYear();
 
@@ -225,18 +230,6 @@ function onPaymentSettled() {
     order.value.status = 'SETTLEMENT';
   }
   fetchOrder();
-}
-
-async function simulatePayment() {
-  simulating.value = true;
-  try {
-    const res = await axios.post(`/api/v1/payment/simulate/${orderId}`);
-    order.value = res.data.order;
-  } catch (err) {
-    alert(err.response?.data?.error || 'Gagal memproses pembayaran. Silakan coba lagi.');
-  } finally {
-    simulating.value = false;
-  }
 }
 
 onMounted(() => {

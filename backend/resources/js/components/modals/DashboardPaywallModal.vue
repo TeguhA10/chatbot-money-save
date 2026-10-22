@@ -5,7 +5,7 @@
     @click.self="close"
   >
     <div
-      class="bg-slate-900/95 border border-slate-800 rounded-3xl max-w-4xl w-full p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 my-auto text-slate-100"
+      class="bg-slate-900/95 border border-slate-800 rounded-3xl max-w-4xl w-full p-5 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 my-auto text-slate-100 max-h-[92vh] flex flex-col"
     >
       <!-- Ambient Decorative Gradients -->
       <div class="absolute -top-32 -left-32 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -21,7 +21,7 @@
       </button>
 
       <!-- SUCCESS / SETTLED STATE -->
-      <div v-if="success" class="text-center py-6 space-y-4">
+      <div v-if="success" class="text-center py-6 space-y-4 overflow-y-auto pr-1 flex-1">
         <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-emerald-500/20 border border-emerald-500/30">
           🎉
         </div>
@@ -46,7 +46,7 @@
       </div>
 
       <!-- MAIN COMMERCIAL CONTENT -->
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-6 overflow-y-auto pr-1 flex-1">
         <!-- Header -->
         <div class="text-center space-y-2">
           <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 text-[11px] font-black uppercase tracking-wider shadow-sm">

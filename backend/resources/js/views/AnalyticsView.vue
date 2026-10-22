@@ -7,32 +7,32 @@
         <p class="text-xs text-slate-400 mt-0.5">Evaluasi tren, perbandingan bulanan, dan ekspor data keuangan</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <!-- Month Picker -->
         <input
           type="month"
           v-model="selectedMonth"
           @change="loadAnalytics"
-          class="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+          class="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500"
         />
 
         <!-- Export Excel Button -->
         <button
           @click="downloadExcel"
           :disabled="downloading"
-          class="px-4 py-2 rounded-xl bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50 active:scale-95 whitespace-nowrap"
         >
           <span>📊</span>
-          <span>{{ downloading ? 'Mengunduh...' : 'Ekspor Excel' }}</span>
+          <span>{{ downloading ? 'Mengunduh...' : 'Excel' }}</span>
         </button>
 
         <!-- Print/PDF Button -->
         <button
           @click="handlePrint"
-          class="px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95 whitespace-nowrap"
         >
           <span>🖨️</span>
-          <span>Cetak PDF</span>
+          <span>PDF</span>
         </button>
       </div>
     </div>
@@ -85,7 +85,7 @@
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
+        <table class="w-full min-w-[520px] text-left text-xs">
           <thead>
             <tr class="text-slate-400 border-b border-slate-800">
               <th class="pb-3 font-semibold">Periode Bulan</th>

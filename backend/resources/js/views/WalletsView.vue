@@ -7,19 +7,19 @@
         <p class="text-xs text-slate-400 mt-0.5">Kelola multi-dompet & mutasi transfer dana</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <button
           @click="showTransferModal = true"
-          class="px-4 py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95"
         >
           <span>⇄</span> Transfer Dana
         </button>
         <button
           @click="showWalletModal = true"
-          class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          + Tambah Dompet
+          <span class="whitespace-nowrap">+ Dompet</span>
         </button>
       </div>
     </div>

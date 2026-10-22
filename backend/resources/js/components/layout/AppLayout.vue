@@ -190,16 +190,16 @@
     </main>
 
     <!-- Mobile Bottom Navigation Bar -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800/90 py-2 px-3 flex justify-around items-center z-40 backdrop-blur-lg">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800/90 py-1.5 px-1 flex justify-around items-center z-40 backdrop-blur-lg safe-bottom">
       <RouterLink
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
-        class="flex flex-col items-center gap-1 py-1 px-2 rounded-lg text-[10px] font-medium transition"
-        :class="isActive(item.path) ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'"
+        class="flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[9px] sm:text-[10px] font-medium transition flex-1 max-w-[62px] text-center"
+        :class="isActive(item.path) ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'"
       >
-        <span class="text-base">{{ item.icon }}</span>
-        <span>{{ item.label }}</span>
+        <span class="text-base leading-none mb-0.5">{{ item.icon }}</span>
+        <span class="truncate w-full block text-center">{{ item.label }}</span>
       </RouterLink>
     </nav>
 

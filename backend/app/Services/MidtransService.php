@@ -51,6 +51,68 @@ class MidtransService
     }
 
     /**
+     * Retrieve active/enabled payment channels from Midtrans merchant preferences.
+     * Follows merchant settings directly from Midtrans portal instead of hardcoding.
+     *
+     * @return array<string> List of enabled channel IDs e.g. ['qris', 'gopay', 'bca_va', 'echannel', ...]
+     */
+    public function getEnabledPaymentChannels(): array
+    {
+        $serverKey = config('services.midtrans.server_key', env('MIDTRANS_SERVER_KEY', ''));
+        if (empty($serverKey)) {
+            return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+        }
+
+        $isProduction = (bool) config('services.midtrans.is_production', false);
+        $url = $isProduction
+            ? 'https://app.midtrans.com/snap/v3/merchant-preferences'
+            : 'https://app.sandbox.midtrans.com/snap/v3/merchant-preferences';
+
+        $cacheKey = 'midtrans_enabled_channels_' . ($isProduction ? 'prod' : 'sandbox') . '_' . substr(md5($serverKey), 0, 8);
+
+        try {
+            return cache()->remember($cacheKey, now()->addMinutes(10), function () use ($url, $serverKey) {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                    'Accept'        => 'application/json',
+                ])->timeout(6)->get($url);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $channels = $data['payment_channels'] ?? [];
+                    $enabled = [];
+
+                    foreach ($channels as $channel) {
+                        $name = $channel['name'] ?? '';
+                        $isEnabled = !empty($channel['enabled']);
+                        if ($isEnabled && $name) {
+                            $enabled[] = strtolower($name);
+                        }
+                    }
+
+                    if (!empty($enabled)) {
+                        Log::info('Midtrans merchant enabled channels retrieved', [
+                            'count'    => count($enabled),
+                            'channels' => $enabled,
+                        ]);
+                        return $enabled;
+                    }
+                } else {
+                    Log::warning('Midtrans merchant-preferences returned non-200: ' . $response->status(), [
+                        'body' => $response->json(),
+                    ]);
+                }
+
+                // Default fallback if API does not return channels list
+                return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Midtrans merchant-preferences exception: ' . $e->getMessage());
+            return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+        }
+    }
+
+    /**
      * Create a new payment order for user subscription with Midtrans Snap integration.
      */
     public function createOrder(User $user, int $amount = self::PRICE, string $planName = 'HematWoy Pro 30 Hari', ?string $baseUrl = null): PaymentOrder
@@ -175,7 +237,12 @@ class MidtransService
                 $basePayload['payment_type'] = 'bank_transfer';
                 $basePayload['bank_transfer'] = ['bank' => 'bri'];
                 break;
+            case 'cimb_va':
+                $basePayload['payment_type'] = 'bank_transfer';
+                $basePayload['bank_transfer'] = ['bank' => 'cimb'];
+                break;
             case 'mandiri_va':
+            case 'echannel':
                 $basePayload['payment_type'] = 'echannel';
                 $basePayload['echannel'] = [
                     'bill_info1' => 'HematWoy Pro',

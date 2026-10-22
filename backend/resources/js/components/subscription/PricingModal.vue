@@ -1,11 +1,11 @@
 <template>
   <div
     v-if="isOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-all duration-300"
+    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md transition-all duration-300 overflow-y-auto"
     @click.self="close"
   >
     <div
-      class="bg-slate-900/95 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200"
+      class="bg-slate-900/95 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[92vh] flex flex-col"
     >
       <!-- Ambient Glows -->
       <div class="absolute -top-24 -left-24 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -14,14 +14,14 @@
       <!-- Close Button -->
       <button
         @click="close"
-        class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+        class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer z-10"
         title="Tutup"
       >
         ✕
       </button>
 
       <!-- SUCCESS / SETTLED STATE -->
-      <div v-if="success" class="text-center py-4 space-y-4">
+      <div v-if="success" class="text-center py-4 space-y-4 overflow-y-auto pr-1 flex-1">
         <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-emerald-500/20">
           🎉
         </div>
@@ -44,7 +44,7 @@
       </div>
 
       <!-- SELECTION & CHECKOUT FORM -->
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-6 overflow-y-auto pr-1 flex-1">
         <!-- Header -->
         <div class="text-center space-y-1.5">
           <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider">

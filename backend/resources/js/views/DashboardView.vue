@@ -7,21 +7,21 @@
         <p class="text-xs text-slate-400 mt-0.5">Ringkasan kesehatan finansial & arus kas Anda</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <!-- Month Picker -->
         <input
           type="month"
           v-model="selectedMonth"
           @change="loadDashboard"
-          class="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+          class="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500"
         />
 
         <button
           @click="$emit('open-transaction-modal')"
-          class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          + Tambah Transaksi
+          <span class="whitespace-nowrap">+ Transaksi</span>
         </button>
       </div>
     </div>
@@ -135,27 +135,29 @@
         </div>
 
         <!-- Custom SVG Bar Chart -->
-        <div class="h-64 flex items-end justify-between gap-3 pt-6 border-b border-slate-800">
-          <div
-            v-for="item in financeStore.monthlyTrend"
-            :key="item.month"
-            class="flex-1 flex flex-col items-center gap-2 h-full justify-end group"
-          >
-            <div class="w-full flex items-end justify-center gap-1.5 h-48">
-              <!-- Income bar -->
-              <div
-                class="w-4 sm:w-6 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md transition-all duration-300 relative group-hover:brightness-110"
-                :style="{ height: `${calculateBarHeight(item.income)}%` }"
-                :title="`Pemasukan: ${formatRupiah(item.income)}`"
-              ></div>
-              <!-- Expense bar -->
-              <div
-                class="w-4 sm:w-6 bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-md transition-all duration-300 relative group-hover:brightness-110"
-                :style="{ height: `${calculateBarHeight(item.expense)}%` }"
-                :title="`Pengeluaran: ${formatRupiah(item.expense)}`"
-              ></div>
+        <div class="overflow-x-auto pb-1">
+          <div class="h-64 min-w-[280px] flex items-end justify-between gap-2 sm:gap-3 pt-6 border-b border-slate-800">
+            <div
+              v-for="item in financeStore.monthlyTrend"
+              :key="item.month"
+              class="flex-1 flex flex-col items-center gap-2 h-full justify-end group"
+            >
+              <div class="w-full flex items-end justify-center gap-1 sm:gap-1.5 h-48">
+                <!-- Income bar -->
+                <div
+                  class="w-3.5 sm:w-6 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md transition-all duration-300 relative group-hover:brightness-110"
+                  :style="{ height: `${calculateBarHeight(item.income)}%` }"
+                  :title="`Pemasukan: ${formatRupiah(item.income)}`"
+                ></div>
+                <!-- Expense bar -->
+                <div
+                  class="w-3.5 sm:w-6 bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-md transition-all duration-300 relative group-hover:brightness-110"
+                  :style="{ height: `${calculateBarHeight(item.expense)}%` }"
+                  :title="`Pengeluaran: ${formatRupiah(item.expense)}`"
+                ></div>
+              </div>
+              <span class="text-[10px] sm:text-[11px] font-medium text-slate-400 whitespace-nowrap">{{ formatMonthLabel(item.month) }}</span>
             </div>
-            <span class="text-[11px] font-medium text-slate-400">{{ formatMonthLabel(item.month) }}</span>
           </div>
         </div>
       </div>

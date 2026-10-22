@@ -1,17 +1,19 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
       <button
         @click="$emit('close')"
-        class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+        class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition z-10"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
 
-      <h2 class="text-xl font-bold text-white mb-1">Pasang Limit Anggaran</h2>
-      <p class="text-xs text-slate-400 mb-6">Tentukan plafon pengeluaran bulanan per kategori</p>
+      <div class="mb-4 shrink-0">
+        <h2 class="text-xl font-bold text-white mb-1">Pasang Limit Anggaran</h2>
+        <p class="text-xs text-slate-400">Tentukan plafon pengeluaran bulanan per kategori</p>
+      </div>
 
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+      <form @submit.prevent="handleSubmit" class="space-y-4 overflow-y-auto pr-1 flex-1">
         <!-- Category Selection -->
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Kategori</label>
