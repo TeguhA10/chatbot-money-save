@@ -9,7 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    <link rel="apple-touch-icon" href="/images/logo.png">
     <title>HematWoy — Smart Personal Finance Tracker</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">

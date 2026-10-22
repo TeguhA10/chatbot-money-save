@@ -16,7 +16,14 @@ export default defineConfig({
             ],
         }),
         tailwindcss(),
-        vue(),
+        vue({
+            template: {
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
+        }),
     ],
     resolve: {
         alias: {

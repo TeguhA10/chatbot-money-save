@@ -3,8 +3,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <!-- Logo -->
       <router-link to="/" class="flex items-center gap-3 group">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-base shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
-          HW
+        <div class="w-10 h-10 rounded-2xl overflow-hidden bg-slate-900 border border-emerald-500/30 flex items-center justify-center p-1 shadow-lg shadow-emerald-500/20 group-hover:scale-105 group-hover:border-emerald-500/60 transition">
+          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
         </div>
         <div>
           <span class="font-black text-lg text-white tracking-tight">HematWoy</span>

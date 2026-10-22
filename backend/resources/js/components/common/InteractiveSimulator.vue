@@ -7,8 +7,8 @@
         v-if="isLocked || attempts >= 3"
         class="p-7 sm:p-10 rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-950/40 border-2 border-emerald-500/50 text-center shadow-2xl shadow-emerald-500/10 backdrop-blur-xl animate-fade-in"
       >
-        <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-emerald-500/20">
-          💬
+        <div class="w-16 h-16 rounded-3xl overflow-hidden bg-slate-900 border border-emerald-500/40 p-2 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/20">
+          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
         </div>
         <div class="inline-block px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-bold mb-3 tracking-wide">
           DEMO SELESAI (3/3)
@@ -54,8 +54,8 @@
         <!-- Chat Header (WhatsApp Style) -->
         <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-sm shadow-md shadow-emerald-500/20">
-              HW
+            <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-900 border border-emerald-500/40 flex items-center justify-center p-0.5 shadow-md shadow-emerald-500/20">
+              <img src="/images/logo.png" alt="HematWoy Bot" class="w-full h-full object-contain" />
             </div>
             <div>
               <div class="font-bold text-sm text-white flex items-center gap-1.5">

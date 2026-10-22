@@ -305,8 +305,14 @@
     </main>
 
     <!-- FOOTER (MATCHING LANDING PAGE) -->
-    <footer class="border-t border-slate-900 bg-slate-950/90 py-10 px-4 text-center text-xs text-slate-500 space-y-2 mt-16">
-      <p class="font-bold text-slate-400">HematWoy — Smart WhatsApp Personal Finance Tracker</p>
+    <footer class="border-t border-slate-900 bg-slate-950/90 py-10 px-4 text-center text-xs text-slate-500 space-y-3 mt-16">
+      <div class="flex items-center justify-center gap-2 mb-1">
+        <div class="w-7 h-7 rounded-lg overflow-hidden bg-slate-900 border border-emerald-500/30 p-0.5 flex items-center justify-center">
+          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
+        </div>
+        <span class="font-bold text-slate-300 text-sm">HematWoy</span>
+      </div>
+      <p class="font-medium text-slate-400">Smart WhatsApp Personal Finance Tracker</p>
       <p>&copy; {{ currentYear }} HematWoy Indonesia. Seluruh hak cipta dilindungi undang-undang.</p>
     </footer>
   </div>
