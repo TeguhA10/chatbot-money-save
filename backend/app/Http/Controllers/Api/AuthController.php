@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\User;
 use App\Services\FinanceService;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -18,7 +19,10 @@ use Illuminate\Support\Str;
  */
 class AuthController extends Controller
 {
-    public function __construct(private readonly FinanceService $financeService) {}
+    public function __construct(
+        private readonly FinanceService $financeService,
+        private readonly WhatsAppNotificationService $whatsappService,
+    ) {}
 
     /**
      * POST /api/v1/auth/request-otp
@@ -82,28 +86,10 @@ class AuthController extends Controller
         $history = array_slice($history, -3); // keep last 3 valid OTPs
         Cache::put("otp_history:{$jid}", $history, now()->addMinutes(5));
 
-        // Send OTP directly via Baileys WhatsApp Gateway
-        $gatewayPort = env('GATEWAY_PORT', 3001);
-        $gatewayUrl  = env('WHATSAPP_GATEWAY_URL', "http://127.0.0.1:{$gatewayPort}");
-        $secret      = config('app.gateway_webhook_secret', env('GATEWAY_WEBHOOK_SECRET'));
-        $messageText = "🔐 *KODE LOGIN HEMATWOY*\n\n"
-            . "Kode OTP Anda: *{$otp}*\n\n"
-            . "⚠️ Berlaku selama 5 menit. Jangan bagikan kode ini kepada siapapun demi keamanan data Anda.";
+        // Send OTP via WhatsApp (Meta WhatsApp Cloud API or Baileys Gateway)
+        $delivered = $this->whatsappService->sendOtp($phone, $otp);
 
-        try {
-            $gatewayResp = \Illuminate\Support\Facades\Http::timeout(3)
-                ->withHeaders(['X-Gateway-Secret' => $secret])
-                ->post("{$gatewayUrl}/api/send", [
-                    'jid'  => $jid,
-                    'text' => $messageText,
-                ]);
-            if ($gatewayResp->successful() && $gatewayResp->json('lid')) {
-                Cache::put("otp_lid:{$jid}", $gatewayResp->json('lid'), now()->addMinutes(15));
-            }
-            \Illuminate\Support\Facades\Log::info("OTP sent to WhatsApp gateway for {$jid}");
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Could not reach WhatsApp gateway at {$gatewayUrl}: " . $e->getMessage());
-        }
+        \Illuminate\Support\Facades\Log::info("OTP dispatch for {$jid} (" . ($delivered ? 'delivered' : 'pending') . "): {$otp}");
 
         \Illuminate\Support\Facades\Log::info("OTP for {$jid}: {$otp}");
 
