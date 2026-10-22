@@ -26,6 +26,19 @@ class WhatsAppNotificationService
             ? $user->subscription_expires_at->translatedFormat('d F Y')
             : now()->addDays((int) $order->gross_amount >= 150000 ? 365 : 30)->translatedFormat('d F Y');
 
+        $baseUrl = rtrim(config('app.url', url('/')), '/');
+        if (request() && request()->getHost()) {
+            $req = request();
+            $requestHost = $req->header('X-Forwarded-Host') ?: $req->getHost();
+            $requestScheme = $req->header('X-Forwarded-Proto') ?: $req->getScheme();
+            $requestPort = $req->header('X-Forwarded-Port') ?: $req->getPort();
+            $portSuffix = ($requestPort && !in_array((int) $requestPort, [80, 443], true) && !str_contains($requestHost, ':')) ? ":{$requestPort}" : '';
+            if ($requestHost && $requestScheme) {
+                $baseUrl = "{$requestScheme}://{$requestHost}{$portSuffix}";
+            }
+        }
+        $dashboardUrl = "{$baseUrl}/login";
+
         $receiptText = "🎉 *PEMBAYARAN BERHASIL — HEMATWOY PRO AKTIF!*\n"
             . "───────────────────────────\n"
             . "Terima kasih telah berlangganan *HematWoy Pro*!\n\n"
@@ -40,6 +53,10 @@ class WhatsAppNotificationService
             . "✓ Multi-dompet tanpa limit (BCA, Mandiri, GoPay, OVO, Cash)\n"
             . "✓ Download Laporan Excel lengkap\n"
             . "✓ Peringatan Plafon Anggaran (Anti-Boncos)\n\n"
+            . "🌐 *Akses Web Dashboard Eksklusif:*\n"
+            . "Pantau grafik keuangan & mutasi dompet Anda di:\n"
+            . "👉 {$dashboardUrl}\n"
+            . "_(Cukup masukkan nomor ponsel WhatsApp Anda untuk menerima kode OTP masuk)_\n\n"
             . "Selamat mengelola keuangan dengan rapi dan bebas boncos! 🚀";
 
         $this->sendMessage($user, $receiptText);

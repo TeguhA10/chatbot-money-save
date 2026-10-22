@@ -496,14 +496,16 @@ class WebhookController extends Controller
         $isCategoryOrWallet = (bool) preg_match('/^(?:daftar\s+(?:dompet|kategori)|tambah\s+(?:dompet|kategori))/i', $lowerText);
 
         $isSubscriptionIntent = ! $isFinancialInput && ! $isRecurringSchedule && ! $isGoalCommand && ! $isCategoryOrWallet && (
-            preg_match('/^(?:halo\s+hematwoy[,.!]?\s*)?(?:saya\s+)?(?:mau|ingin|pengen|bisa)?\s*(?:beli|upgrade|ambil|daftar|berlangganan|langganan)\s+(?:ke\s+)?(?:hematwoy\s*)?(?:paket\s*)?(?:pro|tahunan|bulanan|premium)/i', $lowerText)
-            || preg_match('/\b(?:langganan|berlangganan|upgrade)\b/i', $lowerText)
+            preg_match('/^(?:halo\s+hematwoy[,.!]?\s*)?(?:saya\s+)?(?:mau|ingin|pengen|bisa)?\s*(?:beli|upgrade|ambil|daftar|berlangganan|langganan|perpanjang)\s+(?:ke\s+)?(?:hematwoy\s*)?(?:paket\s*)?(?:pro|tahunan|bulanan|premium)/i', $lowerText)
+            || preg_match('/\b(?:langganan|berlangganan|upgrade|perpanjang)\b/i', $lowerText)
             || preg_match('/\b(?:paket\s+(?:pro|tahunan|bulanan)|premium)\b/i', $lowerText)
         );
 
         if ($isSubscriptionIntent) {
             $plans = SubscriptionPlan::active()->get();
             $isAnnual = (bool) preg_match('/(?:tahun|annual|199)/i', $lowerText);
+            $isAlreadyPro = $user->hasActivePremium();
+            $currentExpiry = $user->subscription_expires_at ? $user->subscription_expires_at->translatedFormat('d F Y') : null;
 
             $selectedPlan = null;
             if ($plans->isNotEmpty()) {
@@ -517,7 +519,8 @@ class WebhookController extends Controller
             }
 
             $amount = $selectedPlan ? (int) $selectedPlan->price : ($isAnnual ? MidtransService::ANNUAL_PRICE : MidtransService::PRICE);
-            $planName = $selectedPlan ? "HematWoy {$selectedPlan->name}" : ($isAnnual ? 'HematWoy Pro 1 Tahun' : 'HematWoy Pro 30 Hari');
+            $planNamePrefix = $isAlreadyPro ? 'Perpanjang ' : '';
+            $planName = $selectedPlan ? "{$planNamePrefix}HematWoy {$selectedPlan->name}" : ($isAnnual ? "{$planNamePrefix}HematWoy Pro 1 Tahun" : "{$planNamePrefix}HematWoy Pro 30 Hari");
 
             // Resolve dynamic public base URL for public checkout links (e.g. Ngrok / Custom Domain)
             $req = request();
@@ -543,28 +546,38 @@ class WebhookController extends Controller
                 'Evaluasi & Analisis Pengeluaran Pintar',
             ];
 
-            $headerTitle = $isAnnual ? 'HematWoy Pro 1 Tahun — Akses Tanpa Batas' : 'HematWoy Pro — Akses Tanpa Batas';
-            $text  = "⭐ *{$headerTitle}*\n";
-            $text .= "───────────────────────\n";
-            $text .= "Kelola seluruh keuanganmu dengan fitur premium tanpa batasan:\n\n";
-            $text .= "✨ *Fitur Spesial Pro:*\n";
-            foreach ($featuresList as $feat) {
-                $text .= "• 🚀 {$feat}\n";
+            if ($isAlreadyPro) {
+                $headerTitle = $isAnnual ? 'Perpanjang HematWoy Pro 1 Tahun' : 'Perpanjang HematWoy Pro 30 Hari';
+                $text  = "⭐ *{$headerTitle}*\n";
+                $text .= "───────────────────────\n";
+                $text .= "Status paket Anda saat ini : *HEMATWOY PRO (Aktif)*\n";
+                $text .= "📅 Masa aktif s/d : *{$currentExpiry}*\n\n";
+                $text .= "💡 *Info Perpanjangan:*\n";
+                $text .= "Masa aktif baru akan *langsung ditambahkan (diakumulasikan)* ke tanggal berakhir saat ini.\n";
+            } else {
+                $headerTitle = $isAnnual ? 'HematWoy Pro 1 Tahun — Akses Tanpa Batas' : 'HematWoy Pro — Akses Tanpa Batas';
+                $text  = "⭐ *{$headerTitle}*\n";
+                $text .= "───────────────────────\n";
+                $text .= "Kelola seluruh keuanganmu dengan fitur premium tanpa batasan:\n\n";
+                $text .= "✨ *Fitur Spesial Pro:*\n";
+                foreach ($featuresList as $feat) {
+                    $text .= "• 🚀 {$feat}\n";
+                }
             }
 
             if ($plans->isNotEmpty()) {
-                $text .= "\n💳 *Pilihan Paket:*\n";
+                $text .= "\n💳 *Pilihan Paket " . ($isAlreadyPro ? 'Perpanjangan' : 'Langganan') . ":*\n";
                 foreach ($plans as $p) {
                     $discountNote = $p->discount_percentage > 0 ? " _(Hemat {$p->discount_percentage}%)_" : '';
                     $text .= "• {$p->name} : *{$p->formatted_price}* / " . ($p->duration_days >= 365 ? 'tahun' : "{$p->duration_days} hari") . "{$discountNote}\n";
                 }
             } else {
-                $text .= "\n💳 *Pilihan Paket:*\n";
+                $text .= "\n💳 *Pilihan Paket " . ($isAlreadyPro ? 'Perpanjangan' : 'Langganan') . ":*\n";
                 $text .= "• Paket Bulanan : *Rp25.000* / 30 hari\n";
                 $text .= "• Paket Tahunan : *Rp199.000* / tahun _(Hemat 35%)_\n";
             }
 
-            $text .= "\n👉 *Klik link berikut untuk pembayaran {$planName} ({$formattedAmount}):*\n";
+            $text .= "\n👉 *Klik link berikut untuk pembayaran " . ($isAlreadyPro ? 'perpanjangan ' : '') . "{$planName} ({$formattedAmount}):*\n";
             $text .= "{$payUrl}\n\n";
 
             if ($plans->isNotEmpty()) {
@@ -583,11 +596,12 @@ class WebhookController extends Controller
             $replyButtons = [];
             if ($plans->isNotEmpty()) {
                 foreach ($plans->take(2) as $p) {
+                    $btnLabel = $isAlreadyPro ? "Perpanjang {$p->name}" : "{$p->name} ({$p->short_price})";
                     $replyButtons[] = [
                         'type' => 'reply',
                         'reply' => [
                             'id' => "langganan {$p->code}",
-                            'title' => "{$p->name} ({$p->short_price})",
+                            'title' => mb_substr($btnLabel, 0, 20),
                         ],
                     ];
                 }
@@ -597,14 +611,14 @@ class WebhookController extends Controller
                         'type' => 'reply',
                         'reply' => [
                             'id' => 'langganan bulanan',
-                            'title' => 'Pro Bulanan (25rb)',
+                            'title' => $isAlreadyPro ? 'Perpanjang Bulanan' : 'Pro Bulanan (25rb)',
                         ],
                     ],
                     [
                         'type' => 'reply',
                         'reply' => [
                             'id' => 'langganan tahunan',
-                            'title' => 'Pro 1 Tahun (199rb)',
+                            'title' => $isAlreadyPro ? 'Perpanjang Tahunan' : 'Pro 1 Tahun (199rb)',
                         ],
                     ],
                 ];

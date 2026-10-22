@@ -77,15 +77,23 @@
       <!-- Subscription Quota & Upgrade Banner -->
       <div class="pt-4 border-t border-slate-800/80 mb-2">
         <!-- Active Pro Status -->
-        <div v-if="isPro" class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between shadow-sm">
-          <div class="flex items-center gap-2">
-            <span class="text-base">⭐</span>
-            <div>
-              <span class="text-xs font-bold text-amber-300 block">HematWoy PRO</span>
-              <span class="text-[10px] text-slate-400 block">{{ expiryDisplay }}</span>
+        <div v-if="isPro" class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⭐</span>
+              <div>
+                <span class="text-xs font-bold text-amber-300 block">HematWoy PRO</span>
+                <span class="text-[10px] text-slate-400 block">{{ expiryDisplay }}</span>
+              </div>
             </div>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">AKTIF</span>
           </div>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">AKTIF</span>
+          <button
+            @click="openPricingModal('monthly')"
+            class="w-full py-1.5 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-850 border border-amber-500/30 hover:border-amber-500/60 text-amber-300 hover:text-amber-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 shadow-sm"
+          >
+            <span>⚡ Perpanjang Masa Aktif</span>
+          </button>
         </div>
 
         <!-- Free Tier Quota & Upgrade CTA -->
@@ -141,21 +149,15 @@
         <span class="font-bold text-base text-white">HematWoy</span>
       </div>
       <div class="flex items-center gap-2">
-        <!-- Upgrade Button on Mobile -->
+        <!-- Upgrade or Extend Button on Mobile -->
         <button
-          v-if="!isPro"
           @click="openPricingModal('monthly')"
-          class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow cursor-pointer"
+          class="px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 shadow cursor-pointer active:scale-95 transition"
+          :class="isPro ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : 'bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950'"
         >
           <span>⭐</span>
-          <span>Pro</span>
+          <span>{{ isPro ? 'Perpanjang' : 'Pro' }}</span>
         </button>
-        <span
-          v-else
-          class="px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[10px] flex items-center gap-1"
-        >
-          ⭐ PRO
-        </span>
 
         <!-- Privacy Eye on Mobile -->
         <button

@@ -204,12 +204,15 @@
             {{ errorMessage }}
           </div>
 
-          <!-- Existing user link -->
-          <div class="text-center text-xs text-slate-400">
-            Sudah berlangganan paket Pro?
+          <!-- Existing Subscriber Prompt Card -->
+          <div class="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-inner">
+            <div class="flex items-center gap-2.5 text-slate-300 text-center sm:text-left">
+              <span class="text-lg">🔑</span>
+              <span>Sudah pernah berlangganan paket Pro di WhatsApp?</span>
+            </div>
             <button
               @click="goToLogin"
-              class="text-emerald-400 hover:text-emerald-300 font-bold hover:underline cursor-pointer ml-1 inline-flex items-center gap-0.5"
+              class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 hover:text-emerald-300 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
             >
               <span>Masuk ke Dashboard</span>
               <span>➔</span>

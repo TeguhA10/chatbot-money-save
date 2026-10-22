@@ -48,13 +48,13 @@
         <!-- Header -->
         <div class="text-center space-y-1.5">
           <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
-            ⭐ Upgrade HematWoy Pro
+            ⭐ {{ authStore.isPro ? 'Perpanjang HematWoy Pro' : 'Upgrade HematWoy Pro' }}
           </div>
           <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Pencatatan Keuangan Tanpa Batas
+            {{ authStore.isPro ? 'Perpanjang Masa Aktif Pro' : 'Pencatatan Keuangan Tanpa Batas' }}
           </h2>
           <p class="text-xs text-slate-400 max-w-sm mx-auto">
-            Pilih paket langganan yang sesuai untuk memaksimalkan disiplin finansial Anda.
+            {{ authStore.isPro ? 'Masa aktif baru akan otomatis diakumulasikan ke sisa masa aktif akun Anda saat ini.' : 'Pilih paket langganan yang sesuai untuk memaksimalkan disiplin finansial Anda.' }}
           </p>
         </div>
 
@@ -104,7 +104,7 @@
             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span v-if="processing" class="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
-            <span>Lanjutkan Pembayaran ({{ currentPlanFormattedPrice }})</span>
+            <span>{{ (authStore.isPro ? 'Perpanjang Sekarang (' : 'Lanjutkan Pembayaran (') + currentPlanFormattedPrice + ')' }}</span>
           </button>
         </div>
 

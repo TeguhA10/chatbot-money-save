@@ -55,23 +55,38 @@
         </a>
       </div>
 
-      <!-- Action CTAs: Dashboard Direct Access (Desktop only) & WhatsApp Button -->
+      <!-- Action CTAs: Dashboard Direct Access & WhatsApp Button -->
       <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-        <!-- Dashboard Direct Button (Desktop Only) -->
-        <button
-          type="button"
-          @click="handleDashboardClick"
-          class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 text-slate-200 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-950/40 hover:shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
+        <!-- If Authenticated and Pro: direct Dashboard button -->
+        <router-link
+          v-if="authStore.isAuthenticated && authStore.isPro"
+          to="/dashboard"
+          class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/50 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
         >
           <span class="text-emerald-400 group-hover:scale-110 transition-transform">📊</span>
           <span>Dashboard</span>
-          <span
-            v-if="authStore.isAuthenticated && authStore.isPro"
-            class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
-          >
+          <span class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30">
             PRO
           </span>
-        </button>
+        </router-link>
+
+        <!-- If Not Logged In: Provide direct Masuk button for existing subscribers -->
+        <template v-else>
+          <router-link
+            to="/login"
+            class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/40 text-slate-200 hover:text-white text-xs sm:text-sm font-bold transition cursor-pointer"
+          >
+            <span>Masuk</span>
+            <span class="text-emerald-400 text-xs">➔</span>
+          </router-link>
+          <button
+            type="button"
+            @click="handleDashboardClick"
+            class="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/40 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs sm:text-sm font-semibold transition cursor-pointer"
+          >
+            <span>📊 Dashboard PRO</span>
+          </button>
+        </template>
 
         <!-- Chat CTA Button (Compact and clean on Mobile) -->
         <a
@@ -107,14 +122,24 @@
     >
       <!-- Mobile Quick Actions -->
       <div class="grid grid-cols-2 gap-2 pb-3 border-b border-slate-800/80">
-        <button
-          type="button"
-          @click="handleDashboardClick(); mobileMenuOpen = false"
-          class="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700/80 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
+        <router-link
+          v-if="authStore.isAuthenticated && authStore.isPro"
+          to="/dashboard"
+          @click="mobileMenuOpen = false"
+          class="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-emerald-500/40 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
         >
           <span>📊</span>
-          <span>Dashboard</span>
-        </button>
+          <span>Dashboard PRO</span>
+        </router-link>
+        <router-link
+          v-else
+          to="/login"
+          @click="mobileMenuOpen = false"
+          class="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700/80 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
+        >
+          <span>🔑</span>
+          <span>Masuk Web</span>
+        </router-link>
         <a
           :href="whatsappDirectUrl"
           target="_blank"
