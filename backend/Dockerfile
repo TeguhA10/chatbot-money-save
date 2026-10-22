@@ -59,6 +59,7 @@ RUN setcap -r /usr/local/bin/frankenphp || true && chmod +x /usr/local/bin/frank
 
 # Setup entrypoint script
 RUN cp /var/www/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh \
+    && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Ensure storage directories exist and have proper permissions
