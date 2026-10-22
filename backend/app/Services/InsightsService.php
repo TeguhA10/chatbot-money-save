@@ -207,13 +207,18 @@ class InsightsService
             $percentageDelta = 100.0;
         }
 
+        // Build category map from already eager-loaded transactions to avoid N+1 queries
+        $categoriesMap = $currentTxs->concat($lastTxs)
+            ->filter(fn($t) => $t->category !== null)
+            ->pluck('category', 'category_id');
+
         // Top category increases
         $increases = [];
         foreach ($currentCatTotals as $catId => $amt) {
             $prevAmt = $lastCatTotals[$catId] ?? 0;
             $delta = $amt - $prevAmt;
             if ($delta > 0) {
-                $category = $catId !== 'uncategorized' ? Category::find($catId) : null;
+                $category = $catId !== 'uncategorized' ? ($categoriesMap->get($catId) ?? Category::find($catId)) : null;
                 $increases[] = [
                     'name'  => $category ? $category->name : 'Lainnya',
                     'icon'  => $category ? $category->icon : '📦',

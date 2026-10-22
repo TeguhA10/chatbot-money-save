@@ -25,12 +25,20 @@ class BudgetController extends Controller
         $now = Carbon::now();
         $budgets = Budget::where('user_jid', $user->jid)->with('category')->get();
 
+        // Single query for all expenses this month to prevent N+1 queries
+        $spentByCategory = $this->budgetService->getMonthlyExpenseTotalsByCategory(
+            $user->jid,
+            $now->year,
+            $now->month
+        );
+
         $totalBudgeted = 0;
         $totalSpent = 0;
         $items = [];
 
         foreach ($budgets as $budget) {
-            $consumption = $this->budgetService->getConsumption($budget, $now->year, $now->month);
+            $preloadedSpent = $spentByCategory->get($budget->category_id, 0);
+            $consumption = $this->budgetService->getConsumption($budget, $now->year, $now->month, $preloadedSpent);
             $totalBudgeted += $consumption['limit_amount'];
             $totalSpent += $consumption['spent_amount'];
 

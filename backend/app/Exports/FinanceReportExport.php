@@ -34,15 +34,13 @@ class FinanceReportExport implements WithMultipleSheets, Export
         $startOfYear = Carbon::create($this->year, 1, 1, 0, 0, 0)->startOfYear();
         $endOfYear   = Carbon::create($this->year, 12, 31, 23, 59, 59)->endOfYear();
 
-        // Fetch distinct months for active transactions
-        $transactionsQuery = $this->user->transactions()
+        // Extract distinct YYYY-MM efficiently without hydrating full models
+        $months = $this->user->transactions()
             ->active()
             ->whereBetween('created_at', [$startOfYear, $endOfYear])
-            ->orderBy('created_at', 'asc');
-
-        // Extract distinct YYYY-MM
-        $months = $transactionsQuery->get()
-            ->map(fn($t) => $t->created_at ? $t->created_at->format('Y-m') : null)
+            ->orderBy('created_at', 'asc')
+            ->pluck('created_at')
+            ->map(fn($d) => $d ? Carbon::parse($d)->format('Y-m') : null)
             ->filter()
             ->unique()
             ->values();

@@ -36,6 +36,24 @@ class BudgetService
     }
 
     /**
+     * Get spent amount mapped by category_id for a given month in a single query.
+     * Prevents N+1 queries when processing multiple budgets.
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    public function getMonthlyExpenseTotalsByCategory(string $userJid, int $year, int $month): \Illuminate\Support\Collection
+    {
+        $transactions = Transaction::where('user_jid', $userJid)
+            ->active()
+            ->expenses()
+            ->forMonth($year, $month)
+            ->get();
+
+        return $transactions->groupBy('category_id')
+            ->map(fn($group) => (int) $group->sum('amount'));
+    }
+
+    /**
      * Get consumption for a budget in the given or current month.
      *
      * @return array{
@@ -49,22 +67,26 @@ class BudgetService
      *   progress_bar: string
      * }
      */
-    public function getConsumption(Budget $budget, ?int $year = null, ?int $month = null): array
+    public function getConsumption(Budget $budget, ?int $year = null, ?int $month = null, ?int $preloadedSpent = null): array
     {
         $now = Carbon::now();
         $year = $year ?? $now->year;
         $month = $month ?? $now->month;
 
-        $transactions = Transaction::where('user_jid', $budget->user_jid)
-            ->where('category_id', $budget->category_id)
-            ->active()
-            ->expenses()
-            ->forMonth($year, $month)
-            ->get();
+        if ($preloadedSpent !== null) {
+            $spentAmount = $preloadedSpent;
+        } else {
+            $transactions = Transaction::where('user_jid', $budget->user_jid)
+                ->where('category_id', $budget->category_id)
+                ->active()
+                ->expenses()
+                ->forMonth($year, $month)
+                ->get();
 
-        $spentAmount = 0;
-        foreach ($transactions as $tx) {
-            $spentAmount += $tx->amount;
+            $spentAmount = 0;
+            foreach ($transactions as $tx) {
+                $spentAmount += $tx->amount;
+            }
         }
 
         $limitAmount = $budget->limit_amount;
@@ -177,12 +199,16 @@ class BudgetService
             return "📊 *Ringkasan Budget*\n\nBelum ada plafon anggaran yang diatur.\nKetik contoh: `budget makan 1jt` atau `budget transport 500rb`.";
         }
 
+        $now = Carbon::now();
+        $spentByCategory = $this->getMonthlyExpenseTotalsByCategory($user->jid, $now->year, $now->month);
+
         $totalBudgeted = 0;
         $totalSpent = 0;
         $sections = [];
 
         foreach ($budgets as $budget) {
-            $consumption = $this->getConsumption($budget);
+            $preloadedSpent = $spentByCategory->get($budget->category_id, 0);
+            $consumption = $this->getConsumption($budget, $now->year, $now->month, $preloadedSpent);
             $totalBudgeted += $consumption['limit_amount'];
             $totalSpent += $consumption['spent_amount'];
 

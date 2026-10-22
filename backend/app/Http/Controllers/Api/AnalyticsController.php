@@ -90,17 +90,30 @@ class AnalyticsController extends Controller
      */
     public function monthlyTrend(Request $request): JsonResponse
     {
-        $user   = $request->user();
-        $result = [];
+        $user      = $request->user();
+        $startDate = now()->subMonths(5)->startOfMonth();
+        $endDate   = now()->endOfMonth();
 
+        // Single query for the entire 6-month period (prevents 12 redundant sequential queries)
+        $transactions = Transaction::where('user_jid', $user->jid)
+            ->active()
+            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->get();
+
+        $byMonth = $transactions->groupBy(function ($t) {
+            return $t->transaction_date ? $t->transaction_date->format('Y-m') : '';
+        });
+
+        $result = [];
         for ($i = 5; $i >= 0; $i--) {
-            $date    = now()->subMonths($i);
-            $summary = $this->financeService->getMonthlySummary($user, $date->year, $date->month);
+            $date     = now()->subMonths($i);
+            $monthKey = $date->format('Y-m');
+            $group    = $byMonth->get($monthKey, collect());
 
             $result[] = [
-                'month'   => $date->format('Y-m'),
-                'income'  => $summary['total_income'],
-                'expense' => $summary['total_expense'],
+                'month'   => $monthKey,
+                'income'  => (int) $group->where('type', 'INCOME')->sum('amount'),
+                'expense' => (int) $group->where('type', 'EXPENSE')->sum('amount'),
             ];
         }
 

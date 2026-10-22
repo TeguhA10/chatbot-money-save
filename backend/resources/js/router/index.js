@@ -65,6 +65,16 @@ const routes = [
         redirect: '/dokumentasi',
     },
     {
+        path: '/privasi',
+        name: 'privacy',
+        component: () => import('../views/PrivacyView.vue'),
+        meta: { isPublic: true },
+    },
+    {
+        path: '/kebijakan-privasi',
+        redirect: '/privasi',
+    },
+    {
         path: '/:pathMatch(.*)*',
         redirect: '/dashboard',
     },

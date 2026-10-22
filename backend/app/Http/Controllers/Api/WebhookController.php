@@ -3,9 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\BotMenu;
+use App\Models\Budget;
+use App\Models\FinancialGoal;
 use App\Models\ProcessedMessage;
+use App\Models\RecurringSchedule;
 use App\Models\SubscriptionPlan;
+use App\Models\Transaction;
+use App\Models\UsageLog;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\BudgetService;
 use App\Services\FinanceService;
 use App\Services\InsightsService;
@@ -135,7 +141,7 @@ class WebhookController extends Controller
      */
     protected function handleMetaWebhook(Request $request): JsonResponse
     {
-        Log::info("Meta Webhook Received Payload", ['payload' => $request->all()]);
+        Log::info("Meta Webhook Received", ['object' => $request->input('object'), 'entries_count' => count($request->input('entry', []))]);
 
         // Verify X-Hub-Signature-256 if Meta app secret is configured (Fase 2 security)
         $signature = $request->header('X-Hub-Signature-256');
@@ -1154,6 +1160,95 @@ class WebhookController extends Controller
                 $user,
                 trim($matches[1])
             );
+        }
+
+        // Privacy Policy / Privasi
+        if (preg_match('/^(?:privasi|kebijakan\s+privasi|privacy|privacy\s+policy)$/i', trim($messageText))) {
+            $baseUrl = rtrim(config('app.url', url('/')), '/');
+            if (request() && request()->getHost()) {
+                $req = request();
+                $requestHost = $req->header('X-Forwarded-Host') ?: $req->getHost();
+                $requestScheme = $req->header('X-Forwarded-Proto') ?: $req->getScheme();
+                $requestPort = $req->header('X-Forwarded-Port') ?: $req->getPort();
+                $portSuffix = ($requestPort && !in_array((int) $requestPort, [80, 443], true) && !str_contains($requestHost, ':')) ? ":{$requestPort}" : '';
+                if ($requestHost && $requestScheme) {
+                    $baseUrl = "{$requestScheme}://{$requestHost}{$portSuffix}";
+                }
+            }
+            $privacyUrl = "{$baseUrl}/privasi";
+
+            $text  = "🛡️ *Kebijakan Privasi & Keamanan HematWoy*\n";
+            $text .= "───────────────────────\n";
+            $text .= "Data finansial Anda dilindungi dengan standar privasi tertinggi:\n\n";
+            $text .= "✓ *Enkripsi AES-256-GCM:* Seluruh data nominal tersimpan dalam keadaan terenkripsi.\n";
+            $text .= "✓ *Isolasi Ketat:* Database terikat aman dengan nomor ponsel resmi Anda.\n";
+            $text .= "✓ *Tanpa Pihak Ketiga:* Kami tidak pernah membagikan atau menjual data transaksi Anda.\n";
+            $text .= "✓ *Hak Hapus Penuh:* Anda berhak menghapus seluruh riwayat data Anda kapan saja.\n\n";
+            $text .= "📖 *Baca Kebijakan Privasi Lengkap:*\n";
+            $text .= "👉 {$privacyUrl}\n\n";
+            $text .= "_💡 Butuh menghapus riwayat? Ketik: `hapus data saya`_";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $text,
+            ]);
+        }
+
+        // Data Deletion Request (GDPR / Right to be forgotten)
+        if (preg_match('/^(?:hapus\s+data\s+saya|hapus\s+semua\s+data|hapus\s+akun)$/i', trim($messageText))) {
+            $text  = "⚠️ *Konfirmasi Penghapusan Seluruh Data Finansial*\n";
+            $text .= "───────────────────────\n";
+            $text .= "Anda akan menghapus *permanen*:\n";
+            $text .= "• Seluruh riwayat transaksi (keluar/masuk)\n";
+            $text .= "• Seluruh dompet dan saldo kas\n";
+            $text .= "• Seluruh plafon anggaran dan target tabungan\n";
+            $text .= "• Kredensial brankas dan PIN keamanan\n\n";
+            $text .= "⚠️ *PENTING:* Tindakan ini bersifat permanen dan *TIDAK DAPAT DIBATALKAN*.\n\n";
+            $text .= "Jika Anda benar-benar yakin, ketik persis:\n";
+            $text .= "👉 `konfirmasi hapus semua data`";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $text,
+            ]);
+        }
+
+        // Final Confirmation of Data Deletion
+        if (preg_match('/^konfirmasi\s+hapus\s+semua\s+data$/i', trim($messageText))) {
+            DB::transaction(function () use ($user) {
+                // Delete user financial records
+                Transaction::where('user_jid', $user->jid)->forceDelete();
+                Wallet::where('user_jid', $user->jid)->delete();
+                Budget::where('user_jid', $user->jid)->delete();
+                FinancialGoal::where('user_jid', $user->jid)->delete();
+                RecurringSchedule::where('user_jid', $user->jid)->delete();
+                UsageLog::where('user_jid', $user->jid)->delete();
+
+                // Reset user security credentials and message count
+                $user->forceFill([
+                    'pin_hash'                     => null,
+                    'recovery_code_hash'           => null,
+                    'encryption_salt'              => null,
+                    'pin_status'                   => 'UNCONFIGURED',
+                    'free_financial_message_count' => 0,
+                    'last_pin_verified_at'         => null,
+                ])->save();
+
+                // Revoke Sanctum web tokens
+                $user->tokens()->delete();
+            });
+
+            Cache::forget("vault_unlocked:{$user->jid}");
+
+            $text  = "✅ *Seluruh Data Anda Berhasil Dihapus Permanen*\n";
+            $text .= "───────────────────────\n";
+            $text .= "Seluruh riwayat transaksi, saldo dompet, anggaran, target tabungan, dan sesi login Anda telah tuntas dibersihkan dari server kami.\n\n";
+            $text .= "Terima kasih telah mempercayai HematWoy. Jika Anda ingin mulai mencatat kembali dari awal di masa depan, silakan kirim transaksi baru kapan saja. 👋";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $text,
+            ]);
         }
 
         // Help / menu (Typo-tolerant & Natural phrasing)

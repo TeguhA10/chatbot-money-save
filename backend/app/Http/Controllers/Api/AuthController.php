@@ -102,9 +102,7 @@ class AuthController extends Controller
         // Send OTP via WhatsApp (Meta WhatsApp Cloud API or Baileys Gateway)
         $delivered = $this->whatsappService->sendOtp($phone, $otp);
 
-        \Illuminate\Support\Facades\Log::info("OTP dispatch for {$jid} (" . ($delivered ? 'delivered' : 'pending') . "): {$otp}");
-
-        \Illuminate\Support\Facades\Log::info("OTP for {$jid}: {$otp}");
+        \Illuminate\Support\Facades\Log::info("OTP dispatch for {$jid} (" . ($delivered ? 'delivered' : 'pending') . ")");
 
         return response()->json([
             'success'   => true,
@@ -146,7 +144,7 @@ class AuthController extends Controller
         $storedOtp = Cache::get("otp:{$jid}");
         $history   = Cache::get("otp_history:{$jid}", []);
 
-        \Illuminate\Support\Facades\Log::info("Verify OTP attempt for {$jid}: provided={$otp}, stored={$storedOtp}, history=" . json_encode($history));
+        \Illuminate\Support\Facades\Log::info("Verify OTP attempt for {$jid}");
 
         $isValid = ($storedOtp && $storedOtp === $otp) 
             || in_array($otp, $history, true)

@@ -312,6 +312,13 @@
         </div>
         <span class="font-bold text-slate-300 text-sm">HematWoy</span>
       </div>
+      <div class="flex items-center justify-center gap-4 text-xs text-slate-400">
+        <router-link to="/" class="hover:text-emerald-400 transition">Beranda</router-link>
+        <span>•</span>
+        <router-link to="/dokumentasi" class="text-emerald-400 font-bold">Panduan</router-link>
+        <span>•</span>
+        <router-link to="/privasi" class="hover:text-emerald-400 transition">Kebijakan Privasi</router-link>
+      </div>
       <p class="font-medium text-slate-400">Smart WhatsApp Personal Finance Tracker</p>
       <p>&copy; {{ currentYear }} HematWoy Indonesia. Seluruh hak cipta dilindungi undang-undang.</p>
     </footer>
