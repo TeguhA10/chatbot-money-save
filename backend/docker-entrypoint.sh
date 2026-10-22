@@ -21,6 +21,10 @@ if [ "$APP_ENV" = "production" ]; then
     php artisan route:cache
     php artisan view:cache
     php artisan event:cache
+# Bind to dynamic cloud port (Render, Railway, Fly.io) if PORT env var is provided
+if [ -n "$PORT" ] && [ "$PORT" != "8000" ]; then
+    echo "Binding Octane server to cloud port $PORT..."
+    set -- $(echo "$@" | sed "s/--port=8000/--port=$PORT/g")
 fi
 
 # Execute passed command (defaults to Octane FrankenPHP)

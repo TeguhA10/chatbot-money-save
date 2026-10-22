@@ -54,6 +54,9 @@ COPY --from=frontend-builder /app/public/build ./public/build
 # Generate optimized authoritative classmap including app code and discover packages
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
+# Fix for "Operation not permitted" (exit status 126) on Render and restricted cloud runtimes
+RUN setcap -r /usr/local/bin/frankenphp || true && chmod +x /usr/local/bin/frankenphp
+
 # Setup entrypoint script
 RUN cp /var/www/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
