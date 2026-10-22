@@ -31,21 +31,21 @@
 
       <!-- 1. MODE UNLOCK -->
       <div v-if="mode === 'unlock'">
-        <h2 class="vault-title">Vault Terkunci</h2>
+        <h2 class="vault-title">Kunci PIN Keamanan</h2>
         <p class="vault-subtitle">
-          Data nominal keuangan Anda dienkripsi secara <strong>Zero-Knowledge</strong>. Masukkan Master PIN / Passphrase Anda untuk membukanya.
+          Masukkan PIN keamanan finansial Anda untuk membuka proteksi saldo privat.
         </p>
 
         <form @submit.prevent="handleUnlock" class="vault-form">
           <div class="form-group">
-            <label class="form-label" for="unlock-pin">Master PIN / Passphrase</label>
+            <label class="form-label" for="unlock-pin">PIN Keamanan</label>
             <div class="input-password-wrapper">
               <input
                 id="unlock-pin"
                 v-model="pinInput"
                 :type="showPassword ? 'text' : 'password'"
                 class="form-input"
-                placeholder="Masukkan PIN / Passphrase..."
+                placeholder="Masukkan PIN keamanan..."
                 autocomplete="current-password"
                 :disabled="vaultStore.cooldownSeconds > 0 || vaultStore.loading"
                 required
@@ -71,14 +71,14 @@
               :disabled="vaultStore.cooldownSeconds > 0 || vaultStore.loading || !pinInput"
             >
               <span v-if="vaultStore.loading" class="spinner"></span>
-              <span v-else>🔓 Buka Vault</span>
+              <span v-else>🔓 Buka Kunci</span>
             </button>
             <button
               type="button"
               class="btn-dismiss-vault"
               @click="dismissModal"
             >
-              👁️‍🗨️ Nanti Saja (Lihat Data Tersensor)
+              Tutup
             </button>
           </div>
 
@@ -258,9 +258,6 @@ const isOpen = computed(() => {
 
 function dismissModal() {
   vaultStore.closeModal();
-  if (!vaultStore.isUnlocked && !vaultStore.isMasked) {
-    vaultStore.toggleMask();
-  }
 }
 
 watch(

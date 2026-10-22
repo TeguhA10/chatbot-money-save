@@ -43,7 +43,20 @@ class AuthController extends Controller
             $reason = $existingUser->blocked_reason ? " Alasan: {$existingUser->blocked_reason}" : '';
             return response()->json([
                 'success' => false,
+                'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}",
                 'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
+            ], 403);
+        }
+
+        // --- Subscription Enforcement: Web Dashboard is exclusive to HematWoy Pro subscribers ---
+        if (! $existingUser || ! $existingUser->hasActivePremium()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro. Silakan berlangganan terlebih dahulu melalui bot WhatsApp atau halaman paket.',
+                'error'   => [
+                    'code'    => 'SUBSCRIPTION_REQUIRED',
+                    'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro.',
+                ],
             ], 403);
         }
 
@@ -185,6 +198,18 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}",
                 'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
+            ], 403);
+        }
+
+        // --- Subscription Enforcement: Web Dashboard is exclusive to HematWoy Pro subscribers ---
+        if (! $user->hasActivePremium()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro. Silakan berlangganan terlebih dahulu melalui bot WhatsApp atau halaman paket.',
+                'error'   => [
+                    'code'    => 'SUBSCRIPTION_REQUIRED',
+                    'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro.',
+                ],
             ], 403);
         }
 

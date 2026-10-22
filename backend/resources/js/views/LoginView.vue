@@ -17,9 +17,20 @@
       <!-- Main Card -->
       <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
         <!-- Error Alert -->
-        <div v-if="errorMessage" class="mb-5 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-          <span>⚠️</span>
-          <span>{{ errorMessage }}</span>
+        <div v-if="errorMessage" class="mb-5 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2.5">
+          <div class="flex items-start gap-2">
+            <span class="text-base leading-none">⚠️</span>
+            <span class="leading-relaxed">{{ errorMessage }}</span>
+          </div>
+          <div v-if="isSubscriptionRequired" class="pt-2 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span class="text-[11px] text-slate-300">Belum memiliki paket HematWoy Pro?</span>
+            <a
+              href="/#harga"
+              class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs text-center transition shadow shadow-emerald-500/20"
+            >
+              Lihat Pilihan Paket ➔
+            </a>
+          </div>
         </div>
 
         <!-- Success Alert -->
@@ -124,10 +135,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
+const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
@@ -138,8 +150,16 @@ const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 const resendCooldown = ref(0);
+const isSubscriptionRequired = ref(false);
 
 let timer = null;
+
+onMounted(() => {
+  if (route.query.error === 'subscription_required') {
+    isSubscriptionRequired.value = true;
+    errorMessage.value = 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro. Silakan berlangganan terlebih dahulu.';
+  }
+});
 
 function startCooldown() {
   resendCooldown.value = 60;
@@ -164,6 +184,7 @@ function normalizePhone(val) {
 async function handleRequestOtp() {
   errorMessage.value = '';
   successMessage.value = '';
+  isSubscriptionRequired.value = false;
   const normalized = normalizePhone(phone.value);
   if (normalized.length < 9) {
     errorMessage.value = 'Nomor telepon tidak valid.';
@@ -177,7 +198,12 @@ async function handleRequestOtp() {
     successMessage.value = 'Kode OTP berhasil dikirim ke WhatsApp Anda!';
     startCooldown();
   } catch (err) {
-    errorMessage.value = authStore.error || 'Gagal mengirim OTP.';
+    const code = err.response?.data?.error?.code || err.response?.data?.code;
+    const msg = err.response?.data?.message || err.response?.data?.error?.message || authStore.error || 'Gagal mengirim OTP.';
+    if (code === 'SUBSCRIPTION_REQUIRED' || msg.includes('eksklusif') || msg.includes('berlangganan')) {
+      isSubscriptionRequired.value = true;
+    }
+    errorMessage.value = msg;
   } finally {
     loading.value = false;
   }
@@ -186,6 +212,7 @@ async function handleRequestOtp() {
 async function handleVerifyOtp() {
   errorMessage.value = '';
   successMessage.value = '';
+  isSubscriptionRequired.value = false;
   const normalized = normalizePhone(phone.value);
   const cleanOtp = (otp.value || '').trim();
 
@@ -201,7 +228,12 @@ async function handleVerifyOtp() {
     // Direct browser redirect to dashboard for fresh session load
     window.location.href = '/dashboard';
   } catch (err) {
-    errorMessage.value = authStore.error || err.response?.data?.message || err.response?.data?.error?.message || 'Kode OTP salah atau kedaluwarsa.';
+    const code = err.response?.data?.error?.code || err.response?.data?.code;
+    const msg = err.response?.data?.message || err.response?.data?.error?.message || authStore.error || 'Kode OTP salah atau kedaluwarsa.';
+    if (code === 'SUBSCRIPTION_REQUIRED' || msg.includes('eksklusif') || msg.includes('berlangganan')) {
+      isSubscriptionRequired.value = true;
+    }
+    errorMessage.value = msg;
   } finally {
     loading.value = false;
   }

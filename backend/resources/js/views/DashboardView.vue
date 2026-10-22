@@ -329,6 +329,11 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60">
+            <tr v-if="financeStore.transactions.length === 0">
+              <td colspan="4" class="py-8 text-center text-slate-500">
+                Belum ada riwayat transaksi yang tercatat.
+              </td>
+            </tr>
             <tr
               v-for="t in financeStore.transactions.slice(0, 5)"
               :key="t.id"
@@ -370,11 +375,14 @@ defineEmits(['open-transaction-modal']);
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
-const selectedMonth = ref(new Date().toISOString().slice(0, 7));
+
+const now = new Date();
+const localMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+const selectedMonth = ref(localMonth);
 
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
-  return rawFormatRupiah(val);
+  return rawFormatRupiah(val ?? 0);
 }
 
 function getWalletIcon(type) {

@@ -5,7 +5,7 @@ export const useVaultStore = defineStore('vault', {
     state: () => ({
         pinStatus: 'PENDING_SETUP', // 'ACTIVE' | 'PENDING_SETUP'
         isUnlocked: false,
-        isMasked: localStorage.getItem('vault_masked') === 'true',
+        isMasked: false, // Clean default: always show financial data clearly unless explicitly toggled by user
         salt: null,
         recoveryCode: null,
         loading: false,
@@ -24,10 +24,8 @@ export const useVaultStore = defineStore('vault', {
         isModalOpen: (state) => {
             const token = localStorage.getItem('token');
             if (!token) return false;
-            if (state.forceShowModal) return true;
-            if (state.isUnlocked) return false;
-            if (state.isModalDismissed) return false;
-            return state.isSetupNeeded || !state.isUnlocked;
+            // Only open modal if explicitly requested by user clicking the action button
+            return Boolean(state.forceShowModal);
         },
     },
 
@@ -52,11 +50,7 @@ export const useVaultStore = defineStore('vault', {
                     this.isUnlocked = Boolean(res.data.data.is_unlocked);
                     this.salt = res.data.data.encryption_salt;
                     if (this.isUnlocked) {
-                        this.isModalDismissed = true;
-                        this.forceShowModal = false;
                         this.resetInactivityTimer();
-                    } else if (this.isSetupNeeded) {
-                        this.isModalDismissed = false;
                     }
                 }
             } catch (err) {
