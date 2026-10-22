@@ -34,11 +34,11 @@
         </div>
         <div>
           <h2 class="text-sm font-bold text-white flex items-center gap-2">
-            Catat Keuangan Praktis via WhatsApp
+            Pencatatan Keuangan Praktis
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">Aktif</span>
           </h2>
           <p class="text-xs text-slate-300 mt-0.5">
-            Ketik pengeluaran langsung di chat WhatsApp, contoh: <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">keluar 25rb makan</code> atau <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">saldo</code>
+            Ketik pengeluaran langsung via pesan chat, contoh: <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">keluar 25rb makan</code> atau <code class="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-300 text-[11px] font-mono">saldo</code>
           </p>
         </div>
       </div>
@@ -48,7 +48,7 @@
         rel="noopener noreferrer"
         class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-emerald-500/20 shrink-0 cursor-pointer active:scale-95"
       >
-        <span>Buka WhatsApp Bot</span>
+        <span>Buka Chat Bot</span>
         <span>➔</span>
       </a>
     </div>

@@ -100,9 +100,9 @@
                 <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[10px] font-bold mb-2 border border-emerald-500/30">
                   <span>⭐ Coba Gratis</span>
                 </div>
-                <h3 class="text-sm sm:text-base font-bold text-white mb-1">Mulai di WhatsApp</h3>
+                <h3 class="text-sm sm:text-base font-bold text-white mb-1">Uji Coba Gratis</h3>
                 <p class="text-xs text-slate-400 mb-3 leading-relaxed">
-                  Coba catat keuangan langsung lewat chat WhatsApp. Bebas ribet tanpa daftar akun.
+                  Coba catat keuangan langsung lewat pesan chat. Bebas ribet tanpa registrasi awal.
                 </p>
 
                 <ul class="space-y-1.5 text-xs text-slate-300 mb-4">
@@ -126,7 +126,7 @@
                 target="_blank"
                 class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-100 font-bold text-xs text-center flex items-center justify-center gap-1.5 transition active:scale-98"
               >
-                <span>💬 Coba Gratis di WhatsApp ➔</span>
+                <span>Coba Gratis Sekarang ➔</span>
               </a>
             </div>
 
@@ -169,7 +169,7 @@
                   </div>
                   <div class="flex items-center gap-1.5">
                     <span class="text-emerald-400 font-bold">✓</span>
-                    <span>Unlimited chat WhatsApp tanpa kuota</span>
+                    <span>Pencatatan keuangan tanpa batas kuota</span>
                   </div>
                 </div>
               </div>
@@ -183,24 +183,17 @@
                     class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-98"
                   >
                     <span v-if="processing" class="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
-                    <span>⚡ Bayar Instan ({{ currentPlanFormattedPrice }})</span>
+                    <span>⚡ Lanjutkan Pembayaran ({{ currentPlanFormattedPrice }})</span>
                   </button>
                 </div>
-                <div v-else class="space-y-1.5">
+                <div v-else class="space-y-2">
                   <a
                     :href="whatsappDirectPlanUrl"
                     target="_blank"
-                    class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                    class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
                   >
-                    <span>💬 Langganan via WhatsApp</span>
+                    <span>⚡ Berlangganan Sekarang</span>
                   </a>
-                  <button
-                    type="button"
-                    @click="goToLogin"
-                    class="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white font-medium text-[11px] transition text-center cursor-pointer"
-                  >
-                    <span>Masuk & Bayar via Web ➔</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -213,7 +206,7 @@
 
           <!-- Existing user link -->
           <div class="text-center text-xs text-slate-400">
-            Sudah punya akun Pro?
+            Sudah berlangganan paket Pro?
             <button
               @click="goToLogin"
               class="text-emerald-400 hover:text-emerald-300 font-bold hover:underline cursor-pointer ml-1 inline-flex items-center gap-0.5"

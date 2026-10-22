@@ -235,7 +235,7 @@
       <section class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md">
         <div class="mb-6">
           <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-1">Rangkuman Cepat</span>
-          <h2 class="text-xl sm:text-2xl font-black text-white">Tabel Ringkasan Perintah WhatsApp</h2>
+          <h2 class="text-xl sm:text-2xl font-black text-white">Tabel Ringkasan Perintah</h2>
           <p class="text-xs text-slate-400 mt-1">Cetak atau simpan tabel pintasan ini untuk referensi cepat saat menggunakan bot.</p>
         </div>
 
@@ -281,7 +281,7 @@
       <!-- BOTTOM CONVERSION CTA BANNER -->
       <section class="text-center py-12 px-6 rounded-3xl bg-gradient-to-r from-emerald-950/50 via-slate-900 to-teal-950/50 border border-emerald-500/30 shadow-2xl">
         <h3 class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
-          Sudah Paham Caranya? Langsung Mulai di WhatsApp!
+          Sudah Paham Caranya? Mulai Catat Sekarang!
         </h3>
         <p class="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto mb-6">
           Tanpa instal aplikasi baru, tanpa perlu registrasi rumit. Cukup klik tombol di bawah dan kirim pesan pertamamu sekarang juga.
@@ -292,7 +292,7 @@
             target="_blank"
             class="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
           >
-            <span>💬 Chat Bot Sekarang (WhatsApp)</span>
+            <span>Mulai Chat Sekarang ➔</span>
           </a>
           <router-link
             to="/"

@@ -358,7 +358,7 @@
                 class="w-full mt-3.5 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-emerald-500/20 active:scale-98"
               >
                 <span v-if="loadingMethod === 'qris'" class="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
-                <span>{{ loadingMethod === 'qris' ? 'Menyiapkan QRIS...' : 'Bayar Sekarang via QRIS ➔' }}</span>
+                <span>{{ loadingMethod === 'qris' ? 'Menyiapkan QRIS...' : 'Tampilkan Kode QRIS ➔' }}</span>
               </button>
             </div>
           </div>
@@ -398,7 +398,7 @@
             <div class="text-3xl">⏳</div>
             <h4 class="font-bold text-white text-sm">Metode Pembayaran Online Belum Tersedia</h4>
             <p class="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
-              Kanal pembayaran online otomatis saat ini sedang dalam pemeliharaan atau belum diaktifkan. Anda dapat melakukan pembayaran dan aktivasi akun langsung via WhatsApp kami.
+              Metode pembayaran online otomatis sedang dalam pemeliharaan. Silakan hubungi layanan bantuan kami untuk bantuan aktivasi akun langsung.
             </p>
             <div class="pt-2">
               <a
@@ -406,7 +406,7 @@
                 target="_blank"
                 class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs shadow-md cursor-pointer hover:scale-105 transition"
               >
-                <span>💬 Konfirmasi Pembayaran via WhatsApp</span>
+                <span>Hubungi Layanan Bantuan</span>
               </a>
             </div>
           </div>

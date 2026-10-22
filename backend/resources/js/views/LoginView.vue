@@ -11,7 +11,7 @@
           <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(16,185,129,0.4)]" />
         </div>
         <h1 class="text-2xl font-black tracking-tight text-white">HematWoy Web</h1>
-        <p class="text-sm text-slate-400 mt-1">Kelola keuangan cerdas terhubung bot WhatsApp</p>
+        <p class="text-sm text-slate-400 mt-1">Kelola keuangan cerdas tersinkronisasi otomatis</p>
       </div>
 
       <!-- Main Card -->
@@ -41,14 +41,14 @@
 
         <!-- STEP 1: Phone Input -->
         <div v-if="step === 1">
-          <h2 class="text-lg font-bold text-white mb-1">Masuk dengan WhatsApp</h2>
+          <h2 class="text-lg font-bold text-white mb-1">Masuk ke Dashboard</h2>
           <p class="text-xs text-slate-400 mb-6">
-            Masukkan nomor WhatsApp yang terdaftar pada bot untuk menerima kode OTP masuk.
+            Masukkan nomor ponsel yang terdaftar pada bot untuk menerima kode verifikasi OTP.
           </p>
 
           <form @submit.prevent="handleRequestOtp" class="space-y-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nomor WhatsApp</label>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nomor Ponsel</label>
               <div class="relative">
                 <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">🇮🇩</span>
                 <input
@@ -67,7 +67,7 @@
               :disabled="loading || !phone"
               class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
             >
-              {{ loading ? 'Mengirim OTP...' : 'Kirim Kode Masuk (OTP)' }}
+              {{ loading ? 'Mengirim OTP...' : 'Kirim Kode Verifikasi' }}
             </button>
           </form>
         </div>

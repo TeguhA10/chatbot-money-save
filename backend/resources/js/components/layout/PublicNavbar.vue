@@ -73,14 +73,14 @@
           </span>
         </button>
 
-        <!-- WhatsApp Chat Button (Compact and clean on Mobile) -->
+        <!-- Chat CTA Button (Compact and clean on Mobile) -->
         <a
           :href="whatsappDirectUrl"
           target="_blank"
           class="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
         >
           <span>💬</span>
-          <span>WhatsApp</span>
+          <span>Mulai Chat</span>
         </a>
 
         <!-- Mobile Menu Toggle Button -->
@@ -121,7 +121,7 @@
           class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition text-center"
         >
           <span>💬</span>
-          <span>WhatsApp</span>
+          <span>Mulai Chat</span>
         </a>
       </div>
 

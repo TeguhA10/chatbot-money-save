@@ -13,14 +13,14 @@
       <!-- Top Social Proof Pill -->
       <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-6 animate-pulse">
         <span class="flex h-2 w-2 rounded-full bg-emerald-400"></span>
-        <span>Asisten Finansial WhatsApp Otomatis #1 di Indonesia</span>
+        <span>Asisten Keuangan Pribadi Otomatis #1 di Indonesia</span>
       </div>
 
       <!-- Main Headline -->
       <h1 class="text-4xl sm:text-6xl font-black text-white tracking-tight leading-[1.15] max-w-4xl mx-auto">
         Catat Keuangan Harian Semudah
         <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-          Kirim Chat WhatsApp
+          Kirim Pesan Chat
         </span>
       </h1>
 
@@ -37,7 +37,7 @@
             target="_blank"
             class="w-full sm:w-auto px-7 py-3.5 sm:px-8 sm:py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-emerald-500/25 hover:scale-102 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>💬 Mulai Chat di WhatsApp</span>
+            <span>Mulai Coba Gratis</span>
             <span class="font-mono text-slate-950">➔</span>
           </a>
 
@@ -113,7 +113,7 @@
             target="_blank"
             class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs transition cursor-pointer text-center"
           >
-            <span>💬 Langsung Chat di WhatsApp</span>
+            <span>Mulai Catat Transaksi</span>
           </a>
         </div>
       </div>
@@ -227,7 +227,7 @@
             target="_blank"
             class="mt-8 w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition block cursor-pointer"
           >
-            Mulai Gratis di WhatsApp
+            Mulai Coba Gratis
           </a>
         </div>
 
@@ -256,7 +256,7 @@
             target="_blank"
             class="mt-8 w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs text-center shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition block cursor-pointer"
           >
-            Daftar {{ monthlyPlan.name }} via WhatsApp 💬
+            Pilih Paket {{ monthlyPlan.name }}
           </a>
         </div>
 
@@ -284,7 +284,7 @@
             target="_blank"
             class="mt-8 w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black text-xs text-center shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 transition block cursor-pointer"
           >
-            Pilih {{ annualPlan.name }} via WhatsApp 💬
+            Pilih Paket {{ annualPlan.name }}
           </a>
         </div>
       </div>
@@ -321,7 +321,7 @@
           Siap Mengatur Keuangan Lebih Rapi Tanpa Beban?
         </h2>
         <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto mb-8">
-          Mulai dalam 10 detik. Tanpa isi form panjang, tanpa perlu kartu kredit. Langsung chat nomor WhatsApp resmi kami di {{ botNumberDisplay }}!
+          Mulai dalam 10 detik. Tanpa isi form panjang, tanpa perlu kartu kredit. Langsung hubungi bot resmi kami di {{ botNumberDisplay }}!
         </p>
 
         <a
@@ -329,7 +329,8 @@
           target="_blank"
           class="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-base shadow-xl shadow-emerald-500/25 hover:scale-105 transition"
         >
-          <span>💬 Coba Gratis di WhatsApp ({{ botNumberDisplay }})</span>
+          <span>Mulai Coba Gratis Sekarang</span>
+          <span class="text-slate-950 font-bold">➔</span>
         </a>
       </div>
     </section>

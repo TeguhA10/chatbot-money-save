@@ -104,7 +104,7 @@
             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span v-if="processing" class="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
-            <span>Bayar via QRIS / e-Wallet / VA ({{ currentPlanFormattedPrice }})</span>
+            <span>Lanjutkan Pembayaran ({{ currentPlanFormattedPrice }})</span>
           </button>
         </div>
 
