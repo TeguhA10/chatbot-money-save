@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: chatbot-money-save-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: singapore
+    healthCheckPath: /api/health/live
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: OCTANE_SERVER
+        value: frankenphp
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: QUEUE_CONNECTION
+        value: sync
