@@ -59,7 +59,7 @@
         <!-- Back button & total -->
         <div class="flex items-center justify-between">
           <button
-            @click="chargeResult = null"
+            @click="changeMethod"
             class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium transition cursor-pointer"
           >
             <span>←</span>
@@ -174,6 +174,15 @@
           </button>
         </div>
 
+        <!-- Manual Check Notice Feedback -->
+        <div
+          v-if="checkNotice"
+          class="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs text-center flex items-center justify-center gap-2 animate-in fade-in"
+        >
+          <span>ℹ️</span>
+          <span>{{ checkNotice }}</span>
+        </div>
+
         <!-- Simulation button in Sandbox -->
         <div v-if="showSimulateButton" class="pt-2 border-t border-slate-800/60 text-center">
           <button
@@ -285,9 +294,10 @@ const isSettled = ref(false);
 const copied = ref(false);
 const checkingStatus = ref(false);
 const simulating = ref(false);
+const checkNotice = ref('');
 const remainingSeconds = ref(900); // 15 mins default
 let timerInterval = null;
-let pollInterval = null;
+let noticeTimer = null;
 
 const paymentMethods = [
   {
@@ -340,8 +350,13 @@ const showSimulateButton = computed(() => {
 });
 
 const countdownText = computed(() => {
-  const m = Math.floor(remainingSeconds.value / 60);
-  const s = remainingSeconds.value % 60;
+  const total = Math.max(0, remainingSeconds.value);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) {
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 });
 
@@ -354,10 +369,18 @@ function formatMethodName(id) {
   return m ? m.name : id.toUpperCase();
 }
 
+function changeMethod() {
+  stopCountdown();
+  chargeResult.value = null;
+  errorMessage.value = '';
+  checkNotice.value = '';
+}
+
 async function selectPaymentMethod(methodId) {
   selectedMethod.value = methodId;
   loadingMethod.value = methodId;
   errorMessage.value = '';
+  checkNotice.value = '';
 
   try {
     const res = await axios.post(`/api/v1/payment/charge/${props.orderId}`, {
@@ -366,6 +389,7 @@ async function selectPaymentMethod(methodId) {
 
     if (res.data.status === 'SETTLEMENT') {
       isSettled.value = true;
+      stopCountdown();
       emit('settled');
       return;
     }
@@ -373,7 +397,6 @@ async function selectPaymentMethod(methodId) {
     if (res.data.success) {
       chargeResult.value = res.data;
       startCountdown();
-      startPolling();
     } else {
       // In sandbox mode fallback simulation
       if (res.data.fallback_simulated) {
@@ -384,7 +407,6 @@ async function selectPaymentMethod(methodId) {
           expiry_time: '15 Menit',
         };
         startCountdown();
-        startPolling();
       } else {
         errorMessage.value = res.data.message || 'Gagal menyiapkan metode pembayaran.';
       }
@@ -398,15 +420,23 @@ async function selectPaymentMethod(methodId) {
 
 async function checkStatus() {
   checkingStatus.value = true;
+  checkNotice.value = '';
+  if (noticeTimer) clearTimeout(noticeTimer);
+
   try {
     const res = await axios.get(`/api/v1/payment/order/${props.orderId}`);
     if (res.data.status === 'SETTLEMENT') {
       isSettled.value = true;
-      stopPolling();
+      stopCountdown();
       emit('settled');
+    } else {
+      checkNotice.value = 'Pembayaran belum terdeteksi. Silakan selesaikan pembayaran di aplikasi m-Banking/e-Wallet kamu lalu klik tombol ini lagi.';
+      noticeTimer = setTimeout(() => {
+        checkNotice.value = '';
+      }, 5000);
     }
   } catch (err) {
-    // silent check
+    checkNotice.value = 'Gagal memeriksa status pembayaran. Silakan coba sesaat lagi.';
   } finally {
     checkingStatus.value = false;
   }
@@ -418,7 +448,7 @@ async function simulatePayment() {
     const res = await axios.post(`/api/v1/payment/simulate/${props.orderId}`);
     if (res.data.order?.status === 'SETTLEMENT') {
       isSettled.value = true;
-      stopPolling();
+      stopCountdown();
       emit('settled');
     }
   } catch (err) {
@@ -429,27 +459,37 @@ async function simulatePayment() {
 }
 
 function startCountdown() {
-  remainingSeconds.value = 900;
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (remainingSeconds.value > 0) {
-      remainingSeconds.value--;
-    } else {
-      clearInterval(timerInterval);
+  stopCountdown();
+
+  let targetEndTime = Date.now() + 15 * 60 * 1000;
+  if (chargeResult.value?.expiry_time && typeof chargeResult.value.expiry_time === 'string') {
+    const raw = chargeResult.value.expiry_time.trim();
+    if (raw.includes('-') && (raw.includes(':') || raw.includes('T'))) {
+      const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+      const parsed = new Date(normalized).getTime();
+      if (!isNaN(parsed) && parsed > Date.now()) {
+        targetEndTime = parsed;
+      }
     }
-  }, 1000);
+  }
+
+  const update = () => {
+    const diff = Math.max(0, Math.floor((targetEndTime - Date.now()) / 1000));
+    remainingSeconds.value = diff;
+    if (diff <= 0) {
+      stopCountdown();
+    }
+  };
+
+  update();
+  timerInterval = setInterval(update, 1000);
 }
 
-function startPolling() {
-  stopPolling();
-  pollInterval = setInterval(async () => {
-    await checkStatus();
-  }, 3500);
-}
-
-function stopPolling() {
-  if (pollInterval) clearInterval(pollInterval);
-  if (timerInterval) clearInterval(timerInterval);
+function stopCountdown() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
 }
 
 function copyToClipboard(text) {
@@ -462,7 +502,7 @@ function copyToClipboard(text) {
 }
 
 function handleClose() {
-  stopPolling();
+  stopCountdown();
   emit('close');
 }
 
@@ -473,14 +513,16 @@ function handleSuccessAction() {
 
 watch(() => props.isOpen, (newVal) => {
   if (!newVal) {
-    stopPolling();
+    stopCountdown();
     chargeResult.value = null;
     errorMessage.value = '';
+    checkNotice.value = '';
     isSettled.value = false;
   }
 });
 
 onUnmounted(() => {
-  stopPolling();
+  stopCountdown();
+  if (noticeTimer) clearTimeout(noticeTimer);
 });
 </script>
