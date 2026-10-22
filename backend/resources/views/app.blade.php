@@ -18,7 +18,8 @@
     
     <script>
         window.__BOT_CONFIG__ = {
-            free_limit: {{ (int) \App\Models\BotSetting::get('max_free_financial_messages', 100) }}
+            free_limit: {{ (int) \App\Models\BotSetting::get('max_free_financial_messages', 100) }},
+            bot_number: @json(config('services.whatsapp.bot_number', env('WHATSAPP_BOT_NUMBER', '6285111355992')))
         };
     </script>
     

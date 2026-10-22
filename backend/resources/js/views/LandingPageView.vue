@@ -374,8 +374,18 @@ function onSubscriptionUpgraded() {
 const currentYear = new Date().getFullYear();
 
 // WhatsApp Bot Number from .env with fallback
-const botRawNumber = import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '15556711016';
-const botNumberDisplay = '+1 (555) 671-1016';
+const botRawNumber = (typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number) || import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '6285111355992';
+
+const botNumberDisplay = computed(() => {
+  const clean = String(botRawNumber).replace(/\D/g, '');
+  if (clean.startsWith('62')) {
+    return `+62 ${clean.slice(2, 5)}-${clean.slice(5, 9)}-${clean.slice(9)}`;
+  }
+  if (clean.startsWith('1') && clean.length === 11) {
+    return `+1 (${clean.slice(1, 4)}) ${clean.slice(4, 7)}-${clean.slice(7)}`;
+  }
+  return `+${clean}`;
+});
 
 const plans = ref([
   {

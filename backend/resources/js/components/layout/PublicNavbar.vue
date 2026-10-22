@@ -183,7 +183,7 @@ const mobileMenuOpen = ref(false);
 const showPaywallModal = ref(false);
 const isScrolledSection = ref(false);
 
-const botRawNumber = import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '15556711016';
+const botRawNumber = (typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number) || import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '6285111355992';
 const freeLimit = ref(typeof window !== 'undefined' && window.__BOT_CONFIG__?.free_limit ? window.__BOT_CONFIG__.free_limit : 100);
 
 const whatsappDirectUrl = computed(() => {

@@ -15,6 +15,7 @@ return [
         'verify_token'        => env('WHATSAPP_VERIFY_TOKEN'),
         'app_secret'          => env('META_APP_SECRET'),
         'api_version'         => env('WHATSAPP_API_VERSION', 'v21.0'),
+        'bot_number'          => env('WHATSAPP_BOT_NUMBER', env('VITE_WHATSAPP_BOT_NUMBER', '6285111355992')),
     ],
 
     /*

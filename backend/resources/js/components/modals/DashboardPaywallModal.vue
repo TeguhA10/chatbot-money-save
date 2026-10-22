@@ -269,7 +269,7 @@ const props = defineProps({
   },
   botRawNumber: {
     type: String,
-    default: '15556711016',
+    default: () => (typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number ? window.__BOT_CONFIG__.bot_number : '6285111355992'),
   },
   freeLimit: {
     type: [Number, String],

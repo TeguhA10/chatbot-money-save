@@ -318,7 +318,7 @@ import PublicNavbar from '../components/layout/PublicNavbar.vue';
 import InteractiveSimulator from '../components/common/InteractiveSimulator.vue';
 
 const currentYear = new Date().getFullYear();
-const botRawNumber = import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '15556711016';
+const botRawNumber = (typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number) || import.meta.env.VITE_WHATSAPP_BOT_NUMBER || '6285111355992';
 const whatsappDirectUrl = computed(() => {
   return `https://wa.me/${botRawNumber}?text=Halo%20HematWoy,%20saya%20mau%20coba%20catat%20keuangan!`;
 });
