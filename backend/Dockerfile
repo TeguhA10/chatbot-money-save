@@ -55,8 +55,8 @@ COPY --from=frontend-builder /app/public/build ./public/build
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 # Setup entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN cp /var/www/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Ensure storage directories exist and have proper permissions
 RUN mkdir -p storage/framework/cache/data \
