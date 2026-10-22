@@ -58,9 +58,15 @@ class MidtransService
      */
     public function getEnabledPaymentChannels(): array
     {
+        // 1. Explicit override via config/env if merchant explicitly configures e.g. MIDTRANS_ENABLED_PAYMENTS=qris,gopay
+        $configured = config('services.midtrans.enabled_payments');
+        if (!empty($configured) && is_array($configured)) {
+            return array_values(array_filter(array_map('trim', array_map('strtolower', $configured))));
+        }
+
         $serverKey = config('services.midtrans.server_key', env('MIDTRANS_SERVER_KEY', ''));
         if (empty($serverKey)) {
-            return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+            return ['qris'];
         }
 
         $isProduction = (bool) config('services.midtrans.is_production', false);
@@ -75,7 +81,7 @@ class MidtransService
                 $response = Http::withHeaders([
                     'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
                     'Accept'        => 'application/json',
-                ])->timeout(6)->get($url);
+                ])->timeout(5)->get($url);
 
                 if ($response->successful()) {
                     $data = $response->json();
@@ -103,12 +109,13 @@ class MidtransService
                     ]);
                 }
 
-                // Default fallback if API does not return channels list
-                return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+                // If Midtrans preferences API cannot be read or no channels active,
+                // NEVER return fake virtual accounts that are not activated! Return only QRIS.
+                return ['qris'];
             });
         } catch (\Throwable $e) {
             Log::warning('Midtrans merchant-preferences exception: ' . $e->getMessage());
-            return ['qris', 'bca_va', 'bni_va', 'bri_va', 'echannel', 'permata_va'];
+            return ['qris'];
         }
     }
 

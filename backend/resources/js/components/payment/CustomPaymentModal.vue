@@ -1,29 +1,28 @@
 <template>
-  <!-- Modal wrapper (when not embedded) or Inline wrapper (when embedded) -->
-  <component
-    :is="embedded ? 'div' : 'div'"
-    v-if="embedded || isOpen"
-    :class="embedded ? 'w-full' : 'fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto transition-all duration-300'"
-    @click.self="!embedded && handleClose()"
-  >
-    <!-- Modal Card container -->
+  <Teleport to="body" :disabled="embedded">
     <div
-      class="w-full bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl relative overflow-hidden transition-all duration-200"
-      :class="[
-        embedded
-          ? 'rounded-3xl p-4 sm:p-7'
-          : 'rounded-t-3xl sm:rounded-3xl max-w-lg max-h-[92vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6 my-0 sm:my-8 animate-in fade-in slide-in-from-bottom-6 sm:zoom-in-95'
-      ]"
+      v-if="embedded || isOpen"
+      :class="embedded ? 'w-full' : 'fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto transition-all duration-300'"
+      @click.self="!embedded && handleClose()"
     >
-      <!-- Ambient Glows -->
-      <div class="absolute -top-24 -right-24 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-24 -left-24 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <!-- Modal Card container -->
+      <div
+        class="w-full bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl relative overflow-hidden transition-all duration-200"
+        :class="[
+          embedded
+            ? 'rounded-3xl p-4 sm:p-7'
+            : 'rounded-t-3xl sm:rounded-3xl max-w-lg max-h-[92vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6 my-0 sm:my-8 animate-in fade-in slide-in-from-bottom-6 sm:zoom-in-95'
+        ]"
+      >
+        <!-- Ambient Glows -->
+        <div class="absolute -top-24 -right-24 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <!-- Mobile Drag Handle Bar (only on modal mobile) -->
-      <div v-if="!embedded" class="w-12 h-1.5 bg-slate-700/60 rounded-full mx-auto mb-3 sm:hidden"></div>
+        <!-- Mobile Drag Handle Bar (only on modal mobile) -->
+        <div v-if="!embedded" class="w-12 h-1.5 bg-slate-700/60 rounded-full mx-auto mb-3 sm:hidden"></div>
 
-      <!-- Header -->
-      <div class="flex items-center justify-between pb-3.5 border-b border-slate-800/80 mb-4 shrink-0">
+      <!-- Header (Only shown when opened as modal popup) -->
+      <div v-if="!embedded" class="flex items-center justify-between pb-3.5 border-b border-slate-800/80 mb-4 shrink-0">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-950 border border-emerald-500/30 flex items-center justify-center p-1.5 shadow-md shadow-emerald-500/10">
             <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
@@ -39,7 +38,6 @@
 
         <!-- Close button (modal mode only) -->
         <button
-          v-if="!embedded"
           @click="handleClose"
           class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition text-xs sm:text-sm cursor-pointer"
           title="Tutup"
@@ -286,14 +284,17 @@
 
         <!-- SELECTION STATE: CATEGORIZED & USER-FRIENDLY TABS -->
         <div v-else class="space-y-4 animate-in fade-in">
-          <!-- Total Price Card -->
-          <div class="p-3.5 bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/30 border border-slate-800 rounded-2xl flex items-center justify-between">
+          <!-- Total Price Card (Only shown if NOT embedded in checkout page) -->
+          <div v-if="!embedded" class="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl flex items-center justify-between">
             <div>
-              <span class="text-[11px] text-slate-400 block">{{ planName }}</span>
-              <span class="text-xs font-bold text-white">Langganan Otomatis Aktif</span>
+              <span class="text-xs sm:text-sm font-bold text-white block">{{ planName }}</span>
+              <span class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 mt-0.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Aktivasi Otomatis</span>
+              </span>
             </div>
             <div class="text-right">
-              <span class="text-[10px] text-slate-400 block uppercase font-medium">Total</span>
+              <span class="text-[10px] text-slate-400 block uppercase font-medium">Total Pembayaran</span>
               <span class="text-base sm:text-lg font-black text-emerald-400">Rp {{ formatNumber(grossAmount) }}</span>
             </div>
           </div>
@@ -301,13 +302,13 @@
           <!-- Loading Channels State -->
           <div v-if="loadingChannels" class="py-6 text-center space-y-2">
             <span class="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin inline-block"></span>
-            <p class="text-xs text-slate-400">Menyesuaikan metode pembayaran Midtrans...</p>
+            <p class="text-xs text-slate-400">Menyesuaikan metode pembayaran...</p>
           </div>
 
-          <!-- Segmented Category Switcher (QRIS vs Virtual Account) -->
+          <!-- Segmented Category Switcher (QRIS vs Virtual Account) - Only shown if BOTH are available -->
           <div
             v-else-if="isQrisAvailable && availableVaBanks.length > 0"
-            class="grid grid-cols-2 p-1 bg-slate-950/90 border border-slate-800 rounded-2xl gap-1 mb-2"
+            class="grid grid-cols-2 p-1 bg-slate-950 border border-slate-800 rounded-2xl gap-1 mb-2"
           >
             <button
               type="button"
@@ -315,8 +316,7 @@
               class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
               :class="activeCategory === 'qris' ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'"
             >
-              <span>📱</span>
-              <span>QRIS & E-Wallet</span>
+              <span>📱 QRIS & E-Wallet</span>
             </button>
             <button
               type="button"
@@ -324,57 +324,58 @@
               class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
               :class="activeCategory === 'va' ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'"
             >
-              <span>🏦</span>
-              <span>Virtual Account ({{ availableVaBanks.length }})</span>
+              <span>🏦 Virtual Account</span>
             </button>
           </div>
 
-          <!-- CATEGORY 1: QRIS HIGHLIGHT (Only if enabled in Midtrans) -->
+          <!-- CATEGORY 1: QRIS HIGHLIGHT (Shown if QRIS is enabled) -->
           <div v-if="isQrisAvailable && (activeCategory === 'qris' || availableVaBanks.length === 0)" class="space-y-3">
             <div
               @click="selectPaymentMethod('qris')"
-              class="p-4 rounded-2xl bg-gradient-to-b from-slate-950 to-emerald-950/20 border-2 border-emerald-500/50 hover:border-emerald-400 transition cursor-pointer group shadow-lg shadow-emerald-500/5"
+              class="p-4 rounded-2xl bg-gradient-to-b from-slate-950 to-emerald-950/20 border-2 border-emerald-500/40 hover:border-emerald-400 transition cursor-pointer group shadow-lg shadow-emerald-500/5"
             >
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
                   <span class="text-2xl">📱</span>
                   <div>
-                    <h4 class="font-extrabold text-sm text-white group-hover:text-emerald-300 transition">
+                    <h4 class="font-black text-sm text-white group-hover:text-emerald-300 transition">
                       QRIS Instan
                     </h4>
-                    <span class="text-[10px] text-slate-400">Scan via m-Banking atau E-Wallet</span>
+                    <span class="text-[11px] text-slate-400">Scan via BCA, Mandiri, BRI, GoPay, OVO, DANA, dll</span>
                   </div>
                 </div>
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                  Resmi Midtrans
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                  Resmi
                 </span>
               </div>
 
               <!-- Brand Logos Chips -->
-              <div class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800/80">
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">BCA Mobile</span>
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">Livin' Mandiri</span>
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">GoPay</span>
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">OVO</span>
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">DANA</span>
-                <span class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md">ShopeePay</span>
+              <div class="flex flex-wrap gap-1.5 pt-2.5 border-t border-slate-800/80">
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">BCA</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">Livin' Mandiri</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">BRImo</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">BNI</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">GoPay</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">OVO</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">DANA</span>
+                <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">ShopeePay</span>
               </div>
 
               <!-- Call to Action -->
               <button
                 type="button"
                 :disabled="loadingMethod === 'qris'"
-                class="w-full mt-3.5 py-2.5 px-4 rounded-xl bg-emerald-500/15 group-hover:bg-emerald-500 group-hover:text-slate-950 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition"
+                class="w-full mt-3.5 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-emerald-500/20 active:scale-98"
               >
-                <span v-if="loadingMethod === 'qris'" class="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
-                <span>{{ loadingMethod === 'qris' ? 'Menyiapkan QRIS...' : 'Bayar via QRIS Sekarang ➔' }}</span>
+                <span v-if="loadingMethod === 'qris'" class="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
+                <span>{{ loadingMethod === 'qris' ? 'Menyiapkan QRIS...' : 'Bayar Sekarang via QRIS ➔' }}</span>
               </button>
             </div>
           </div>
 
-          <!-- CATEGORY 2: VIRTUAL ACCOUNT LIST (Dynamic based on Midtrans merchant preferences) -->
-          <div v-else-if="availableVaBanks.length > 0 && (activeCategory === 'va' || !isQrisAvailable)" class="space-y-2">
-            <span class="text-[11px] text-slate-400 block font-medium">Pilih Bank Virtual Account yang Aktif di Midtrans:</span>
+          <!-- CATEGORY 2: VIRTUAL ACCOUNT LIST (Only displayed if verified active in Midtrans) -->
+          <div v-else-if="availableVaBanks.length > 0 && (activeCategory === 'va' || !isQrisAvailable)" class="space-y-2.5">
+            <span class="text-xs text-slate-300 block font-bold">Pilih Bank Transfer (Virtual Account):</span>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 v-for="bank in availableVaBanks"
@@ -407,7 +408,7 @@
             <div class="text-3xl">⏳</div>
             <h4 class="font-bold text-white text-sm">Metode Pembayaran Sedang Diaktivasi</h4>
             <p class="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
-              Kanal pembayaran otomatis akun Midtrans Anda saat ini belum aktif atau sedang dalam verifikasi Midtrans. Silakan selesaikan pembayaran manual via WhatsApp resmi kami.
+              Kanal pembayaran otomatis akun Midtrans Anda saat ini sedang diverifikasi. Silakan selesaikan pembayaran manual via WhatsApp resmi kami.
             </p>
             <div class="pt-2">
               <a
@@ -436,7 +437,8 @@
         </div>
       </div>
     </div>
-  </component>
+  </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -632,10 +634,10 @@ const isQrisAvailable = computed(() => {
   );
 });
 
-// Dynamic Virtual Accounts filtered against Midtrans merchant preferences
+// Dynamic Virtual Accounts strictly filtered against confirmed Midtrans channels
 const availableVaBanks = computed(() => {
-  if (loadingChannels.value || midtransChannels.value.length === 0) {
-    return ALL_VA_BANKS;
+  if (loadingChannels.value || !Array.isArray(midtransChannels.value) || midtransChannels.value.length === 0) {
+    return []; // CRITICAL: NEVER assume or show fake virtual accounts if merchant has not activated them!
   }
   return ALL_VA_BANKS.filter(bank => {
     return midtransChannels.value.some(c => {
@@ -653,6 +655,23 @@ watch([isQrisAvailable, availableVaBanks], () => {
     activeCategory.value = 'qris';
   }
 }, { immediate: true });
+
+// If embedded in CheckoutView and only QRIS is active, automatically load the QR code
+let hasAutoLoadedQris = false;
+watch([isQrisAvailable, availableVaBanks, loadingChannels], () => {
+  if (
+    props.embedded &&
+    !hasAutoLoadedQris &&
+    !loadingChannels.value &&
+    isQrisAvailable.value &&
+    availableVaBanks.value.length === 0 &&
+    !chargeResult.value &&
+    !loadingMethod.value
+  ) {
+    hasAutoLoadedQris = true;
+    selectPaymentMethod('qris');
+  }
+});
 
 const showSimulateButton = computed(() => {
   return !props.isProduction;

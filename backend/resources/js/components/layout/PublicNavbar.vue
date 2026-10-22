@@ -55,33 +55,31 @@
         </a>
       </div>
 
-      <!-- Action CTAs: Dashboard Direct Access & WhatsApp Button -->
-      <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        <!-- Dashboard Direct Button -->
+      <!-- Action CTAs: Dashboard Direct Access (Desktop only) & WhatsApp Button -->
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <!-- Dashboard Direct Button (Desktop Only) -->
         <button
           type="button"
           @click="handleDashboardClick"
-          class="inline-flex items-center gap-1 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 text-slate-200 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-950/40 hover:shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
+          class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/50 text-slate-200 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-950/40 hover:shadow-emerald-500/10 active:scale-95 transition-all cursor-pointer group"
         >
           <span class="text-emerald-400 group-hover:scale-110 transition-transform">📊</span>
-          <span class="hidden sm:inline">Dashboard</span>
-          <span class="sm:hidden">App</span>
+          <span>Dashboard</span>
           <span
             v-if="authStore.isAuthenticated && authStore.isPro"
-            class="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
+            class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold border border-amber-500/30"
           >
             PRO
           </span>
         </button>
 
-        <!-- WhatsApp Chat Button -->
+        <!-- WhatsApp Chat Button (Compact and clean on Mobile) -->
         <a
           :href="whatsappDirectUrl"
           target="_blank"
-          class="inline-flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
+          class="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
         >
           <span>💬</span>
-          <span class="hidden sm:inline">Chat</span>
           <span>WhatsApp</span>
         </a>
 
@@ -89,8 +87,8 @@
         <button
           type="button"
           @click="mobileMenuOpen = !mobileMenuOpen"
-          class="md:hidden p-1.5 sm:p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-          aria-label="Toggle Navigation Menu"
+          class="md:hidden p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer focus:outline-none"
+          aria-label="Buka Menu"
         >
           <svg v-if="!mobileMenuOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -105,8 +103,28 @@
     <!-- Mobile Drawer / Menu Dropdown -->
     <div
       v-if="mobileMenuOpen"
-      class="md:hidden border-b border-slate-800 bg-slate-950/95 backdrop-blur-2xl px-4 py-4 space-y-3 animate-in slide-in-from-top-2"
+      class="md:hidden border-b border-slate-800 bg-slate-950/98 backdrop-blur-2xl px-4 py-4 space-y-3 animate-in slide-in-from-top-2"
     >
+      <!-- Mobile Quick Actions -->
+      <div class="grid grid-cols-2 gap-2 pb-3 border-b border-slate-800/80">
+        <button
+          type="button"
+          @click="handleDashboardClick(); mobileMenuOpen = false"
+          class="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700/80 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
+        >
+          <span>📊</span>
+          <span>Dashboard</span>
+        </button>
+        <a
+          :href="whatsappDirectUrl"
+          target="_blank"
+          class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition text-center"
+        >
+          <span>💬</span>
+          <span>WhatsApp</span>
+        </a>
+      </div>
+
       <router-link
         to="/"
         @click="mobileMenuOpen = false"

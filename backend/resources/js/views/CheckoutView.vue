@@ -99,20 +99,65 @@
       <!-- Pending Checkout Layout: Responsive 2-Col on Desktop, Smooth Single-Col on Mobile -->
       <div v-else-if="order" class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         
-        <!-- LEFT COLUMN: Order Summary & Benefits (Sticky on Desktop) -->
-        <div class="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
-          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 backdrop-blur-xl shadow-xl space-y-5">
+        <!-- MOBILE ORDER SUMMARY (Compact and clean on mobile) -->
+        <div class="lg:hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-[11px] text-slate-400 block font-medium">Tagihan Pembayaran</span>
+              <h2 class="text-base font-black text-white">{{ order.plan_name }}</h2>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-400 block uppercase font-medium">Total</span>
+              <span class="text-lg font-black text-emerald-400">Rp {{ formatNumber(order.gross_amount) }}</span>
+            </div>
+          </div>
+          <!-- Toggle details -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+            <span class="font-mono text-slate-400">#{{ order.order_id }}</span>
+            <button
+              type="button"
+              @click="showMobileDetails = !showMobileDetails"
+              class="text-emerald-400 font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <span>{{ showMobileDetails ? 'Sembunyikan Rincian ▴' : 'Lihat Rincian ▾' }}</span>
+            </button>
+          </div>
+          <div v-if="showMobileDetails" class="pt-2 border-t border-slate-800/60 space-y-2 text-xs text-slate-300 animate-in fade-in">
+            <div class="flex justify-between text-slate-400 text-[11px]">
+              <span>WhatsApp Tertaut:</span>
+              <span class="text-emerald-400 font-medium">{{ formatPhone(order.user_jid) }}</span>
+            </div>
+            <div class="space-y-1.5 pt-1 text-[11px] text-slate-400">
+              <div class="flex items-center gap-1.5">
+                <span class="text-emerald-400 font-bold">✓</span>
+                <span>Pencatatan transaksi tanpa batas kuota (Unlimited)</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-emerald-400 font-bold">✓</span>
+                <span>Kelola Multi-Dompet (BCA, Mandiri, Cash, GoPay)</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-emerald-400 font-bold">✓</span>
+                <span>Ekspor Spreadsheet Excel Lengkap (.xlsx)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DESKTOP LEFT COLUMN: Order Summary & Benefits (Sticky on Desktop) -->
+        <div class="hidden lg:block lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 backdrop-blur-xl shadow-xl space-y-5">
             <!-- Plan Badge & Title -->
             <div class="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                   ⭐ Langganan Resmi
                 </span>
-                <h1 class="text-lg sm:text-xl font-black text-white tracking-tight">{{ order.plan_name }}</h1>
+                <h1 class="text-xl font-black text-white tracking-tight">{{ order.plan_name }}</h1>
               </div>
               <div class="text-right">
                 <span class="text-[10px] text-slate-400 block uppercase font-medium">Total Tagihan</span>
-                <span class="text-xl sm:text-2xl font-black text-emerald-400">
+                <span class="text-2xl font-black text-emerald-400">
                   Rp {{ formatNumber(order.gross_amount) }}
                 </span>
               </div>
@@ -195,6 +240,7 @@ const orderId = route.params.orderId;
 const order = ref(null);
 const loading = ref(true);
 const error = ref('');
+const showMobileDetails = ref(false);
 
 const currentYear = new Date().getFullYear();
 

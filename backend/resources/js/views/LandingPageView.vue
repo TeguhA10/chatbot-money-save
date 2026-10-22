@@ -30,41 +30,48 @@
       </p>
 
       <!-- Primary CTAs -->
-      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a
-          :href="whatsappDirectUrl"
-          target="_blank"
-          class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-extrabold text-base shadow-2xl shadow-emerald-500/30 hover:scale-105 active:scale-98 transition flex items-center justify-center gap-2.5 cursor-pointer"
-        >
-          <span>🚀 Mulai Gratis di WhatsApp</span>
-          <span class="text-xs font-normal opacity-80">({{ freeLimit }} Chat Pertama Free)</span>
-        </a>
+      <div class="mt-8 sm:mt-10 max-w-lg mx-auto space-y-3">
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a
+            :href="whatsappDirectUrl"
+            target="_blank"
+            class="w-full sm:w-auto px-7 py-3.5 sm:px-8 sm:py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-emerald-500/25 hover:scale-102 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>💬 Mulai Chat di WhatsApp</span>
+            <span class="font-mono text-slate-950">➔</span>
+          </a>
 
-        <router-link
-          to="/dokumentasi"
-          class="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800 text-slate-200 font-bold text-sm transition flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/10"
-        >
-          <span>📖 Panduan & Demo Interaktif</span>
-          <span class="text-xs text-emerald-400 font-normal">→</span>
-        </router-link>
+          <router-link
+            to="/dokumentasi"
+            class="w-full sm:w-auto px-6 py-3.5 sm:py-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-md cursor-pointer"
+          >
+            <span>📖 Panduan & Simulator</span>
+            <span class="text-emerald-400">➔</span>
+          </router-link>
+        </div>
+
+        <!-- Quota reassurance note -->
+        <p class="text-xs text-slate-400 text-center font-medium">
+          ✨ <span class="text-emerald-400 font-semibold">{{ freeLimit }} Chat Pertama Gratis</span> • Tanpa Registrasi Rumit • Siap Pakai
+        </p>
       </div>
 
       <!-- Trust Badges -->
-      <div class="mt-12 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-slate-500">
-        <div class="flex items-center gap-2">
-          <span class="text-emerald-400 text-base">✓</span>
+      <div class="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-5 sm:gap-8 text-xs text-slate-500">
+        <div class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold">✓</span>
           <span>Tanpa Install Aplikasi</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-emerald-400 text-base">✓</span>
-          <span>Nomor WhatsApp: {{ botNumberDisplay }}</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span>WhatsApp Resmi: {{ botNumberDisplay }}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-emerald-400 text-base">✓</span>
-          <span>Enkripsi Privasi Finansial</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span>Privasi Finansial Terenkripsi</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-emerald-400 text-base">✓</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold">✓</span>
           <span>Ekspor Excel 1-Klik</span>
         </div>
       </div>
@@ -72,19 +79,19 @@
 
     <!-- SECTION 2: INTERACTIVE DOCS & SIMULATOR BANNER -->
     <section class="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-      <div class="relative rounded-3xl p-8 sm:p-10 bg-gradient-to-r from-slate-900/95 via-slate-900 to-emerald-950/40 border border-emerald-500/30 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+      <div class="relative rounded-3xl p-6 sm:p-10 bg-gradient-to-r from-slate-900/95 via-slate-900 to-emerald-950/40 border border-emerald-500/30 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
         <div class="max-w-xl space-y-3 text-center md:text-left">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
             <span>⚡</span>
             <span>Uji Coba Interaktif & Panduan Perintah</span>
           </div>
-          <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h2 class="text-xl sm:text-3xl font-black text-white tracking-tight">
             Ingin Coba Perintah Bot Langsung di Browser?
           </h2>
           <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
             Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba simulator interaktif cerdas WhatsApp secara langsung dan melihat daftar lengkap format perintah (keluar, masuk, transfer dompet, budget, hingga ekspor Excel).
           </p>
-          <div class="pt-2 flex flex-wrap gap-2 justify-center md:justify-start">
+          <div class="pt-1 flex flex-wrap gap-2 justify-center md:justify-start">
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">keluar 25rb kopi</span>
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">+1.5jt freelance</span>
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">saldo</span>
@@ -93,18 +100,18 @@
           </div>
         </div>
 
-        <div class="shrink-0 flex flex-col sm:flex-row md:flex-col gap-3 w-full md:w-auto">
+        <div class="shrink-0 flex flex-col gap-2.5 w-full md:w-auto min-w-[230px]">
           <router-link
             to="/dokumentasi"
-            class="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer"
+            class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-emerald-500/20 hover:scale-102 active:scale-98 transition cursor-pointer text-center"
           >
-            <span>📖 Buka Dokumentasi & Simulator</span>
-            <span>→</span>
+            <span>📖 Buka Simulator Interaktif</span>
+            <span class="font-mono">➔</span>
           </router-link>
           <a
             :href="whatsappDirectUrl"
             target="_blank"
-            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs transition cursor-pointer"
+            class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs transition cursor-pointer text-center"
           >
             <span>💬 Langsung Chat di WhatsApp</span>
           </a>
