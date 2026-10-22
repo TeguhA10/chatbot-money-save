@@ -7,8 +7,8 @@
     <div class="w-full max-w-md relative z-10">
       <!-- Brand Logo -->
       <div class="text-center mb-8">
-        <div class="inline-flex w-20 h-20 rounded-3xl overflow-hidden bg-slate-900 border border-emerald-500/30 items-center justify-center p-2 shadow-2xl shadow-emerald-500/25 mb-4 hover:scale-105 transition">
-          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
+        <div class="inline-flex w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 items-center justify-center p-3 shadow-2xl shadow-emerald-500/20 mb-4 hover:scale-105 transition">
+          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(16,185,129,0.4)]" />
         </div>
         <h1 class="text-2xl font-black tracking-tight text-white">HematWoy Web</h1>
         <p class="text-sm text-slate-400 mt-1">Kelola keuangan cerdas terhubung bot WhatsApp</p>

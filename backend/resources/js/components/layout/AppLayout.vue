@@ -5,8 +5,8 @@
       <div>
         <!-- Logo & Brand -->
         <div class="flex items-center gap-3 px-2 mb-8">
-          <div class="w-10 h-10 rounded-xl overflow-hidden bg-slate-950 border border-emerald-500/30 flex items-center justify-center p-1 shadow-lg shadow-emerald-500/20">
-            <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1.5 shadow-lg shadow-emerald-500/15">
+            <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain drop-shadow-[0_2px_6px_rgba(16,185,129,0.35)]" />
           </div>
           <div>
             <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
@@ -135,8 +135,8 @@
     <!-- Mobile Top Navigation Header -->
     <header class="md:hidden flex items-center justify-between p-4 bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
       <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-lg overflow-hidden bg-slate-950 border border-emerald-500/30 flex items-center justify-center p-0.5 shadow">
-          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain" />
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1 shadow">
+          <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain drop-shadow-[0_1px_4px_rgba(16,185,129,0.35)]" />
         </div>
         <span class="font-bold text-base text-white">HematWoy</span>
       </div>
