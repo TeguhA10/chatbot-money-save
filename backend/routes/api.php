@@ -54,8 +54,9 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     // Public In-Chat Payment Checkout & Status
     Route::prefix('payment')->group(function () {
-        Route::get('/order/{orderId}',     [PaymentCheckoutController::class, 'show'])->name('api.payment.show');
-        Route::post('/simulate/{orderId}', [PaymentCheckoutController::class, 'simulate'])->name('api.payment.simulate');
+        Route::get('/order/{orderId}',      [PaymentCheckoutController::class, 'show'])->name('api.payment.show');
+        Route::post('/charge/{orderId}',    [PaymentCheckoutController::class, 'charge'])->name('api.payment.charge');
+        Route::post('/simulate/{orderId}',  [PaymentCheckoutController::class, 'simulate'])->name('api.payment.simulate');
     });
 
     // Public Web Simulator (Interactive Demo with 3-attempt limit)

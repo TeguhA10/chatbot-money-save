@@ -57,6 +57,32 @@ class PaymentCheckoutController extends Controller
     }
 
     /**
+     * POST /api/v1/payment/charge/{orderId}
+     * Charge via Midtrans Core API without popup.
+     */
+    public function charge(Request $request, string $orderId, MidtransService $midtrans): JsonResponse
+    {
+        $order = PaymentOrder::where('order_id', $orderId)->first();
+
+        if (!$order) {
+            return response()->json(['error' => 'Order tidak ditemukan.'], 404);
+        }
+
+        if ($order->status === 'SETTLEMENT') {
+            return response()->json([
+                'success' => true,
+                'status'  => 'SETTLEMENT',
+                'message' => 'Pesanan sudah lunas.',
+            ]);
+        }
+
+        $method = $request->input('payment_method', 'qris');
+        $result = $midtrans->charge($order, $method);
+
+        return response()->json($result);
+    }
+
+    /**
      * POST /api/v1/payment/simulate/{orderId}
      * Simulate payment settlement in sandbox/demo environment.
      */

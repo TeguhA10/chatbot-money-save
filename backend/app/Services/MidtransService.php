@@ -121,6 +121,170 @@ class MidtransService
     }
 
     /**
+     * Charge payment using Midtrans Core API (headless / custom UI).
+     * Supports: qris, bca_va, bni_va, bri_va, mandiri_va, permata_va.
+     */
+    public function charge(PaymentOrder $order, string $method): array
+    {
+        $serverKey = config('services.midtrans.server_key', env('MIDTRANS_SERVER_KEY', ''));
+        $isProduction = (bool) config('services.midtrans.is_production', false);
+        $coreApiUrl = $isProduction
+            ? 'https://api.midtrans.com/v2/charge'
+            : 'https://api.sandbox.midtrans.com/v2/charge';
+
+        $method = strtolower($method);
+        $user = $order->user;
+        $phone = $user?->phone_number;
+        if (!$phone && $user && str_ends_with($user->jid, '@s.whatsapp.net')) {
+            $phone = explode('@', $user->jid)[0];
+        }
+
+        $basePayload = [
+            'transaction_details' => [
+                'order_id'     => $order->order_id,
+                'gross_amount' => (int) $order->gross_amount,
+            ],
+            'item_details' => [
+                [
+                    'id'       => 'HEMATWOY-PRO',
+                    'price'    => (int) $order->gross_amount,
+                    'quantity' => 1,
+                    'name'     => (int) $order->gross_amount >= 150000 ? 'HematWoy Pro 1 Tahun' : 'HematWoy Pro 30 Hari',
+                ],
+            ],
+            'customer_details' => [
+                'first_name' => $user?->display_name ?: 'Pengguna',
+                'phone'      => $phone ?: '08123456789',
+            ],
+        ];
+
+        switch ($method) {
+            case 'qris':
+                $basePayload['payment_type'] = 'qris';
+                $basePayload['qris'] = ['acquirer' => 'gopay'];
+                break;
+            case 'bca_va':
+                $basePayload['payment_type'] = 'bank_transfer';
+                $basePayload['bank_transfer'] = ['bank' => 'bca'];
+                break;
+            case 'bni_va':
+                $basePayload['payment_type'] = 'bank_transfer';
+                $basePayload['bank_transfer'] = ['bank' => 'bni'];
+                break;
+            case 'bri_va':
+                $basePayload['payment_type'] = 'bank_transfer';
+                $basePayload['bank_transfer'] = ['bank' => 'bri'];
+                break;
+            case 'mandiri_va':
+                $basePayload['payment_type'] = 'echannel';
+                $basePayload['echannel'] = [
+                    'bill_info1' => 'HematWoy Pro',
+                    'bill_info2' => 'Langganan',
+                ];
+                break;
+            case 'permata_va':
+                $basePayload['payment_type'] = 'permata';
+                break;
+            default:
+                throw new RuntimeException("Metode pembayaran '{$method}' tidak didukung.");
+        }
+
+        if (!empty($serverKey)) {
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                    'Content-Type'  => 'application/json',
+                    'Accept'        => 'application/json',
+                ])->timeout(10)->post($coreApiUrl, $basePayload);
+
+                $data = $response->json();
+
+                // If Midtrans returns 406 (e.g. order_id already used/charged), retry with attempt suffix
+                if ($response->status() === 406 || ($data['status_code'] ?? '') === '406') {
+                    $attemptOrderId = $order->order_id . '-ATTEMPT-' . substr(uniqid(), -4);
+                    $basePayload['transaction_details']['order_id'] = $attemptOrderId;
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                        'Content-Type'  => 'application/json',
+                        'Accept'        => 'application/json',
+                    ])->timeout(10)->post($coreApiUrl, $basePayload);
+                    $data = $response->json();
+                }
+
+                if ($response->successful()) {
+                    $order->update([
+                        'payment_type' => $method,
+                    ]);
+
+                    $result = [
+                        'success'            => true,
+                        'order_id'           => $order->order_id,
+                        'payment_type'       => $method,
+                        'gross_amount'       => (int) $order->gross_amount,
+                        'transaction_status' => $data['transaction_status'] ?? 'pending',
+                        'expiry_time'        => $data['expiry_time'] ?? now()->addMinutes(15)->format('Y-m-d H:i:s'),
+                    ];
+
+                    if ($method === 'qris') {
+                        $qrUrl = null;
+                        foreach ($data['actions'] ?? [] as $action) {
+                            if (($action['name'] ?? '') === 'generate-qr-code') {
+                                $qrUrl = $action['url'] ?? null;
+                                break;
+                            }
+                        }
+                        $qrString = $data['qr_string'] ?? null;
+                        if (!$qrUrl && $qrString) {
+                            $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($qrString);
+                        }
+                        $result['qr_url'] = $qrUrl;
+                        $result['qr_string'] = $qrString;
+                    }
+
+                    if (isset($data['va_numbers'][0]['va_number'])) {
+                        $result['va_number'] = $data['va_numbers'][0]['va_number'];
+                        $result['bank'] = $data['va_numbers'][0]['bank'] ?? $method;
+                    } elseif (isset($data['permata_va_number'])) {
+                        $result['va_number'] = $data['permata_va_number'];
+                        $result['bank'] = 'permata';
+                    } elseif (isset($data['bill_key'])) {
+                        $result['bill_key'] = $data['bill_key'];
+                        $result['biller_code'] = $data['biller_code'] ?? '70012';
+                        $result['bank'] = 'mandiri';
+                    }
+
+                    return $result;
+                }
+
+                Log::warning('Midtrans Core API Error Response', [
+                    'status' => $response->status(),
+                    'body'   => $data,
+                ]);
+
+                return [
+                    'success'            => false,
+                    'message'            => $data['status_message'] ?? 'Gagal memproses pembayaran via Midtrans.',
+                    'order_id'           => $order->order_id,
+                    'payment_type'       => $method,
+                    'gross_amount'       => (int) $order->gross_amount,
+                    'fallback_simulated' => !$isProduction,
+                ];
+            } catch (\Throwable $e) {
+                Log::error('Midtrans Core API Exception: ' . $e->getMessage());
+                return [
+                    'success' => false,
+                    'message' => 'Terjadi kendala saat menghubungi gateway pembayaran: ' . $e->getMessage(),
+                ];
+            }
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Server key Midtrans belum dikonfigurasi.',
+        ];
+    }
+
+    /**
      * Verify Midtrans notification signature key.
      */
     public function verify(array $payload): bool
@@ -148,8 +312,17 @@ class MidtransService
         }
 
         return DB::transaction(function () use ($payload) {
+            $rawOrderId = $payload['order_id'] ?? '';
             /** @var PaymentOrder $order */
-            $order = PaymentOrder::whereKey($payload['order_id'])->lockForUpdate()->firstOrFail();
+            $order = PaymentOrder::whereKey($rawOrderId)->lockForUpdate()->first();
+            if (!$order && str_contains($rawOrderId, '-ATTEMPT-')) {
+                $baseOrderId = explode('-ATTEMPT-', $rawOrderId)[0];
+                $order = PaymentOrder::whereKey($baseOrderId)->lockForUpdate()->first();
+            }
+
+            if (!$order) {
+                throw new RuntimeException("PaymentOrder '{$rawOrderId}' not found.");
+            }
 
             if ((int) $order->gross_amount !== (int) $payload['gross_amount']) {
                 throw new RuntimeException('Payment amount mismatch.');

@@ -118,6 +118,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Custom In-App Payment Modal (No Midtrans Popup) -->
+    <CustomPaymentModal
+      v-if="customPaymentOrderId"
+      :isOpen="showCustomPayment"
+      :orderId="customPaymentOrderId"
+      :grossAmount="customPaymentAmount"
+      :planName="customPaymentPlanName"
+      :isProduction="customPaymentIsProduction"
+      @close="showCustomPayment = false"
+      @settled="onCustomPaymentSettled"
+    />
   </div>
 </template>
 
@@ -126,6 +138,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 import { useToastStore } from '../../stores/toast';
+import CustomPaymentModal from '../payment/CustomPaymentModal.vue';
 
 const props = defineProps({
   isOpen: {
@@ -195,10 +208,16 @@ onMounted(() => {
 
 const selectedPlan = ref('monthly');
 const processing = ref(false);
-const simulating = ref(false);
 const success = ref(false);
 const errorMessage = ref('');
 const lastCreatedOrderId = ref(null);
+
+// Custom In-App Modal State
+const showCustomPayment = ref(false);
+const customPaymentOrderId = ref('');
+const customPaymentAmount = ref(25000);
+const customPaymentPlanName = ref('HematWoy Pro');
+const customPaymentIsProduction = ref(false);
 
 const currentPlan = computed(() => plans.value.find(p => p.code === selectedPlan.value) || plans.value[0]);
 const currentPlanFormattedPrice = computed(() => currentPlan.value?.formatted_price || 'Rp 25.000');
@@ -220,7 +239,7 @@ watch(
 );
 
 function close() {
-  if (processing.value || simulating.value) return;
+  if (processing.value) return;
   errorMessage.value = '';
   emit('close');
 }
@@ -229,18 +248,6 @@ function completeAndClose() {
   success.value = false;
   emit('upgraded');
   emit('close');
-}
-
-function loadSnapJs(clientKey, isProduction) {
-  if (document.getElementById('midtrans-snap-script')) return;
-
-  const script = document.createElement('script');
-  script.id = 'midtrans-snap-script';
-  script.src = isProduction
-    ? 'https://app.midtrans.com/snap/snap.js'
-    : 'https://app.sandbox.midtrans.com/snap/snap.js';
-  script.setAttribute('data-client-key', clientKey);
-  document.head.appendChild(script);
 }
 
 async function initiatePayment() {
@@ -253,33 +260,11 @@ async function initiatePayment() {
 
     const data = res.data;
     lastCreatedOrderId.value = data.order_id;
-
-    if (data.client_key) {
-      loadSnapJs(data.client_key, data.is_production);
-    }
-
-    if (window.snap && data.snap_token) {
-      window.snap.pay(data.snap_token, {
-        onSuccess: async () => {
-          success.value = true;
-          await authStore.fetchProfile();
-          toastStore.success('Pembayaran sukses! Akun HematWoy Pro aktif.');
-        },
-        onPending: () => {
-          toastStore.info('Menunggu penyelesaian pembayaran.');
-        },
-        onError: () => {
-          errorMessage.value = 'Pembayaran dibatalkan atau gagal diproses.';
-        },
-        onClose: () => {
-          // Keep modal open or check status
-        },
-      });
-    } else if (data.payment_url) {
-      // If Snap popup is blocked or not loaded yet, navigate or open checkout
-      window.open(data.payment_url, '_blank');
-      toastStore.info('Halaman pembayaran dibuka di tab baru.');
-    }
+    customPaymentOrderId.value = data.order_id;
+    customPaymentAmount.value = data.gross_amount || currentPlan.value?.price || 25000;
+    customPaymentPlanName.value = data.plan_name || currentPlan.value?.name || 'HematWoy Pro';
+    customPaymentIsProduction.value = !!data.is_production;
+    showCustomPayment.value = true;
   } catch (err) {
     errorMessage.value = err.response?.data?.error || err.response?.data?.message || 'Gagal memulai pesanan langganan.';
   } finally {
@@ -287,19 +272,11 @@ async function initiatePayment() {
   }
 }
 
-async function simulatePayment() {
-  if (!lastCreatedOrderId.value) return;
-  simulating.value = true;
-  errorMessage.value = '';
-  try {
-    await api.post(`/payment/simulate/${lastCreatedOrderId.value}`);
-    success.value = true;
-    await authStore.fetchProfile();
-    toastStore.success('Pembayaran berhasil dikonfirmasi! Akun Pro aktif.');
-  } catch (err) {
-    errorMessage.value = err.response?.data?.error || 'Gagal memproses pembayaran. Silakan coba lagi.';
-  } finally {
-    simulating.value = false;
-  }
+async function onCustomPaymentSettled() {
+  showCustomPayment.value = false;
+  success.value = true;
+  await authStore.fetchProfile();
+  toastStore.success('Pembayaran sukses! Akun HematWoy Pro aktif.');
+  emit('upgraded');
 }
 </script>

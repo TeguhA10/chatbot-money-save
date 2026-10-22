@@ -139,21 +139,11 @@
         <div class="pt-3 space-y-3">
           <!-- Primary Payment Button -->
           <button
-            v-if="order.snap_token"
-            @click="openSnapPopup"
+            @click="showCustomPayment = true"
             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition cursor-pointer flex items-center justify-center gap-2"
           >
-            <span>💳 Bayar Sekarang (Pilih QRIS / VA / e-Wallet)</span>
+            <span>💳 Bayar Sekarang (Pilih QRIS / Virtual Account)</span>
           </button>
-
-          <!-- Direct Payment Fallback -->
-          <a
-            v-else-if="order.payment_url"
-            :href="order.payment_url"
-            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition flex items-center justify-center gap-2"
-          >
-            <span>💳 Lanjutkan Pembayaran</span>
-          </a>
         </div>
 
         <!-- Trust Badges -->
@@ -171,6 +161,18 @@
     <footer class="w-full py-4 text-center text-xs text-slate-500 border-t border-slate-900">
       &copy; {{ currentYear }} HematWoy. Seluruh hak cipta dilindungi.
     </footer>
+
+    <!-- Custom In-App Payment Modal (No Midtrans Popup) -->
+    <CustomPaymentModal
+      v-if="order"
+      :isOpen="showCustomPayment"
+      :orderId="order.order_id"
+      :grossAmount="order.gross_amount"
+      :planName="order.plan_name"
+      :isProduction="order.is_production"
+      @close="showCustomPayment = false"
+      @settled="onPaymentSettled"
+    />
   </div>
 </template>
 
@@ -178,6 +180,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
+import CustomPaymentModal from '../components/payment/CustomPaymentModal.vue';
 
 const route = useRoute();
 const orderId = route.params.orderId;
@@ -186,6 +189,7 @@ const order = ref(null);
 const loading = ref(true);
 const error = ref('');
 const simulating = ref(false);
+const showCustomPayment = ref(false);
 
 const currentYear = new Date().getFullYear();
 
@@ -209,11 +213,6 @@ async function fetchOrder() {
   try {
     const res = await axios.get(`/api/v1/payment/order/${orderId}`);
     order.value = res.data;
-
-    // If client key exists and snap token is available, load Snap JS
-    if (order.value.snap_token && order.value.client_key) {
-      loadSnapJs(order.value.client_key, order.value.is_production);
-    }
   } catch (err) {
     error.value = err.response?.data?.error || 'Gagal memuat detail pesanan.';
   } finally {
@@ -221,37 +220,11 @@ async function fetchOrder() {
   }
 }
 
-function loadSnapJs(clientKey, isProduction) {
-  if (document.getElementById('midtrans-snap-script')) return;
-
-  const script = document.createElement('script');
-  script.id = 'midtrans-snap-script';
-  script.src = isProduction
-    ? 'https://app.midtrans.com/snap/snap.js'
-    : 'https://app.sandbox.midtrans.com/snap/snap.js';
-  script.setAttribute('data-client-key', clientKey);
-  document.head.appendChild(script);
-}
-
-function openSnapPopup() {
-  if (window.snap && order.value?.snap_token) {
-    window.snap.pay(order.value.snap_token, {
-      onSuccess: function (result) {
-        order.value.status = 'SETTLEMENT';
-      },
-      onPending: function (result) {
-        fetchOrder();
-      },
-      onError: function (result) {
-        alert('Pembayaran gagal atau dibatalkan.');
-      },
-      onClose: function () {
-        fetchOrder();
-      },
-    });
-  } else if (order.value?.payment_url) {
-    window.location.href = order.value.payment_url;
+function onPaymentSettled() {
+  if (order.value) {
+    order.value.status = 'SETTLEMENT';
   }
+  fetchOrder();
 }
 
 async function simulatePayment() {
