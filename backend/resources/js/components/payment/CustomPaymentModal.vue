@@ -270,16 +270,6 @@
             <span>{{ checkNotice }}</span>
           </div>
 
-          <!-- Simulation button in Sandbox -->
-          <div v-if="showSimulateButton" class="pt-2 border-t border-slate-800/60 text-center">
-            <button
-              @click="simulatePayment"
-              :disabled="simulating"
-              class="text-[11px] text-amber-400/90 hover:text-amber-300 underline font-medium cursor-pointer"
-            >
-              {{ simulating ? 'Memproses simulasi...' : '🧪 Klik di sini untuk simulasi bayar instan (Sandbox Mode)' }}
-            </button>
-          </div>
         </div>
 
         <!-- SELECTION STATE: CATEGORIZED & USER-FRIENDLY TABS -->
@@ -403,12 +393,12 @@
             </div>
           </div>
 
-          <!-- FALLBACK STATE: If no payment methods are active in Midtrans portal yet -->
+          <!-- FALLBACK STATE: If no online payment channels are enabled -->
           <div v-else-if="!loadingChannels" class="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-3">
             <div class="text-3xl">⏳</div>
-            <h4 class="font-bold text-white text-sm">Metode Pembayaran Sedang Diaktivasi</h4>
+            <h4 class="font-bold text-white text-sm">Metode Pembayaran Online Belum Tersedia</h4>
             <p class="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
-              Kanal pembayaran otomatis akun Midtrans Anda saat ini sedang diverifikasi. Silakan selesaikan pembayaran manual via WhatsApp resmi kami.
+              Kanal pembayaran online otomatis saat ini sedang dalam pemeliharaan atau belum diaktifkan. Anda dapat melakukan pembayaran dan aktivasi akun langsung via WhatsApp kami.
             </p>
             <div class="pt-2">
               <a
@@ -430,9 +420,9 @@
           <div class="pt-2 text-center text-[10px] text-slate-500 flex items-center justify-center gap-3">
             <span>🔒 Enkripsi SSL 256-Bit</span>
             <span>•</span>
-            <span>⚡ Otomatis Terverifikasi</span>
+            <span>⚡ Terverifikasi Otomatis</span>
             <span>•</span>
-            <span>Midtrans</span>
+            <span>Privasi Terjaga</span>
           </div>
         </div>
       </div>
@@ -487,7 +477,6 @@ const isSettled = ref(false);
 const copiedVa = ref(false);
 const copiedAmount = ref(false);
 const checkingStatus = ref(false);
-const simulating = ref(false);
 const checkNotice = ref('');
 const remainingSeconds = ref(900); // 15 mins default
 let timerInterval = null;
@@ -625,10 +614,10 @@ onMounted(() => {
   }
 });
 
-// QRIS is available if Midtrans has qris, gopay, shopeepay, dana, or ovo enabled
+// QRIS is available ONLY if confirmed in merchant channels (Strictly NO default!)
 const isQrisAvailable = computed(() => {
-  if (loadingChannels.value) return true;
-  if (midtransChannels.value.length === 0) return true;
+  if (loadingChannels.value) return false;
+  if (!Array.isArray(midtransChannels.value) || midtransChannels.value.length === 0) return false;
   return midtransChannels.value.some(c =>
     ['qris', 'other_qris', 'gopay', 'shopeepay', 'dana', 'ovo'].includes(String(c).toLowerCase())
   );
@@ -671,10 +660,6 @@ watch([isQrisAvailable, availableVaBanks, loadingChannels], () => {
     hasAutoLoadedQris = true;
     selectPaymentMethod('qris');
   }
-});
-
-const showSimulateButton = computed(() => {
-  return !props.isProduction;
 });
 
 const currentBank = computed(() => {
@@ -743,18 +728,7 @@ async function selectPaymentMethod(methodId) {
       chargeResult.value = res.data;
       startCountdown();
     } else {
-      // In sandbox mode fallback simulation
-      if (res.data.fallback_simulated) {
-        chargeResult.value = {
-          success: true,
-          qr_url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=SIMULATED_ORDER_${props.orderId}`,
-          va_number: '88012' + Math.floor(10000000 + Math.random() * 90000000),
-          expiry_time: '15 Menit',
-        };
-        startCountdown();
-      } else {
-        errorMessage.value = res.data.message || 'Gagal menyiapkan metode pembayaran.';
-      }
+      errorMessage.value = res.data.message || 'Gagal menyiapkan metode pembayaran.';
     }
   } catch (err) {
     errorMessage.value = err.response?.data?.message || err.response?.data?.error || 'Gagal menghubungi server pembayaran.';
@@ -784,22 +758,6 @@ async function checkStatus() {
     checkNotice.value = 'Gagal memeriksa status pembayaran. Silakan coba sesaat lagi.';
   } finally {
     checkingStatus.value = false;
-  }
-}
-
-async function simulatePayment() {
-  simulating.value = true;
-  try {
-    const res = await axios.post(`/api/v1/payment/simulate/${props.orderId}`);
-    if (res.data.order?.status === 'SETTLEMENT') {
-      isSettled.value = true;
-      stopCountdown();
-      emit('settled');
-    }
-  } catch (err) {
-    alert('Simulasi gagal: ' + (err.response?.data?.error || err.message));
-  } finally {
-    simulating.value = false;
   }
 }
 

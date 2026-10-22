@@ -45,7 +45,7 @@
             to="/dokumentasi"
             class="w-full sm:w-auto px-6 py-3.5 sm:py-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-md cursor-pointer"
           >
-            <span>📖 Panduan & Simulator</span>
+            <span>📖 Panduan & Dokumentasi</span>
             <span class="text-emerald-400">➔</span>
           </router-link>
         </div>
@@ -77,19 +77,19 @@
       </div>
     </section>
 
-    <!-- SECTION 2: INTERACTIVE DOCS & SIMULATOR BANNER -->
+    <!-- SECTION 2: INTERACTIVE DOCS & PREVIEW BANNER -->
     <section class="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       <div class="relative rounded-3xl p-6 sm:p-10 bg-gradient-to-r from-slate-900/95 via-slate-900 to-emerald-950/40 border border-emerald-500/30 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
         <div class="max-w-xl space-y-3 text-center md:text-left">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
             <span>⚡</span>
-            <span>Uji Coba Interaktif & Panduan Perintah</span>
+            <span>Panduan Interaktif & Format Perintah</span>
           </div>
           <h2 class="text-xl sm:text-3xl font-black text-white tracking-tight">
             Ingin Coba Perintah Bot Langsung di Browser?
           </h2>
           <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba simulator interaktif cerdas WhatsApp secara langsung dan melihat daftar lengkap format perintah (keluar, masuk, transfer dompet, budget, hingga ekspor Excel).
+            Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba format chat cerdas WhatsApp secara langsung dan melihat daftar lengkap perintah (keluar, masuk, transfer dompet, budget, hingga ekspor Excel).
           </p>
           <div class="pt-1 flex flex-wrap gap-2 justify-center md:justify-start">
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">keluar 25rb kopi</span>
@@ -105,7 +105,7 @@
             to="/dokumentasi"
             class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-emerald-500/20 hover:scale-102 active:scale-98 transition cursor-pointer text-center"
           >
-            <span>📖 Buka Simulator Interaktif</span>
+            <span>📖 Buka Panduan & Dokumentasi</span>
             <span class="font-mono">➔</span>
           </router-link>
           <a

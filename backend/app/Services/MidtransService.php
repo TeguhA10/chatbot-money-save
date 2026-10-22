@@ -66,7 +66,7 @@ class MidtransService
 
         $serverKey = config('services.midtrans.server_key', env('MIDTRANS_SERVER_KEY', ''));
         if (empty($serverKey)) {
-            return ['qris'];
+            return [];
         }
 
         $isProduction = (bool) config('services.midtrans.is_production', false);
@@ -109,13 +109,12 @@ class MidtransService
                     ]);
                 }
 
-                // If Midtrans preferences API cannot be read or no channels active,
-                // NEVER return fake virtual accounts that are not activated! Return only QRIS.
-                return ['qris'];
+                // If Midtrans preferences API cannot be read or no channels active in portal, return empty array
+                return [];
             });
         } catch (\Throwable $e) {
             Log::warning('Midtrans merchant-preferences exception: ' . $e->getMessage());
-            return ['qris'];
+            return [];
         }
     }
 
