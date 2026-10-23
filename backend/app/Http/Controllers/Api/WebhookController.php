@@ -1218,14 +1218,24 @@ class WebhookController extends Controller
 
         // Data Deletion Request (GDPR / Right to be forgotten)
         if (preg_match('/^(?:hapus\s+data\s+saya|hapus\s+semua\s+data|hapus\s+akun)$/i', trim($messageText))) {
+            $isPro = $user->hasActivePremium();
+            $expiry = $user->subscription_expires_at ? $user->subscription_expires_at->translatedFormat('d F Y') : null;
+
             $text  = "⚠️ *Konfirmasi Penghapusan Seluruh Data Finansial*\n";
             $text .= "───────────────────────\n";
             $text .= "Anda akan menghapus *permanen*:\n";
             $text .= "• Seluruh riwayat transaksi (keluar/masuk)\n";
             $text .= "• Seluruh dompet dan saldo kas\n";
             $text .= "• Seluruh plafon anggaran dan target tabungan\n";
-            $text .= "• Kredensial brankas dan PIN keamanan\n\n";
-            $text .= "⚠️ *PENTING:* Tindakan ini bersifat permanen dan *TIDAK DAPAT DIBATALKAN*.\n\n";
+            $text .= "• Kredensial brankas dan PIN keamanan\n";
+
+            if ($isPro) {
+                $text .= "\n⭐ *PERINGATAN PAKET PRO AKTIF:*\n";
+                $text .= "Akun Anda memiliki langganan Pro aktif s/d *{$expiry}*.\n";
+                $text .= "Menghapus akun akan *menghanguskan sisa masa aktif langganan Anda tanpa pengembalian dana (non-refundable)*.\n";
+            }
+
+            $text .= "\n⚠️ *PENTING:* Tindakan ini bersifat permanen dan *TIDAK DAPAT DIBATALKAN*.\n\n";
             $text .= "Jika Anda benar-benar yakin, ketik persis:\n";
             $text .= "👉 `konfirmasi hapus semua data`";
 
@@ -1246,7 +1256,7 @@ class WebhookController extends Controller
                 RecurringSchedule::where('user_jid', $user->jid)->delete();
                 UsageLog::where('user_jid', $user->jid)->delete();
 
-                // Reset user security credentials and message count
+                // Reset user security credentials, subscription, and message count
                 $user->forceFill([
                     'pin_hash'                     => null,
                     'recovery_code_hash'           => null,
@@ -1254,6 +1264,9 @@ class WebhookController extends Controller
                     'pin_status'                   => 'UNCONFIGURED',
                     'free_financial_message_count' => 0,
                     'last_pin_verified_at'         => null,
+                    'tier'                         => 'FREE',
+                    'subscription_expires_at'      => null,
+                    'current_balance'              => 0,
                 ])->save();
 
                 // Revoke Sanctum web tokens
@@ -1942,7 +1955,8 @@ class WebhookController extends Controller
             . "  • `koreksi 35rb` (ubah nominal transaksi terakhir)\n"
             . "  • `batal` (batalkan transaksi terakhir)\n"
             . "  • `set pin 123456`\n"
-            . "  • `kategori` / `tambah kategori <nama>`\n\n"
+            . "  • `kategori` / `tambah kategori <nama>`\n"
+            . "  • `hapus data saya` (hapus permanen seluruh data)\n\n"
             . "_💡 Format nominal fleksibel: 25000, 25.000, 25k, 25rb, 1.5jt_";
     }
 

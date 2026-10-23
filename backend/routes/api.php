@@ -77,6 +77,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
         // Auth management
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+        Route::delete('/user/account', [AuthController::class, 'deleteAccount'])->name('api.user.delete-account');
 
         // Profile & Balance
         Route::get('/profile', [AuthController::class, 'profile'])->name('api.profile');

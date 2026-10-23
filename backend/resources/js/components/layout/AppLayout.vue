@@ -129,13 +129,22 @@
               <p class="text-[11px] text-slate-400 truncate">{{ formattedPhone }}</p>
             </div>
           </div>
-          <button
-            @click="showLogoutModal = true"
-            title="Keluar"
-            class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-          </button>
+          <div class="flex items-center gap-1 shrink-0">
+            <button
+              @click="showDeleteAccountModal = true"
+              title="Zona Bahaya: Hapus Seluruh Data"
+              class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+            <button
+              @click="showLogoutModal = true"
+              title="Keluar"
+              class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </aside>
@@ -173,6 +182,13 @@
           title="Tambah Transaksi"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        </button>
+        <button
+          @click="showDeleteAccountModal = true"
+          class="p-1.5 rounded-lg bg-slate-800/90 text-slate-500 hover:text-rose-400 transition cursor-pointer"
+          title="Zona Bahaya: Hapus Seluruh Data"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
         <button
           @click="showLogoutModal = true"
@@ -231,6 +247,12 @@
       @confirm="confirmLogout"
       @cancel="showLogoutModal = false"
     />
+
+    <!-- Danger Zone: Permanent Account & Data Deletion Modal -->
+    <DeleteAccountModal
+      :isOpen="showDeleteAccountModal"
+      @close="showDeleteAccountModal = false"
+    />
   </div>
 </template>
 
@@ -245,6 +267,7 @@ import VaultModal from '../vault/VaultModal.vue';
 import ToastContainer from '../common/ToastContainer.vue';
 import ConfirmModal from '../common/ConfirmModal.vue';
 import PricingModal from '../subscription/PricingModal.vue';
+import DeleteAccountModal from '../modals/DeleteAccountModal.vue';
 
 const emit = defineEmits(['open-transaction-modal']);
 
@@ -255,6 +278,7 @@ const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 
 const showLogoutModal = ref(false);
+const showDeleteAccountModal = ref(false);
 const showPricingModal = ref(false);
 const pricingModalPlan = ref('monthly');
 const subscription = ref(null);

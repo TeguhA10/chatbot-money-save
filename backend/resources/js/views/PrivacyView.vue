@@ -89,14 +89,22 @@
           <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 mt-2">
             <h4 class="font-bold text-emerald-400 text-xs sm:text-sm">Cara Menghapus Seluruh Data Finansial Anda:</h4>
             <p class="text-xs text-slate-300">
-              Cukup kirimkan pesan chat berikut ke Bot WhatsApp kami:
+              Anda dapat menghapus data melalui dua cara mudah:
             </p>
-            <div class="p-2.5 rounded-xl bg-slate-900 font-mono text-emerald-300 text-xs inline-block border border-slate-800">
-              hapus data saya
+            <ul class="list-disc pl-5 space-y-1.5 text-xs text-slate-300">
+              <li>
+                <strong>Melalui WhatsApp Bot:</strong> Kirim pesan <code class="px-1.5 py-0.5 rounded bg-slate-900 text-emerald-400 font-mono">hapus data saya</code>. Bot akan meminta konfirmasi final dengan mengetik: <code class="px-1.5 py-0.5 rounded bg-slate-900 text-rose-300 font-mono">konfirmasi hapus semua data</code>.
+              </li>
+              <li>
+                <strong>Melalui Web Dashboard:</strong> Masuk ke Dashboard, klik menu navigasi samping / profil, pilih tombol merah <strong>Zona Bahaya: Hapus Akun</strong>, dan ketik kata <code class="px-1.5 py-0.5 rounded bg-slate-900 text-rose-300 font-mono">HAPUS</code>.
+              </li>
+            </ul>
+            <p class="text-xs text-slate-400 pt-1">
+              Seketika setelah dikonfirmasi, seluruh riwayat transaksi, saldo dompet, target tabungan, dan anggaran Anda akan <strong>dihapus permanen dari database kami</strong>.
+            </p>
+            <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200/90 leading-relaxed mt-2">
+              <strong>Ketentuan Langganan Pro:</strong> Jika akun Anda memiliki paket langganan Pro aktif saat penghapusan akun dilakukan, sisa masa aktif langganan akan hangus secara permanen dan tidak dapat dialihkan atau dikembalikan (non-refundable).
             </div>
-            <p class="text-xs text-slate-400">
-              Bot akan meminta konfirmasi final dengan mengetik: <code class="px-1.5 py-0.5 rounded bg-slate-900 text-rose-300 font-mono">konfirmasi hapus semua data</code>. Seketika setelah dikonfirmasi, seluruh riwayat transaksi, dompet, target tabungan, dan anggaran Anda akan <strong>dihapus permanen dari database kami</strong>.
-            </p>
           </div>
         </section>
 

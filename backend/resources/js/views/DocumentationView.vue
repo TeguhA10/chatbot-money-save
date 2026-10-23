@@ -403,6 +403,16 @@ const documentationSections = [
         badge: 'Darurat',
         badgeColor: 'bg-red-500/15 text-red-300 border border-red-500/30',
       },
+      {
+        title: 'Hapus Seluruh Data & Akun (Right to be Forgotten)',
+        desc: 'Hapus seluruh riwayat transaksi, saldo dompet, target tabungan, plafon anggaran, dan akun secara permanen dari server kami.',
+        syntax: 'hapus data saya  /  hapus akun',
+        example: 'hapus data saya',
+        botReply: "⚠️ Konfirmasi Penghapusan Seluruh Data Finansial\n───────────────────────\nAnda akan menghapus permanen:\n• Seluruh riwayat transaksi (keluar/masuk)\n• Seluruh dompet dan saldo kas\n• Seluruh plafon anggaran dan target tabungan\n• Kredensial brankas dan PIN keamanan\n\nJika Anda benar-benar yakin, ketik persis:\n👉 konfirmasi hapus semua data",
+        note: 'Tindakan ini permanen. Seluruh data dihapus bersih dan sesi login dibatalkan. Jika akun memiliki langganan Pro aktif, sisa masa aktif langganan akan hangus tanpa pengembalian dana (non-refundable). Anda juga bisa menghapusnya langsung dari Web Dashboard di tombol ikon tempat sampah (Zona Bahaya).',
+        badge: 'Zona Bahaya',
+        badgeColor: 'bg-rose-500/15 text-rose-300 border border-rose-500/30',
+      },
     ],
   },
   {

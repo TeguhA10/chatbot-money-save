@@ -247,4 +247,50 @@ class AuthController extends Controller
             ],
         ]);
     }
+
+    /**
+     * DELETE /api/v1/user/account
+     * Permanently deletes all financial records, credentials, and account data (GDPR Right to be Forgotten).
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $request->validate([
+            'confirmation' => 'required|string|in:HAPUS,KONFIRMASI,hapus,konfirmasi',
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($user) {
+            \App\Models\Transaction::where('user_jid', $user->jid)->forceDelete();
+            \App\Models\Wallet::where('user_jid', $user->jid)->delete();
+            \App\Models\Budget::where('user_jid', $user->jid)->delete();
+            \App\Models\FinancialGoal::where('user_jid', $user->jid)->delete();
+            \App\Models\RecurringSchedule::where('user_jid', $user->jid)->delete();
+            \App\Models\UsageLog::where('user_jid', $user->jid)->delete();
+
+            $user->forceFill([
+                'pin_hash'                     => null,
+                'recovery_code_hash'           => null,
+                'encryption_salt'              => null,
+                'pin_status'                   => 'UNCONFIGURED',
+                'free_financial_message_count' => 0,
+                'last_pin_verified_at'         => null,
+                'tier'                         => 'FREE',
+                'subscription_expires_at'      => null,
+                'current_balance'              => 0,
+            ])->save();
+
+            // Revoke all Sanctum tokens
+            $user->tokens()->delete();
+        });
+
+        Cache::forget("vault_unlocked:{$user->jid}");
+        Cache::forget("vault_unlocked:{$user->jid}:default");
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Seluruh data transaksi, saldo, anggaran, target tabungan, dan akun Anda telah berhasil dihapus permanen dari server.',
+        ]);
+    }
 }
