@@ -258,7 +258,7 @@
           </div>
           <div class="min-w-0">
             <h2 class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
-              <span>Catat Instan via WhatsApp</span>
+              <span>WhatsApp</span>
               <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">Aktif</span>
             </h2>
             <p class="text-[11px] text-slate-400 truncate mt-0.5 hidden xs:block">

@@ -1,0 +1,8 @@
+{
+  "name": "chatbot-money-save",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run build",
+    "dev": "npm --prefix backend run dev"
+  }
+}

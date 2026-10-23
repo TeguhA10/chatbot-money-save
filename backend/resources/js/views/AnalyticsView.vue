@@ -173,7 +173,7 @@
               <h2 class="text-sm sm:text-base font-bold text-white">Rincian Pengeluaran per Kategori</h2>
               <p class="text-xs text-slate-400">Analisis pos pengeluaran yang paling dominan di bulan ini</p>
             </div>
-            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono whitespace-nowrap shrink-0">
               {{ financeStore.categoryBreakdown.length }} Kategori
             </span>
           </div>
