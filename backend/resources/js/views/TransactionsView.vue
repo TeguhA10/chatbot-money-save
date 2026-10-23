@@ -17,13 +17,15 @@
         <p class="text-xs text-slate-400 mt-0.5">Kelola, cari, dan tinjau seluruh riwayat mutasi keuangan Anda</p>
       </div>
 
-      <button
-        @click="openCreateModal"
-        class="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-        <span>Catat Transaksi Baru</span>
-      </button>
+      <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+        <button
+          @click="openCreateModal"
+          class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>Catat Transaksi Baru</span>
+        </button>
+      </div>
     </div>
 
     <!-- ERROR STATE ALERT WITH RETRY -->
@@ -50,8 +52,8 @@
 
     <!-- FILTER BAR & LIVE SEARCH -->
     <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-sm">
-      <!-- Date Presets & Filter Row -->
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+      <!-- Date Presets & Direct 1-Click Exports Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 pb-3">
         <div class="flex items-center gap-1.5 flex-wrap">
           <span class="text-[11px] text-slate-400 font-semibold mr-1">Rentang:</span>
           <button
@@ -88,72 +90,115 @@
           </button>
         </div>
 
-        <button
-          v-if="hasActiveFilters"
-          @click="resetFilters"
-          type="button"
-          class="text-xs text-rose-400 hover:text-rose-300 font-bold underline transition cursor-pointer"
-        >
-          Reset Filter
-        </button>
+        <!-- 1-Click Export Buttons & Reset Filter -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            @click="triggerExport('excel')"
+            :disabled="isExporting || isInitialLoading"
+            class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Unduh Spreadsheet Excel berdasarkan transaksi hasil filter"
+          >
+            <svg v-if="exportingFormat === 'excel'" class="w-3.5 h-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span v-else>📊</span>
+            <span>{{ exportingFormat === 'excel' ? 'Mengunduh...' : 'Excel' }}</span>
+          </button>
+
+          <button
+            type="button"
+            @click="triggerExport('pdf')"
+            :disabled="isExporting || isInitialLoading"
+            class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 hover:bg-rose-500/10 text-rose-300 font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Unduh Rekening Koran PDF Resmi berdasarkan transaksi hasil filter"
+          >
+            <svg v-if="exportingFormat === 'pdf'" class="w-3.5 h-3.5 animate-spin text-rose-400" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span v-else>📑</span>
+            <span>{{ exportingFormat === 'pdf' ? 'Mencetak...' : 'PDF Resmi' }}</span>
+          </button>
+
+          <button
+            v-if="hasActiveFilters"
+            @click="resetFilters"
+            type="button"
+            class="text-xs text-rose-400 hover:text-rose-300 font-bold underline transition cursor-pointer ml-1"
+          >
+            Reset Filter
+          </button>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <!-- Live Search -->
+      <!-- Uniform Inputs Grid: Live Search, Type, Category, Wallet, Date Range -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+        <!-- Live Search (2 Cols) -->
         <div class="relative lg:col-span-2">
-          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
           <input
             type="text"
             v-model="filters.search"
             @input="debounceSearch"
             placeholder="Cari deskripsi (misal: kopi, bensin, gaji)..."
-            class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+            class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
           />
         </div>
 
         <!-- Filter Type -->
         <div>
-          <select
+          <SelectDropdown
             v-model="filters.type"
+            :options="typeOptions"
+            placeholder="Semua Tipe"
+            icon="🔄"
             @change="applyFilters"
-            class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
-          >
-            <option value="">Semua Tipe</option>
-            <option value="EXPENSE">🔴 Pengeluaran</option>
-            <option value="INCOME">🟢 Pemasukan</option>
-            <option value="TRANSFER">🔵 Transfer Dompet</option>
-          </select>
+          />
         </div>
 
         <!-- Filter Category -->
         <div>
-          <select
+          <SelectDropdown
             v-model="filters.category_id"
+            :options="categoryOptions"
+            placeholder="Semua Kategori"
+            icon="🏷️"
+            searchable
             @change="applyFilters"
-            class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
-          >
-            <option value="">Semua Kategori</option>
-            <option v-for="cat in financeStore.categories" :key="cat.id" :value="cat.id">
-              {{ cat.icon }} {{ cat.name }}
-            </option>
-          </select>
+          />
         </div>
 
-        <!-- Date Range Filter -->
-        <div class="flex items-center gap-2">
-          <input
-            type="date"
-            v-model="filters.start_date"
-            @change="onCustomDateChange"
-            title="Tanggal Mulai"
-            class="w-1/2 px-2.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[11px] focus:outline-none focus:border-emerald-500"
+        <!-- Filter Wallet -->
+        <div>
+          <SelectDropdown
+            v-model="filters.wallet_id"
+            :options="walletOptions"
+            placeholder="Semua Dompet"
+            icon="👛"
+            @change="applyFilters"
           />
-          <input
-            type="date"
-            v-model="filters.end_date"
+        </div>
+
+        <!-- Date Range Filter: Start Date -->
+        <div>
+          <DatePicker
+            v-model="filters.start_date"
+            placeholder="Tgl Mulai"
+            title="Tanggal Mulai"
             @change="onCustomDateChange"
-            title="Tanggal Akhir"
-            class="w-1/2 px-2.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-[11px] focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        <!-- Date Range Filter: End Date -->
+        <div>
+          <DatePicker
+            v-model="filters.end_date"
+            placeholder="Tgl Selesai"
+            title="Tanggal Selesai"
+            :min="filters.start_date"
+            @change="onCustomDateChange"
           />
         </div>
       </div>
@@ -417,6 +462,7 @@
       @confirm="executeDelete"
       @cancel="showDeleteModal = false"
     />
+
   </div>
 </template>
 
@@ -426,12 +472,44 @@ import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
+import { downloadExportReport } from '../utils/exportDownloader';
+import SelectDropdown from '../components/common/SelectDropdown.vue';
+import DatePicker from '../components/common/DatePicker.vue';
 import TransactionModal from '../components/modals/TransactionModal.vue';
 import ConfirmModal from '../components/common/ConfirmModal.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
+
+const typeOptions = [
+  { value: '', label: 'Semua Tipe', icon: '🔄' },
+  { value: 'EXPENSE', label: 'Pengeluaran', icon: '🔴' },
+  { value: 'INCOME', label: 'Pemasukan', icon: '🟢' },
+  { value: 'TRANSFER', label: 'Transfer Dompet', icon: '🔵' },
+];
+
+const categoryOptions = computed(() => [
+  { value: '', label: 'Semua Kategori', icon: '🏷️' },
+  ...financeStore.categories.map(cat => ({
+    value: cat.id,
+    label: cat.name,
+    icon: cat.icon || '🏷️'
+  }))
+]);
+
+const walletOptions = computed(() => [
+  { value: '', label: 'Semua Dompet', icon: '👛' },
+  ...financeStore.wallets.map(w => ({
+    value: w.id,
+    label: w.name,
+    icon: '👛'
+  }))
+]);
+
+// Export states (Direct 1-click downloads)
+const isExporting = ref(false);
+const exportingFormat = ref(''); // 'excel' | 'pdf' | ''
 
 const isInitialLoading = ref(!financeStore.hasLoadedTransactions);
 const isSyncing = ref(false);
@@ -456,13 +534,21 @@ const filters = ref({
   search: '',
   type: '',
   category_id: '',
+  wallet_id: '',
   start_date: '',
   end_date: '',
   page: 1,
 });
 
 const hasActiveFilters = computed(() => {
-  return !!(filters.value.search || filters.value.type || filters.value.category_id || filters.value.start_date || filters.value.end_date);
+  return !!(
+    filters.value.search ||
+    filters.value.type ||
+    filters.value.category_id ||
+    filters.value.wallet_id ||
+    filters.value.start_date ||
+    filters.value.end_date
+  );
 });
 
 const deleteConfirmMessage = computed(() => {
@@ -509,6 +595,7 @@ function resetFilters() {
     search: '',
     type: '',
     category_id: '',
+    wallet_id: '',
     start_date: '',
     end_date: '',
     page: 1,
@@ -547,6 +634,24 @@ async function applyFilters(force = false) {
   } finally {
     isInitialLoading.value = false;
     isSyncing.value = false;
+  }
+}
+
+/**
+ * Direct 1-Click Export Execution without modal popup
+ */
+async function triggerExport(format) {
+  if (isExporting.value) return;
+  isExporting.value = true;
+  exportingFormat.value = format;
+
+  try {
+    await downloadExportReport(format, filters.value, toastStore);
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Gagal mengunduh dokumen laporan. Silakan coba kembali.');
+  } finally {
+    isExporting.value = false;
+    exportingFormat.value = '';
   }
 }
 
@@ -592,9 +697,12 @@ function refreshList() {
 
 onMounted(async () => {
   try {
-    await financeStore.fetchCategories();
+    await Promise.all([
+      financeStore.fetchCategories(),
+      financeStore.fetchWallets(),
+    ]);
   } catch (e) {
-    // Non-fatal if categories fail
+    // Non-fatal if categories or wallets fail
   }
   applyFilters();
 });

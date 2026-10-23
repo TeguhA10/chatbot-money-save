@@ -26,7 +26,7 @@ FROM dunglas/frankenphp:1-php8.4-alpine
 WORKDIR /var/www
 
 # Install high-performance production extensions
-RUN install-php-extensions pdo_pgsql pdo_sqlite redis pcntl opcache bcmath gd
+RUN install-php-extensions pdo_pgsql pdo_sqlite redis pcntl opcache bcmath gd zip
 
 # Production OPcache configuration for ultra-low latency & high throughput
 RUN { \

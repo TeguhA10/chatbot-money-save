@@ -56,7 +56,7 @@
               @input="handleAmountInput"
               required
               placeholder="0"
-              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition"
             />
           </div>
           <!-- Quick Amount Buttons -->
@@ -77,15 +77,13 @@
         <!-- Category (on create) -->
         <div v-if="!isEdit && form.type === 'EXPENSE'">
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</label>
-          <select
+          <SelectDropdown
             v-model="form.category_id"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
-          >
-            <option :value="null">Pilih Kategori...</option>
-            <option v-for="cat in financeStore.categories" :key="cat.id" :value="cat.id">
-              {{ cat.icon }} {{ cat.name }}
-            </option>
-          </select>
+            :options="categoryOptions"
+            placeholder="Pilih Kategori..."
+            icon="🏷️"
+            searchable
+          />
         </div>
 
         <!-- Description -->
@@ -96,17 +94,17 @@
             v-model="form.description"
             required
             placeholder="Contoh: Makan siang nasi padang"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
           />
         </div>
 
         <!-- Transaction Date (on create) -->
         <div v-if="!isEdit">
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Tanggal</label>
-          <input
-            type="date"
+          <DatePicker
             v-model="form.transaction_date"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
+            placeholder="Pilih tanggal transaksi"
+            :clearable="false"
           />
         </div>
 
@@ -136,6 +134,8 @@
 import { ref, watch, computed } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
+import SelectDropdown from '../common/SelectDropdown.vue';
+import DatePicker from '../common/DatePicker.vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -147,6 +147,14 @@ const emit = defineEmits(['close', 'saved']);
 const financeStore = useFinanceStore();
 const toastStore = useToastStore();
 const submitting = ref(false);
+
+const categoryOptions = computed(() => {
+  return financeStore.categories.map(cat => ({
+    value: cat.id,
+    label: cat.name,
+    icon: cat.icon || '🏷️'
+  }));
+});
 
 const isEdit = computed(() => !!props.transaction?.id);
 

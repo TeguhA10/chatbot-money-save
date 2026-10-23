@@ -87,7 +87,61 @@
           </div>
         </div>
 
-        <!-- EMPTY STATE (Only rendered after loading completes and truly empty) -->
+        <!-- INLINE FILTER BAR FOR BUDGETS (Standardized & UI/UX Friendly) -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white">Saring Anggaran:</span>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                Menampilkan {{ filteredBudgets.length }} dari {{ financeStore.budgets.length }} Anggaran
+              </span>
+            </div>
+
+            <button
+              v-if="hasActiveBudgetFilters"
+              @click="resetBudgetFilters"
+              type="button"
+              class="text-xs text-rose-400 hover:text-rose-300 font-bold underline transition cursor-pointer"
+            >
+              Reset Filter
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Search Input -->
+            <div class="relative sm:col-span-1">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+              <input
+                type="text"
+                v-model="budgetSearch"
+                placeholder="Cari kategori anggaran..."
+                class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 shadow-inner transition placeholder:text-slate-500"
+              />
+            </div>
+
+            <!-- Filter Status -->
+            <div>
+              <SelectDropdown
+                v-model="budgetStatusFilter"
+                :options="budgetStatusOptions"
+                placeholder="Semua Status Pemakaian"
+                icon="🎯"
+              />
+            </div>
+
+            <!-- Sort By -->
+            <div>
+              <SelectDropdown
+                v-model="budgetSort"
+                :options="budgetSortOptions"
+                placeholder="Urutan Anggaran"
+                icon="↕️"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- EMPTY STATE: GENUINELY NO BUDGETS -->
         <div
           v-if="financeStore.budgets.length === 0"
           class="py-16 px-6 text-center rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3"
@@ -112,10 +166,28 @@
           </div>
         </div>
 
+        <!-- FILTER EMPTY STATE: 0 MATCHES -->
+        <div
+          v-else-if="filteredBudgets.length === 0"
+          class="py-12 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3"
+        >
+          <div class="text-3xl">🔍</div>
+          <h3 class="text-sm font-bold text-white">Tidak Ada Anggaran yang Cocok</h3>
+          <p class="text-xs text-slate-400">
+            Tidak ditemukan plafon anggaran yang cocok dengan kriteria filter Anda.
+          </p>
+          <button
+            @click="resetBudgetFilters"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
+          >
+            Reset Filter
+          </button>
+        </div>
+
         <!-- BUDGET CARDS GRID -->
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div
-            v-for="b in financeStore.budgets"
+            v-for="b in filteredBudgets"
             :key="b.id"
             class="p-6 rounded-2xl bg-slate-900/80 border transition group shadow-sm"
             :class="b.percentage >= 90 ? 'border-rose-500/40 shadow-lg shadow-rose-500/5' : (b.percentage >= 70 ? 'border-amber-500/40' : 'border-slate-800')"
@@ -187,15 +259,35 @@ import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { formatRupiah as rawFormatRupiah } from '../utils/formatters';
 import BudgetModal from '../components/modals/BudgetModal.vue';
+import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+
+const budgetStatusOptions = [
+  { value: 'ALL', label: 'Semua Status Pemakaian', icon: '🎯' },
+  { value: 'SAFE', label: 'Aman ( < 70% )', icon: '🟢' },
+  { value: 'WARNING', label: 'Mendekati Batas ( 70% - 99% )', icon: '🟡' },
+  { value: 'OVER', label: 'Melebihi Plafon ( ≥ 100% )', icon: '🔴' },
+];
+
+const budgetSortOptions = [
+  { value: 'PERCENT_DESC', label: 'Persentase Terpakai Tertinggi', icon: '📈' },
+  { value: 'PERCENT_ASC', label: 'Persentase Terpakai Terendah', icon: '📉' },
+  { value: 'LIMIT_DESC', label: 'Plafon Nominal Terbesar', icon: '💰' },
+  { value: 'NAME_ASC', label: 'Nama Kategori (A-Z)', icon: '🔤' },
+];
 
 const isInitialLoading = ref(!financeStore.hasLoadedBudgets);
 const isSyncing = ref(false);
 const isError = ref(false);
 const errorMessage = ref('');
 const showBudgetModal = ref(false);
+
+// Budget Filter States
+const budgetSearch = ref('');
+const budgetStatusFilter = ref('ALL');
+const budgetSort = ref('PERCENT_DESC');
 
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
@@ -205,6 +297,51 @@ function formatRupiah(val) {
 const overallPercentage = computed(() => {
   if (!financeStore.totalBudgeted || financeStore.totalBudgeted <= 0) return 0;
   return Math.round((financeStore.totalSpent / financeStore.totalBudgeted) * 100);
+});
+
+const hasActiveBudgetFilters = computed(() => {
+  return !!(budgetSearch.value.trim() || budgetStatusFilter.value !== 'ALL');
+});
+
+function resetBudgetFilters() {
+  budgetSearch.value = '';
+  budgetStatusFilter.value = 'ALL';
+  budgetSort.value = 'PERCENT_DESC';
+}
+
+const filteredBudgets = computed(() => {
+  let list = [...(financeStore.budgets || [])];
+
+  if (budgetSearch.value.trim()) {
+    const q = budgetSearch.value.trim().toLowerCase();
+    list = list.filter(b => (b.category_name || '').toLowerCase().includes(q));
+  }
+
+  if (budgetStatusFilter.value === 'SAFE') {
+    list = list.filter(b => (b.percentage || 0) < 70);
+  } else if (budgetStatusFilter.value === 'WARNING') {
+    list = list.filter(b => (b.percentage || 0) >= 70 && (b.percentage || 0) < 100);
+  } else if (budgetStatusFilter.value === 'OVER') {
+    list = list.filter(b => (b.percentage || 0) >= 100);
+  }
+
+  list.sort((a, b) => {
+    if (budgetSort.value === 'PERCENT_DESC') {
+      return (Number(b.percentage) || 0) - (Number(a.percentage) || 0);
+    }
+    if (budgetSort.value === 'PERCENT_ASC') {
+      return (Number(a.percentage) || 0) - (Number(b.percentage) || 0);
+    }
+    if (budgetSort.value === 'LIMIT_DESC') {
+      return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+    }
+    if (budgetSort.value === 'NAME_ASC') {
+      return (a.category_name || '').localeCompare(b.category_name || '');
+    }
+    return 0;
+  });
+
+  return list;
 });
 
 async function loadBudgets(force = false) {

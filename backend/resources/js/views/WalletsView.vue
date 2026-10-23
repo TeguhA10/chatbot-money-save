@@ -20,14 +20,14 @@
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <button
           @click="showTransferModal = true"
-          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-2 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-2 cursor-pointer transition active:scale-95"
         >
           <span>⇄</span>
           <span>Transfer Dana</span>
         </button>
         <button
           @click="showWalletModal = true"
-          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
           <span class="whitespace-nowrap">Dompet Baru</span>
@@ -86,7 +86,61 @@
           </div>
         </div>
 
-        <!-- EMPTY STATE (Only rendered after loading completes and truly empty) -->
+        <!-- INLINE FILTER BAR FOR WALLETS (Standardized & UI/UX Friendly) -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white">Saring Dompet:</span>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                Menampilkan {{ filteredWallets.length }} dari {{ financeStore.wallets.length }} Dompet
+              </span>
+            </div>
+
+            <button
+              v-if="hasActiveWalletFilters"
+              @click="resetWalletFilters"
+              type="button"
+              class="text-xs text-rose-400 hover:text-rose-300 font-bold underline transition cursor-pointer"
+            >
+              Reset Filter
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Search Input -->
+            <div class="relative sm:col-span-1">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+              <input
+                type="text"
+                v-model="walletSearch"
+                placeholder="Cari nama dompet (BCA, GoPay, Tunai)..."
+                class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
+              />
+            </div>
+
+            <!-- Filter Type -->
+            <div>
+              <SelectDropdown
+                v-model="walletTypeFilter"
+                :options="walletTypeOptions"
+                placeholder="Semua Tipe Dompet"
+                icon="💳"
+              />
+            </div>
+
+            <!-- Sort By -->
+            <div>
+              <SelectDropdown
+                v-model="walletSort"
+                :options="walletSortOptions"
+                placeholder="Urutan Dompet"
+                icon="↕️"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- EMPTY STATE: GENUINELY NO WALLETS -->
         <div
           v-if="financeStore.wallets.length === 0"
           class="py-16 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center flex flex-col items-center justify-center space-y-3"
@@ -112,10 +166,28 @@
           </div>
         </div>
 
+        <!-- FILTER EMPTY STATE: FILTER RETURNED 0 MATCHES -->
+        <div
+          v-else-if="filteredWallets.length === 0"
+          class="py-12 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3"
+        >
+          <div class="text-3xl">🔍</div>
+          <h3 class="text-sm font-bold text-white">Tidak Ada Dompet yang Cocok</h3>
+          <p class="text-xs text-slate-400">
+            Tidak ditemukan dompet yang sesuai dengan filter atau kata kunci pencarian Anda.
+          </p>
+          <button
+            @click="resetWalletFilters"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
+          >
+            Reset Filter
+          </button>
+        </div>
+
         <!-- WALLET CARDS GRID -->
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div
-            v-for="wallet in financeStore.wallets"
+            v-for="wallet in filteredWallets"
             :key="wallet.id"
             class="p-6 rounded-2xl border relative overflow-hidden flex flex-col justify-between h-48 transition hover:scale-[1.01] shadow-md"
             :class="getCardStyle(wallet.type)"
@@ -148,25 +220,36 @@
           </div>
         </div>
 
-        <!-- TRANSFER HISTORY PREVIEW -->
-        <div class="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm">
-          <div class="flex items-center justify-between mb-4">
+        <!-- TRANSFER HISTORY PREVIEW WITH INLINE SEARCH FILTER -->
+        <div class="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
             <div>
               <h2 class="text-sm sm:text-base font-bold text-white">Riwayat Mutasi Transfer</h2>
               <p class="text-xs text-slate-400">Perpindahan dana internal antar dompet</p>
             </div>
             <RouterLink to="/transactions?type=TRANSFER" class="text-xs font-semibold text-blue-400 hover:underline">
-              Lihat Semua ➔
+              Lihat Semua di Pusat Transaksi ➔
             </RouterLink>
           </div>
 
-          <div v-if="transferTransactions.length === 0" class="py-10 text-center text-slate-500 text-xs">
-            Belum ada riwayat transfer antar dompet.
+          <!-- Filter for Transfer History -->
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+            <input
+              type="text"
+              v-model="transferSearch"
+              placeholder="Cari catatan mutasi transfer..."
+              class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 shadow-inner transition placeholder:text-slate-500"
+            />
+          </div>
+
+          <div v-if="filteredTransferTransactions.length === 0" class="py-10 text-center text-slate-500 text-xs">
+            {{ transferSearch ? 'Tidak ada riwayat transfer yang cocok dengan pencarian.' : 'Belum ada riwayat transfer antar dompet.' }}
           </div>
 
           <div v-else class="space-y-2.5">
             <div
-              v-for="item in transferTransactions"
+              v-for="item in filteredTransferTransactions"
               :key="item.id"
               class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs hover:bg-slate-900/50 transition"
             >
@@ -179,7 +262,9 @@
                   <p class="text-[11px] text-slate-400 mt-0.5">{{ formatDate(item.transaction_date) }}</p>
                 </div>
               </div>
-              <span class="font-black text-sm text-blue-400 whitespace-nowrap ml-3">{{ formatRupiah(item.amount) }}</span>
+              <div class="text-right shrink-0">
+                <p class="font-black text-blue-400">{{ formatRupiah(item.amount) }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -190,13 +275,13 @@
     <TransferModal
       :isOpen="showTransferModal"
       @close="showTransferModal = false"
-      @transferred="loadWallets"
+      @transferred="loadWallets(true)"
     />
 
     <WalletModal
       :isOpen="showWalletModal"
       @close="showWalletModal = false"
-      @saved="loadWallets"
+      @saved="loadWallets(true)"
     />
   </div>
 </template>
@@ -208,14 +293,36 @@ import { useVaultStore } from '../stores/vault';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import TransferModal from '../components/modals/TransferModal.vue';
 import WalletModal from '../components/modals/WalletModal.vue';
+import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+
+const walletTypeOptions = [
+  { value: 'ALL', label: 'Semua Tipe Dompet', icon: '💳' },
+  { value: 'BANK', label: 'Rekening Bank (BCA, Mandiri, dll)', icon: '🏦' },
+  { value: 'EWALLET', label: 'E-Wallet (GoPay, OVO, ShopeePay)', icon: '📱' },
+  { value: 'CASH', label: 'Tunai / Kas Fisik', icon: '💵' },
+];
+
+const walletSortOptions = [
+  { value: 'BALANCE_DESC', label: 'Saldo Tertinggi', icon: '📈' },
+  { value: 'BALANCE_ASC', label: 'Saldo Terendah', icon: '📉' },
+  { value: 'NAME_ASC', label: 'Nama Dompet (A-Z)', icon: '🔤' },
+];
 
 const isInitialLoading = ref(!financeStore.hasLoadedWallets);
 const isSyncing = ref(false);
 const isError = ref(false);
 const errorMessage = ref('');
+
+// Wallet Filter States
+const walletSearch = ref('');
+const walletTypeFilter = ref('ALL');
+const walletSort = ref('BALANCE_DESC');
+
+// Transfer Filter State
+const transferSearch = ref('');
 
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
@@ -225,8 +332,51 @@ function formatRupiah(val) {
 const showTransferModal = ref(false);
 const showWalletModal = ref(false);
 
-const transferTransactions = computed(() => {
-  return financeStore.transactions.filter((t) => t.type === 'TRANSFER').slice(0, 5);
+const hasActiveWalletFilters = computed(() => {
+  return !!(walletSearch.value.trim() || walletTypeFilter.value !== 'ALL');
+});
+
+function resetWalletFilters() {
+  walletSearch.value = '';
+  walletTypeFilter.value = 'ALL';
+  walletSort.value = 'BALANCE_DESC';
+}
+
+const filteredWallets = computed(() => {
+  let list = [...(financeStore.wallets || [])];
+
+  if (walletSearch.value.trim()) {
+    const q = walletSearch.value.trim().toLowerCase();
+    list = list.filter(w => (w.name || '').toLowerCase().includes(q));
+  }
+
+  if (walletTypeFilter.value !== 'ALL') {
+    list = list.filter(w => w.type === walletTypeFilter.value);
+  }
+
+  list.sort((a, b) => {
+    if (walletSort.value === 'BALANCE_DESC') {
+      return (Number(b.balance) || 0) - (Number(a.balance) || 0);
+    }
+    if (walletSort.value === 'BALANCE_ASC') {
+      return (Number(a.balance) || 0) - (Number(b.balance) || 0);
+    }
+    if (walletSort.value === 'NAME_ASC') {
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    return 0;
+  });
+
+  return list;
+});
+
+const filteredTransferTransactions = computed(() => {
+  const transfers = financeStore.transactions.filter((t) => t.type === 'TRANSFER');
+  if (!transferSearch.value.trim()) {
+    return transfers.slice(0, 5);
+  }
+  const q = transferSearch.value.trim().toLowerCase();
+  return transfers.filter(t => (t.description || '').toLowerCase().includes(q)).slice(0, 5);
 });
 
 function getWalletIcon(type) {

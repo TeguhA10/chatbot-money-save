@@ -18,14 +18,12 @@
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-        <!-- Month Picker (Styled as compact pill) -->
+        <!-- Month Picker (Custom Sleek Dark Component) -->
         <div class="relative flex-1 sm:flex-initial">
-          <input
-            type="month"
+          <MonthPicker
             v-model="selectedMonth"
             @change="loadDashboard"
             :disabled="isInitialLoading || isSyncing"
-            class="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 shadow-inner cursor-pointer transition disabled:opacity-50"
           />
         </div>
 
@@ -686,6 +684,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
+import MonthPicker from '../components/common/MonthPicker.vue';
 
 defineEmits(['open-transaction-modal']);
 

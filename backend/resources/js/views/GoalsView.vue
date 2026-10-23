@@ -56,7 +56,61 @@
     <!-- MAIN GOALS CONTENT -->
     <template v-else>
       <div :class="isSyncing ? 'opacity-70 transition-opacity pointer-events-none' : 'transition-opacity'" class="space-y-5 sm:space-y-6">
-        <!-- EMPTY STATE (Only rendered after loading completes and truly empty) -->
+        <!-- INLINE FILTER BAR FOR GOALS (Standardized & UI/UX Friendly) -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white">Saring Target:</span>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                Menampilkan {{ filteredGoals.length }} dari {{ financeStore.goals.length }} Target
+              </span>
+            </div>
+
+            <button
+              v-if="hasActiveGoalFilters"
+              @click="resetGoalFilters"
+              type="button"
+              class="text-xs text-rose-400 hover:text-rose-300 font-bold underline transition cursor-pointer"
+            >
+              Reset Filter
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Search Input -->
+            <div class="relative sm:col-span-1">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+              <input
+                type="text"
+                v-model="goalSearch"
+                placeholder="Cari nama target tabungan..."
+                class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/40 shadow-inner transition placeholder:text-slate-500"
+              />
+            </div>
+
+            <!-- Filter Status -->
+            <div>
+              <SelectDropdown
+                v-model="goalStatusFilter"
+                :options="goalStatusOptions"
+                placeholder="Semua Status Target"
+                icon="🎯"
+              />
+            </div>
+
+            <!-- Sort By -->
+            <div>
+              <SelectDropdown
+                v-model="goalSort"
+                :options="goalSortOptions"
+                placeholder="Urutan Target"
+                icon="↕️"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- EMPTY STATE: GENUINELY NO GOALS -->
         <div
           v-if="financeStore.goals.length === 0"
           class="py-16 px-6 text-center rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3"
@@ -81,10 +135,28 @@
           </div>
         </div>
 
+        <!-- FILTER EMPTY STATE: 0 MATCHES -->
+        <div
+          v-else-if="filteredGoals.length === 0"
+          class="py-12 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3"
+        >
+          <div class="text-3xl">🔍</div>
+          <h3 class="text-sm font-bold text-white">Tidak Ada Target yang Cocok</h3>
+          <p class="text-xs text-slate-400">
+            Tidak ditemukan target tabungan yang cocok dengan kriteria filter Anda.
+          </p>
+          <button
+            @click="resetGoalFilters"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
+          >
+            Reset Filter
+          </button>
+        </div>
+
         <!-- GOALS GRID -->
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div
-            v-for="goal in financeStore.goals"
+            v-for="goal in filteredGoals"
             :key="goal.id"
             class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between hover:border-teal-500/40 transition group shadow-lg"
           >
@@ -163,15 +235,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import GoalModal from '../components/modals/GoalModal.vue';
 import ContributeGoalModal from '../components/modals/ContributeGoalModal.vue';
+import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+
+const goalStatusOptions = [
+  { value: 'ALL', label: 'Semua Status Target', icon: '🎯' },
+  { value: 'ACTIVE', label: 'Dalam Proses Menabung', icon: '⏳' },
+  { value: 'ACHIEVED', label: 'Sudah Tercapai', icon: '🎉' },
+];
+
+const goalSortOptions = [
+  { value: 'PROGRESS_DESC', label: 'Progres Terbesar', icon: '📈' },
+  { value: 'PROGRESS_ASC', label: 'Progres Terendah', icon: '📉' },
+  { value: 'TARGET_DESC', label: 'Nominal Target Terbesar', icon: '💰' },
+  { value: 'NAME_ASC', label: 'Nama Target (A-Z)', icon: '🔤' },
+];
 
 const isInitialLoading = ref(!financeStore.hasLoadedGoals);
 const isSyncing = ref(false);
@@ -182,6 +268,11 @@ const showGoalModal = ref(false);
 const showContributeModal = ref(false);
 const selectedGoal = ref(null);
 
+// Goal Filter States
+const goalSearch = ref('');
+const goalStatusFilter = ref('ALL');
+const goalSort = ref('PROGRESS_DESC');
+
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
   return rawFormatRupiah(val);
@@ -191,6 +282,47 @@ function openContribute(goal) {
   selectedGoal.value = goal;
   showContributeModal.value = true;
 }
+
+const hasActiveGoalFilters = computed(() => {
+  return !!(goalSearch.value.trim() || goalStatusFilter.value !== 'ALL');
+});
+
+function resetGoalFilters() {
+  goalSearch.value = '';
+  goalStatusFilter.value = 'ALL';
+  goalSort.value = 'PROGRESS_DESC';
+}
+
+const filteredGoals = computed(() => {
+  let list = [...(financeStore.goals || [])];
+
+  if (goalSearch.value.trim()) {
+    const q = goalSearch.value.trim().toLowerCase();
+    list = list.filter(g => (g.name || '').toLowerCase().includes(q));
+  }
+
+  if (goalStatusFilter.value !== 'ALL') {
+    list = list.filter(g => g.status === goalStatusFilter.value);
+  }
+
+  list.sort((a, b) => {
+    if (goalSort.value === 'PROGRESS_DESC') {
+      return (Number(b.progress_percent) || 0) - (Number(a.progress_percent) || 0);
+    }
+    if (goalSort.value === 'PROGRESS_ASC') {
+      return (Number(a.progress_percent) || 0) - (Number(b.progress_percent) || 0);
+    }
+    if (goalSort.value === 'TARGET_DESC') {
+      return (Number(b.target_amount) || 0) - (Number(a.target_amount) || 0);
+    }
+    if (goalSort.value === 'NAME_ASC') {
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    return 0;
+  });
+
+  return list;
+});
 
 async function loadGoals(force = false) {
   if (!financeStore.hasLoadedGoals) {

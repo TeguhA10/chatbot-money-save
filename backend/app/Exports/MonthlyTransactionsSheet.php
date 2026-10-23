@@ -22,13 +22,15 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
 {
     private User $user;
     private string $yearMonth; // Format 'YYYY-MM'
+    private array $filters;
     private int $rowNumber = 0;
     private int $totalRows = 0;
 
-    public function __construct(User $user, string $yearMonth)
+    public function __construct(User $user, string $yearMonth, array $filters = [])
     {
         $this->user = $user;
         $this->yearMonth = $yearMonth;
+        $this->filters = $filters;
     }
 
     public function title(): string
@@ -43,12 +45,35 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
         $start = Carbon::create((int) $year, (int) $month, 1, 0, 0, 0)->startOfMonth();
         $end   = Carbon::create((int) $year, (int) $month, 1, 0, 0, 0)->endOfMonth();
 
-        $transactions = $this->user->transactions()
+        if (!empty($this->filters['start_date']) && Carbon::parse($this->filters['start_date'])->gt($start)) {
+            $start = Carbon::parse($this->filters['start_date'])->startOfDay();
+        }
+        if (!empty($this->filters['end_date']) && Carbon::parse($this->filters['end_date'])->lt($end)) {
+            $end = Carbon::parse($this->filters['end_date'])->endOfDay();
+        }
+
+        $query = $this->user->transactions()
             ->active()
             ->whereBetween('created_at', [$start, $end])
-            ->with(['category', 'wallet', 'toWallet'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+            ->with(['category', 'wallet', 'toWallet']);
+
+        if (!empty($this->filters['wallet_id'])) {
+            $walletId = $this->filters['wallet_id'];
+            $query->where(function ($q) use ($walletId) {
+                $q->where('wallet_id', $walletId)
+                  ->orWhere('to_wallet_id', $walletId);
+            });
+        }
+
+        if (!empty($this->filters['type']) && in_array(strtoupper($this->filters['type']), ['INCOME', 'EXPENSE', 'TRANSFER'], true)) {
+            $query->where('type', strtoupper($this->filters['type']));
+        }
+
+        if (!empty($this->filters['category_id'])) {
+            $query->where('category_id', $this->filters['category_id']);
+        }
+
+        $transactions = $query->orderBy('created_at', 'asc')->get();
 
         $this->totalRows = $transactions->count();
 

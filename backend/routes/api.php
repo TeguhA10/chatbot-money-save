@@ -136,4 +136,13 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Excel Export via Sanctum Bearer token for authenticated clients
     Route::get('/export/excel', [ExportController::class, 'excel'])
         ->name('api.export.excel.sanctum');
+
+    // Official Bank-Grade Statement PDF Export via Temporary Signed URL for WhatsApp
+    Route::get('/export/pdf/{export_id}', [ExportController::class, 'pdfSigned'])
+        ->name('api.export.pdf')
+        ->middleware('signed');
+
+    // Official Bank-Grade Statement PDF Export via Sanctum Bearer token for authenticated clients
+    Route::get('/export/pdf', [ExportController::class, 'pdf'])
+        ->name('api.export.pdf.sanctum');
 });

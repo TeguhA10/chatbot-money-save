@@ -22,7 +22,7 @@
             v-model="form.name"
             required
             placeholder="Contoh: BCA, Mandiri, GoPay, Tunai Dompet"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
           />
         </div>
 
@@ -32,7 +32,7 @@
           <select
             v-model="form.type"
             required
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner cursor-pointer transition"
           >
             <option value="BANK">🏦 Bank Transfer (BCA, Mandiri, BRI, dll)</option>
             <option value="EWALLET">📱 E-Wallet (GoPay, OVO, DANA, ShopeePay)</option>
@@ -57,7 +57,7 @@
               :value="formattedInitialBalance"
               @input="handleInitialBalanceInput"
               placeholder="0"
-              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500"
+              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition"
             />
           </div>
           <p class="text-[11px] text-slate-500 mt-1">Saldo saat ini yang ada di rekening/dompet Anda</p>

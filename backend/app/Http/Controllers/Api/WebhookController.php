@@ -956,11 +956,16 @@ class WebhookController extends Controller
             return $this->handleUndo($user);
         }
 
-        // Export Excel (Typo-tolerant: ekspor excel, unduh excel)
-        if (preg_match('/^(?:export excel|ekspor excel|laporan excel|download laporan|download excel|unduh excel)$/i', $messageText)) {
+        // Export Excel or Official PDF Statement (with flexible filters)
+        if (preg_match('/^(?:export|ekspor|unduh|download|cetak)\s+(?:excel|xlsx|pdf|rekening\s+koran|laporan\s+pdf|laporan\s+excel)/i', $messageText) ||
+            preg_match('/^(?:rekening\s+koran|laporan\s+keuangan|export\s+excel|export\s+pdf|laporan\s+pdf|laporan\s+excel)$/i', trim($messageText))) {
             if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
             $this->consumeFinancialQuota($user, $messageId);
-            return $this->handleExcelExport($user);
+
+            $format = preg_match('/\b(?:pdf|rekening\s+koran)\b/i', $messageText) ? 'pdf' : 'excel';
+            $filters = $this->parseExportFilters($messageText, $user);
+
+            return $this->handleDocumentExport($user, $format, $filters);
         }
 
         // Check budgets
@@ -1736,7 +1741,57 @@ class WebhookController extends Controller
         return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
     }
 
-    private function handleExcelExport(User $user): JsonResponse
+    private function parseExportFilters(string $text, User $user): array
+    {
+        $filters = [];
+        $lower = strtolower($text);
+
+        if (str_contains($lower, 'bulan ini')) {
+            $filters['start_date'] = now()->startOfMonth()->toDateString();
+            $filters['end_date']   = now()->endOfMonth()->toDateString();
+            $filters['month']      = now()->format('Y-m');
+        } elseif (str_contains($lower, 'bulan lalu') || str_contains($lower, 'bulan kemarin')) {
+            $prev = now()->subMonthNoOverflow();
+            $filters['start_date'] = $prev->copy()->startOfMonth()->toDateString();
+            $filters['end_date']   = $prev->copy()->endOfMonth()->toDateString();
+            $filters['month']      = $prev->format('Y-m');
+        } elseif (preg_match('/\b(202[4-9])\b/', $lower, $mYear)) {
+            $filters['year'] = (int) $mYear[1];
+        }
+
+        $monthsMap = [
+            'januari' => 1, 'februari' => 2, 'maret' => 3, 'april' => 4,
+            'mei' => 5, 'juni' => 6, 'juli' => 7, 'agustus' => 8,
+            'september' => 9, 'oktober' => 10, 'november' => 11, 'desember' => 12,
+        ];
+        foreach ($monthsMap as $name => $num) {
+            if (str_contains($lower, $name)) {
+                $year = $filters['year'] ?? now()->year;
+                $filters['month'] = sprintf('%04d-%02d', $year, $num);
+                $filters['start_date'] = \Carbon\Carbon::create($year, $num, 1)->startOfMonth()->toDateString();
+                $filters['end_date']   = \Carbon\Carbon::create($year, $num, 1)->endOfMonth()->toDateString();
+                break;
+            }
+        }
+
+        if (preg_match('/\b(?:masuk|pemasukan|income)\b/', $lower)) {
+            $filters['type'] = 'INCOME';
+        } elseif (preg_match('/\b(?:keluar|pengeluaran|expense)\b/', $lower)) {
+            $filters['type'] = 'EXPENSE';
+        }
+
+        $wallets = \App\Models\Wallet::where('user_jid', $user->jid)->get();
+        foreach ($wallets as $w) {
+            if (preg_match('/\b' . preg_quote(strtolower($w->name), '/') . '\b/', $lower)) {
+                $filters['wallet_id'] = $w->id;
+                break;
+            }
+        }
+
+        return $filters;
+    }
+
+    private function handleDocumentExport(User $user, string $format, array $filters = []): JsonResponse
     {
         // Check if user has any transactions
         if ($user->transactions()->active()->count() === 0) {
@@ -1746,29 +1801,53 @@ class WebhookController extends Controller
             ]);
         }
 
-        $exportId = 'exp_' . (string) Str::ulid();
+        $isPdf = ($format === 'pdf');
+        $exportId = ($isPdf ? 'exp_pdf_' : 'exp_') . (string) Str::ulid();
+
         Cache::put("export:{$exportId}", [
             'user_jid'   => $user->jid,
-            'purpose'    => 'whatsapp_excel',
+            'purpose'    => $isPdf ? 'whatsapp_pdf' : 'whatsapp_excel',
+            'filters'    => $filters,
             'created_at' => now()->timestamp,
-        ], 90);
+        ], 120);
 
         Log::info('Export requested', [
             'export_id' => $exportId,
-            'type'      => 'excel',
+            'format'    => $format,
+            'filters'   => $filters,
         ]);
 
+        $routeName = $isPdf ? 'api.export.pdf' : 'api.export.excel';
         $fileUrl = URL::temporarySignedRoute(
-            'api.export.excel',
-            now()->addSeconds(90),
+            $routeName,
+            now()->addSeconds(120),
             ['export_id' => $exportId]
         );
 
+        $filterSummary = [];
+        if (!empty($filters['month'])) $filterSummary[] = "Bulan: {$filters['month']}";
+        if (!empty($filters['type']))  $filterSummary[] = "Tipe: " . ($filters['type'] === 'INCOME' ? 'Pemasukan Saja' : 'Pengeluaran Saja');
+        if (!empty($filters['wallet_id'])) {
+            $w = \App\Models\Wallet::find($filters['wallet_id']);
+            if ($w) $filterSummary[] = "Dompet: {$w->name}";
+        }
+        $filterText = empty($filterSummary) ? '' : "\n📌 _Filter: " . implode(', ', $filterSummary) . "_";
+
+        if ($isPdf) {
+            return response()->json([
+                'action'     => 'SEND_DOCUMENT',
+                'reply_text' => "📑 *Rekening Koran Resmi HematWoy (PDF)* sedang disiapkan...{$filterText}\n\n_Format resmi: Dilengkapi kop dokumen, ringkasan saldo eksekutif, ikhtisar per dompet, dan daftar mutasi lengkap._",
+                'file_url'   => $fileUrl,
+                'file_name'  => "Rekening_Koran_HematWoy_" . now()->format('Ymd') . ".pdf",
+                'mimetype'   => 'application/pdf',
+            ]);
+        }
+
         return response()->json([
             'action'     => 'SEND_DOCUMENT',
-            'reply_text' => "📊 Laporan keuangan pribadi Anda (Excel multi-sheet) sedang disiapkan...\n\n_Berisi: Dashboard ringkasan + tab bulanan dengan formula SUM otomatis._",
+            'reply_text' => "📊 *Laporan Keuangan Excel (Multi-Sheet)* sedang disiapkan...{$filterText}\n\n_Berisi: Dashboard ringkasan + tab mutasi bulanan dengan formula SUM otomatis._",
             'file_url'   => $fileUrl,
-            'file_name'  => "Laporan_Keuangan_" . now()->format('Ymd') . ".xlsx",
+            'file_name'  => "Laporan_Keuangan_HematWoy_" . now()->format('Ymd') . ".xlsx",
             'mimetype'   => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
@@ -1949,7 +2028,8 @@ class WebhookController extends Controller
             . "  • `bulan ini boros gak?` (analisis MoM)\n"
             . "  • `omzet hari ini` / `laba hari ini` (laba UMKM)\n"
             . "  • `rekap freelance` (total pendapatan proyek)\n"
-            . "  • `export excel` (unduh sheet laporan)\n\n"
+            . "  • `export excel` / `export pdf` (unduh sheet / rekening koran resmi)\n"
+            . "  • _Bisa difilter:_ `export pdf bulan ini`, `export excel bca`, `export pdf masuk`\n\n"
             . "🌐 *Web Dashboard & Pengaturan:*\n"
             . "  • `web` (link dashboard grafik & analitik)\n"
             . "  • `koreksi 35rb` (ubah nominal transaksi terakhir)\n"

@@ -25,7 +25,7 @@
           <select
             v-model="form.from_wallet_id"
             required
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-blue-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 shadow-inner cursor-pointer transition"
           >
             <option value="" disabled>Pilih dompet asal...</option>
             <option
@@ -45,7 +45,7 @@
           <select
             v-model="form.to_wallet_id"
             required
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-blue-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 shadow-inner cursor-pointer transition"
           >
             <option value="" disabled>Pilih dompet tujuan...</option>
             <option
@@ -76,7 +76,7 @@
               @input="handleAmountInput"
               required
               placeholder="0"
-              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold text-lg focus:outline-none focus:border-blue-500"
+              class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-semibold text-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 shadow-inner transition"
             />
           </div>
           <!-- Quick Amount Buttons -->
@@ -121,7 +121,7 @@
             type="text"
             v-model="form.description"
             placeholder="Contoh: Top-up saldo DANA dari BCA"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-blue-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 shadow-inner transition placeholder:text-slate-500"
           />
         </div>
 
