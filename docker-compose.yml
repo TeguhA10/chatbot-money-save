@@ -70,6 +70,7 @@ services:
   voice-service:
     build: ./voice-service
     restart: unless-stopped
+    ports: ["9000:9000"]
     environment:
       WHISPER_MODEL: tiny
       WHISPER_LANGUAGE: id

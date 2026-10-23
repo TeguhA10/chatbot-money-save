@@ -41,22 +41,142 @@ const PAIRING_PHONE = process.env.PAIRING_PHONE_NUMBER ? process.env.PAIRING_PHO
 const AUTH_DIR = process.env.BAILEYS_AUTH_DIR || 'auth_info_baileys';
 const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || 'http://voice-service:9000/transcribe';
 
-async function transcribeAudio(audioBuffer: Buffer): Promise<string | null> {
-  try {
-    const formData = new FormData();
-    const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
-    formData.append('file', blob, 'voice.ogg');
+interface TranscriptionResult {
+  text: string | null;
+  provider?: string;
+  errorReason?: string;
+}
 
-    const res = await axios.post<{ text?: string }>(VOICE_SERVICE_URL, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 30000,
-    });
+async function transcribeAudio(audioBuffer: Buffer): Promise<TranscriptionResult> {
+  const financialPrompt = 'Pencatatan keuangan: keluar 25000 makan siang, beli bensin 15rb, transfer 500rb, gaji 5jt, bayar pulsa 50rb.';
 
-    return res.data?.text?.trim() || null;
-  } catch (err: any) {
-    console.error('[Gateway] Local Voice Note transcription failed:', err?.message || err);
-    return null;
+  // 1. Groq Whisper API (Recommended: ultra-fast ~300ms, generous free tier, excellent Indonesian STT)
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (groqApiKey) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
+      formData.append('file', blob, 'voice.ogg');
+      formData.append('model', process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3');
+      formData.append('language', 'id');
+      formData.append('prompt', financialPrompt);
+
+      const res = await axios.post<{ text?: string }>('https://api.groq.com/openai/v1/audio/transcriptions', formData, {
+        headers: {
+          Authorization: `Bearer ${groqApiKey}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 15000,
+      });
+
+      const text = res.data?.text?.trim();
+      if (text) {
+        return { text, provider: 'Groq Whisper' };
+      }
+    } catch (err: any) {
+      console.warn('[Gateway] Groq Whisper failed:', err?.response?.data || err?.message || err);
+    }
   }
+
+  // 2. OpenAI Whisper API
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  if (openaiApiKey) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
+      formData.append('file', blob, 'voice.ogg');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'id');
+      formData.append('prompt', financialPrompt);
+
+      const res = await axios.post<{ text?: string }>('https://api.openai.com/v1/audio/transcriptions', formData, {
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 20000,
+      });
+
+      const text = res.data?.text?.trim();
+      if (text) {
+        return { text, provider: 'OpenAI Whisper' };
+      }
+    } catch (err: any) {
+      console.warn('[Gateway] OpenAI Whisper failed:', err?.response?.data || err?.message || err);
+    }
+  }
+
+  // 3. Google Gemini API (Multimodal Audio)
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (geminiApiKey) {
+    try {
+      const base64Audio = audioBuffer.toString('base64');
+      const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
+
+      const res = await axios.post(url, {
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: 'audio/ogg',
+                  data: base64Audio,
+                },
+              },
+              {
+                text: 'Dengarkan rekaman suara ini dengan teliti. Transkripsikan apa yang diucapkan dalam bahasa Indonesia persis apa adanya untuk pencatatan keuangan (contoh: "keluar 25rb makan siang", "beli bensin 15000", "+500rb bonus gaji"). Tuliskan HANYA teks transkripsi ucapannya saja tanpa tanda petik, tanpa penjelasan pengantar, dan tanpa penutup.',
+              },
+            ],
+          },
+        ],
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000,
+      });
+
+      const rawText = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      const cleaned = rawText.replace(/^["'`]|["'`]$/g, '').trim();
+      if (cleaned) {
+        return { text: cleaned, provider: 'Google Gemini' };
+      }
+    } catch (err: any) {
+      console.warn('[Gateway] Gemini STT failed:', err?.response?.data || err?.message || err);
+    }
+  }
+
+  // 4. Local faster-whisper service fallback (check candidate URLs)
+  const candidateUrls = Array.from(new Set([
+    VOICE_SERVICE_URL,
+    'http://127.0.0.1:9000/transcribe',
+    'http://localhost:9000/transcribe',
+  ]));
+
+  for (const url of candidateUrls) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
+      formData.append('file', blob, 'voice.ogg');
+
+      const res = await axios.post<{ text?: string }>(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 8000,
+      });
+
+      const text = res.data?.text?.trim();
+      if (text) {
+        return { text, provider: `Local Voice (${url})` };
+      }
+    } catch {
+      // Continue to next candidate
+    }
+  }
+
+  const hasAnyKey = Boolean(groqApiKey || openaiApiKey || geminiApiKey);
+  return {
+    text: null,
+    errorReason: hasAnyKey ? 'STT_EMPTY_RESULT' : 'NO_STT_CONFIGURED',
+  };
 }
 
 function resolvePort(): number {
@@ -266,6 +386,27 @@ async function startGateway() {
 const lastIncomingMessageTimes = new Map<string, number>();
 const INBOUND_RATE_LIMIT_MS = 1000; // minimum 1 second interval between messages per JID
 
+// Inbound deduplication cache: keeps message IDs for 10 minutes to prevent Baileys duplicate event processing
+const processedMessageIds = new Map<string, number>();
+const INBOUND_DEDUP_TTL_MS = 10 * 60 * 1000;
+
+function isDuplicateInboundMessage(messageId: string): boolean {
+  const now = Date.now();
+  if (processedMessageIds.size > 2000) {
+    for (const [id, time] of processedMessageIds.entries()) {
+      if (now - time > INBOUND_DEDUP_TTL_MS) {
+        processedMessageIds.delete(id);
+      }
+    }
+  }
+
+  if (processedMessageIds.has(messageId)) {
+    return true;
+  }
+  processedMessageIds.set(messageId, now);
+  return false;
+}
+
 async function handleIncomingMessage(msg: WAMessage): Promise<void> {
   // Ignore messages from self or status broadcasts
   if (!msg.message || msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') {
@@ -274,6 +415,13 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
 
   const fromJid = msg.key.remoteJid;
   if (!fromJid) return;
+
+  const msgId = msg.key.id;
+  // Deduplicate incoming messages to prevent Baileys double-upsert processing
+  if (msgId && isDuplicateInboundMessage(msgId)) {
+    console.log(`[Gateway] Deduplication: Pesan ID ${msgId} dari ${fromJid} sudah diproses sebelumnya. Mengabaikan duplikat.`);
+    return;
+  }
 
   // Rate limiting per sender to prevent flood spam & DoS
   const now = Date.now();
@@ -300,7 +448,9 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
 
   if (isAudio) {
     isVoiceNote = true;
-    console.log(`[Gateway] 🎙️ Voice Note diterima dari ${pushName || 'User'} (${fromJid}). Mengunduh dan mentranskripsi via local whisper...`);
+    console.log(`[Gateway] 🎙️ Voice Note diterima dari ${pushName || 'User'} (${fromJid}). Mengunduh dan mentranskripsi audio...`);
+    let errorReason: string | undefined;
+
     try {
       const audioBuffer = await downloadMediaMessage(
         msg,
@@ -313,10 +463,12 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
       );
 
       if (audioBuffer && Buffer.isBuffer(audioBuffer)) {
-        const transcribed = await transcribeAudio(audioBuffer);
-        if (transcribed) {
-          messageText = transcribed;
-          console.log(`[Gateway] 🗣️ Voice Note berhasil ditranskrip secara lokal: "${messageText}"`);
+        const result = await transcribeAudio(audioBuffer);
+        if (result.text) {
+          messageText = result.text;
+          console.log(`[Gateway] 🗣️ Voice Note berhasil ditranskrip (${result.provider || 'STT'}): "${messageText}"`);
+        } else {
+          errorReason = result.errorReason;
         }
       }
     } catch (err: any) {
@@ -324,10 +476,22 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
     }
 
     if (!messageText.trim()) {
+      const errorMsg = errorReason === 'NO_STT_CONFIGURED'
+        ? `⚠️ *Layanan Voice Note Belum Aktif*\n\n` +
+          `Sistem belum dapat mentranskripsi rekaman suara karena layanan Speech-to-Text belum terhubung.\n\n` +
+          `💡 *Cara Aktivasi Mudah & Gratis:*\n` +
+          `1. Dapatkan API Key gratis di *console.groq.com* (paling cepat & akurat untuk Bahasa Indonesia)\n` +
+          `2. Masukkan ke file \`.env\` gateway/backend:\n` +
+          `   \`GROQ_API_KEY=gsk_...\`\n` +
+          `3. Atau jalankan voice-service lokal: \`docker compose up voice-service -d\`\n\n` +
+          `Untuk saat ini, silakan ketik catatan keuanganmu lewat chat teks ya! 😊`
+        : `⚠️ Maaf, rekaman suara tidak terdengar jelas atau durasinya terlalu singkat. Silakan coba rekam ulang lebih dekat atau kirim teks secara manual. 🙏`;
+
       outboundQueue.enqueue({
         jid: fromJid,
         type: 'TEXT',
-        text: '⚠️ Maaf, rekaman suara tidak terdengar jelas atau sistem transkripsi lokal sedang memproses antrean. Silakan coba rekam ulang lebih dekat atau kirim teks secara manual. 🙏',
+        text: errorMsg,
+        idempotencyKey: msgId ? `${msgId}:vn_error` : undefined,
       });
       return;
     }

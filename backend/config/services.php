@@ -20,6 +20,20 @@ return [
         'gateway_url'         => env('GATEWAY_OUTBOUND_URL', env('GATEWAY_URL', env('WHATSAPP_GATEWAY_URL', 'http://gateway:3001'))),
     ],
 
+    'groq' => [
+        'key'           => env('GROQ_API_KEY'),
+        'whisper_model' => env('GROQ_WHISPER_MODEL', 'whisper-large-v3'),
+    ],
+
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+    ],
+
+    'gemini' => [
+        'key'   => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

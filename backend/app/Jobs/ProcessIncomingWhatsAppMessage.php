@@ -51,18 +51,32 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
             'is_voice'   => $this->isVoiceNote,
         ]);
 
+        // Early idempotency check to prevent duplicate execution across retries
+        if (\App\Models\ProcessedMessage::where('message_id', $this->messageId)->exists()) {
+            Log::info("Async Queue Worker: Duplicate message skipped early", ['message_id' => $this->messageId]);
+            return;
+        }
+
         try {
-            // Handle audio voice note download and offline transcription for Meta Cloud API
+            // Handle audio voice note download and transcription for Meta Cloud API
             if ($this->isVoiceNote && $this->mediaId && empty($this->messageText)) {
-                $transcribed = $this->transcribeMetaAudio($this->mediaId);
-                if (!empty($transcribed)) {
-                    $this->messageText = $transcribed;
+                $transcription = $this->transcribeMetaAudio($this->mediaId);
+                if (!empty($transcription['text'])) {
+                    $this->messageText = $transcription['text'];
                 } else {
                     if ($this->fromPhone) {
-                        $controller->sendMetaReply(
-                            $this->fromPhone,
-                            "⚠️ Maaf, rekaman suara tidak terdengar jelas atau sistem transkripsi lokal sedang memproses antrean. Silakan coba rekam ulang lebih dekat atau kirim teks secara manual. 🙏"
-                        );
+                        $errorMsg = ($transcription['error_reason'] ?? '') === 'NO_STT_CONFIGURED'
+                            ? "⚠️ *Layanan Voice Note Belum Aktif*\n\n" .
+                              "Sistem belum dapat mentranskripsi rekaman suara karena layanan Speech-to-Text belum terhubung.\n\n" .
+                              "💡 *Cara Aktivasi Mudah & Gratis:*\n" .
+                              "1. Dapatkan API Key gratis di *console.groq.com*\n" .
+                              "2. Masukkan ke file `.env`:\n" .
+                              "   `GROQ_API_KEY=gsk_...`\n" .
+                              "3. Atau jalankan voice-service lokal: `docker compose up voice-service -d`\n\n" .
+                              "Untuk saat ini, silakan ketik catatan keuanganmu lewat chat teks ya! 😊"
+                            : "⚠️ Maaf, rekaman suara tidak terdengar jelas atau durasinya terlalu singkat. Silakan coba rekam ulang lebih dekat atau kirim teks secara manual. 🙏";
+
+                        $controller->sendMetaReply($this->fromPhone, $errorMsg);
                     }
                     return;
                 }
@@ -140,17 +154,19 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
     }
 
     /**
-     * Download audio media from Meta Cloud API and transcribe locally via voice-service.
+     * Download audio media from Meta Cloud API and transcribe via Groq, OpenAI, Gemini, or local whisper.
+     *
+     * @return array{text: ?string, provider?: string, error_reason?: string}
      */
-    protected function transcribeMetaAudio(string $mediaId): ?string
+    protected function transcribeMetaAudio(string $mediaId): array
     {
         $version = config('services.whatsapp.api_version', env('WHATSAPP_API_VERSION', 'v21.0'));
         $accessToken = config('services.whatsapp.access_token', env('WHATSAPP_ACCESS_TOKEN'));
-        $voiceServiceUrl = env('VOICE_SERVICE_URL', 'http://voice-service:9000/transcribe');
+        $financialPrompt = 'Pencatatan keuangan: keluar 25000 makan siang, beli bensin 15rb, transfer 500rb, gaji 5jt, bayar pulsa 50rb.';
 
         if (!$accessToken) {
             Log::error("Voice STT: Missing WHATSAPP_ACCESS_TOKEN for downloading Meta media.");
-            return null;
+            return ['text' => null, 'error_reason' => 'MISSING_ACCESS_TOKEN'];
         }
 
         try {
@@ -165,12 +181,12 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
                     'status'   => $metaMediaResp->status(),
                     'body'     => $metaMediaResp->json(),
                 ]);
-                return null;
+                return ['text' => null, 'error_reason' => 'META_MEDIA_URL_FAILED'];
             }
 
             $mediaUrl = $metaMediaResp->json('url');
             if (!$mediaUrl) {
-                return null;
+                return ['text' => null, 'error_reason' => 'EMPTY_MEDIA_URL'];
             }
 
             // 2. Download binary audio stream from Meta CDN (requires Authorization header)
@@ -183,28 +199,133 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
                 Log::error("Voice STT: Failed to download audio stream from Meta", [
                     'status' => $audioBinary->status(),
                 ]);
-                return null;
+                return ['text' => null, 'error_reason' => 'DOWNLOAD_FAILED'];
             }
 
-            // 3. Post audio stream to local faster-whisper container
-            $transcribeResp = Http::timeout(30)
-                ->attach('file', $audioBinary->body(), 'audio.ogg')
-                ->post($voiceServiceUrl);
+            $audioBytes = $audioBinary->body();
 
-            if ($transcribeResp->successful()) {
-                $text = trim($transcribeResp->json('text') ?? '');
-                Log::info("Voice STT: Meta voice note successfully transcribed locally", ['text' => $text]);
-                return !empty($text) ? $text : null;
+            // A. Try Groq Whisper API (Fastest & Free)
+            $groqKey = config('services.groq.key', env('GROQ_API_KEY'));
+            if ($groqKey) {
+                try {
+                    $groqResp = Http::withToken($groqKey)
+                        ->timeout(15)
+                        ->attach('file', $audioBytes, 'voice.ogg')
+                        ->post('https://api.groq.com/openai/v1/audio/transcriptions', [
+                            'model'    => config('services.groq.whisper_model', env('GROQ_WHISPER_MODEL', 'whisper-large-v3')),
+                            'language' => 'id',
+                            'prompt'   => $financialPrompt,
+                        ]);
+
+                    if ($groqResp->successful()) {
+                        $text = trim($groqResp->json('text') ?? '');
+                        if (!empty($text)) {
+                            Log::info("Voice STT: Transcribed via Groq Whisper", ['text' => $text]);
+                            return ['text' => $text, 'provider' => 'Groq Whisper'];
+                        }
+                    } else {
+                        Log::warning("Voice STT: Groq API failed", ['body' => $groqResp->json()]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("Voice STT: Groq API exception: " . $e->getMessage());
+                }
             }
 
-            Log::error("Voice STT: Voice service returned error", [
-                'status' => $transcribeResp->status(),
-                'body'   => $transcribeResp->body(),
+            // B. Try OpenAI Whisper API
+            $openaiKey = config('services.openai.key', env('OPENAI_API_KEY'));
+            if ($openaiKey) {
+                try {
+                    $openaiResp = Http::withToken($openaiKey)
+                        ->timeout(20)
+                        ->attach('file', $audioBytes, 'voice.ogg')
+                        ->post('https://api.openai.com/v1/audio/transcriptions', [
+                            'model'    => 'whisper-1',
+                            'language' => 'id',
+                            'prompt'   => $financialPrompt,
+                        ]);
+
+                    if ($openaiResp->successful()) {
+                        $text = trim($openaiResp->json('text') ?? '');
+                        if (!empty($text)) {
+                            Log::info("Voice STT: Transcribed via OpenAI Whisper", ['text' => $text]);
+                            return ['text' => $text, 'provider' => 'OpenAI Whisper'];
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("Voice STT: OpenAI Whisper exception: " . $e->getMessage());
+                }
+            }
+
+            // C. Try Google Gemini API
+            $geminiKey = config('services.gemini.key', env('GEMINI_API_KEY'));
+            if ($geminiKey) {
+                try {
+                    $model = config('services.gemini.model', env('GEMINI_MODEL', 'gemini-1.5-flash'));
+                    $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$geminiKey}";
+                    $geminiResp = Http::timeout(20)->post($url, [
+                        'contents' => [
+                            [
+                                'parts' => [
+                                    [
+                                        'inlineData' => [
+                                            'mimeType' => 'audio/ogg',
+                                            'data'     => base64_encode($audioBytes),
+                                        ],
+                                    ],
+                                    [
+                                        'text' => 'Dengarkan rekaman suara ini dengan teliti. Transkripsikan apa yang diucapkan dalam bahasa Indonesia persis apa adanya untuk pencatatan keuangan (contoh: "keluar 25rb makan siang", "beli bensin 15000", "+500rb bonus gaji"). Tuliskan HANYA teks transkripsi ucapannya saja tanpa tanda petik, tanpa penjelasan pengantar, dan tanpa penutup.',
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+
+                    if ($geminiResp->successful()) {
+                        $rawText = trim($geminiResp->json('candidates.0.content.parts.0.text') ?? '');
+                        $cleaned = trim(trim($rawText, '"\'`'));
+                        if (!empty($cleaned)) {
+                            Log::info("Voice STT: Transcribed via Gemini", ['text' => $cleaned]);
+                            return ['text' => $cleaned, 'provider' => 'Google Gemini'];
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("Voice STT: Gemini STT exception: " . $e->getMessage());
+                }
+            }
+
+            // D. Try Local faster-whisper container candidates
+            $candidateUrls = array_unique([
+                env('VOICE_SERVICE_URL', 'http://voice-service:9000/transcribe'),
+                'http://127.0.0.1:9000/transcribe',
+                'http://localhost:9000/transcribe',
             ]);
-            return null;
+
+            foreach ($candidateUrls as $url) {
+                try {
+                    $transcribeResp = Http::timeout(8)
+                        ->attach('file', $audioBytes, 'audio.ogg')
+                        ->post($url);
+
+                    if ($transcribeResp->successful()) {
+                        $text = trim($transcribeResp->json('text') ?? '');
+                        if (!empty($text)) {
+                            Log::info("Voice STT: Transcribed locally via {$url}", ['text' => $text]);
+                            return ['text' => $text, 'provider' => 'Local Voice'];
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Try next candidate
+                }
+            }
+
+            $hasAnyKey = (bool) ($groqKey || $openaiKey || $geminiKey);
+            return [
+                'text'         => null,
+                'error_reason' => $hasAnyKey ? 'STT_EMPTY_RESULT' : 'NO_STT_CONFIGURED',
+            ];
         } catch (\Throwable $e) {
             Log::error("Voice STT: Exception during Meta audio transcription: " . $e->getMessage());
-            return null;
+            return ['text' => null, 'error_reason' => 'EXCEPTION'];
         }
     }
 }

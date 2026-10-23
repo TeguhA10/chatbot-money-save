@@ -18,7 +18,7 @@ export class OutboundQueue {
   private queue: QueuedMessage[] = [];
   private isProcessing = false;
   private sendHandler: (msg: QueuedMessage) => Promise<void>;
-  private readonly sent = new Set<string>();
+  private readonly sent = new Map<string, number>();
   private readonly minDelay = Number(process.env.OUTBOUND_MIN_DELAY_MS || 700);
   private readonly maxDelay = Number(process.env.OUTBOUND_MAX_DELAY_MS || 1400);
 
@@ -27,8 +27,31 @@ export class OutboundQueue {
   }
 
   public enqueue(msg: QueuedMessage): void {
-    if (msg.idempotencyKey && this.sent.has(msg.idempotencyKey)) return;
-    if (msg.idempotencyKey) this.sent.add(msg.idempotencyKey);
+    const now = Date.now();
+
+    // Clean up expired entries in sent map (> 10 minutes)
+    if (this.sent.size > 2000) {
+      for (const [key, timestamp] of this.sent.entries()) {
+        if (now - timestamp > 600000) {
+          this.sent.delete(key);
+        }
+      }
+    }
+
+    // Auto-generate fallback debounce key if idempotencyKey is not provided
+    const key = msg.idempotencyKey || (msg.jid && msg.text ? `auto:${msg.jid}:${msg.text.trim().substring(0, 40)}` : undefined);
+
+    if (key) {
+      const lastSentTime = this.sent.get(key);
+      // Suppress duplicates sent within 5 seconds for auto keys, or anytime within TTL for explicit keys
+      const ttl = msg.idempotencyKey ? 600000 : 5000;
+      if (lastSentTime && (now - lastSentTime < ttl)) {
+        console.warn(`[Queue] Deduplication: Pesan duplikat terdeteksi (${key}). Menolak pengiriman ulang double.`);
+        return;
+      }
+      this.sent.set(key, now);
+    }
+
     this.queue.push(msg);
     if (!this.isProcessing) {
       this.processQueue();

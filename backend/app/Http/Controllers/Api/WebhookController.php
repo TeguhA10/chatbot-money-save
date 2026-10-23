@@ -112,6 +112,14 @@ class WebhookController extends Controller
         ]);
 
         $isVoice = (bool) ($validated['is_voice_note'] ?? false);
+        $msgId = $validated['message_id'];
+
+        // Early idempotency check to avoid duplicate processing
+        if (ProcessedMessage::where('message_id', $msgId)->exists() || Cache::has("wa_proc_{$msgId}")) {
+            Log::info("Webhook: Duplicate message skipped early", ['message_id' => $msgId]);
+            return response()->json(['action' => 'IGNORE', 'reason' => 'duplicate']);
+        }
+        Cache::put("wa_proc_{$msgId}", true, now()->addMinutes(10));
 
         // Asynchronous ingestion option for Baileys Gateway (Fase 3 Decoupled Webhook)
         if ($request->header('X-Async-Processing') === 'true' || config('services.whatsapp.async_baileys', env('ASYNC_BAILEYS_WEBHOOK', false))) {
@@ -206,6 +214,13 @@ class WebhookController extends Controller
                     if ($messageText === '' && !$mediaId) {
                         continue;
                     }
+
+                    // Early idempotency check to prevent duplicate processing on Meta retries
+                    if (ProcessedMessage::where('message_id', $messageId)->exists() || Cache::has("wa_proc_{$messageId}")) {
+                        Log::info("Meta Webhook: Duplicate message skipped early", ['message_id' => $messageId]);
+                        continue;
+                    }
+                    Cache::put("wa_proc_{$messageId}", true, now()->addMinutes(10));
 
                     // Dispatch async job to Redis Queue for high-throughput decoupling (<10ms HTTP response)
                     ProcessIncomingWhatsAppMessage::dispatch(
