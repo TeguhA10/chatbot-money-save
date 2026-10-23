@@ -408,15 +408,7 @@ function calculateBarHeight(val) {
 }
 
 async function loadDashboard() {
-  await Promise.allSettled([
-    financeStore.fetchSummary(selectedMonth.value),
-    financeStore.fetchCategoryBreakdown(selectedMonth.value),
-    financeStore.fetchMonthlyTrend(),
-    financeStore.fetchWallets(),
-    financeStore.fetchBudgets(),
-    financeStore.fetchGoals(),
-    financeStore.fetchTransactions({ limit: 5 }),
-  ]);
+  await financeStore.fetchDashboardFeed(selectedMonth.value);
 }
 
 onMounted(() => {

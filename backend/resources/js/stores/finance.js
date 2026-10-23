@@ -34,6 +34,31 @@ export const useFinanceStore = defineStore('finance', {
     }),
 
     actions: {
+        async fetchDashboardFeed(month = this.selectedMonth) {
+            this.loadingSummary = true;
+            try {
+                const res = await api.get('/analytics/dashboard-feed', { params: { month } });
+                const data = res.data.data;
+                if (data) {
+                    this.summary = data.summary;
+                    this.categoryBreakdown = data.category_breakdown;
+                    this.monthlyTrend = data.monthly_trend;
+                    this.wallets = data.wallets?.wallets || [];
+                    this.totalBalance = data.wallets?.total_balance ?? 0;
+                    this.budgets = data.budgets?.budgets || [];
+                    this.totalBudgeted = data.budgets?.total_budgeted ?? 0;
+                    this.totalSpent = data.budgets?.total_spent ?? 0;
+                    this.goals = data.goals?.goals || [];
+                    this.transactions = data.recent_transactions || [];
+                }
+                return data;
+            } catch (err) {
+                console.error('Error fetching dashboard feed:', err);
+            } finally {
+                this.loadingSummary = false;
+            }
+        },
+
         async fetchSummary(month = this.selectedMonth) {
             this.loadingSummary = true;
             try {
@@ -183,14 +208,7 @@ export const useFinanceStore = defineStore('finance', {
         },
 
         async refreshAllData() {
-            await Promise.allSettled([
-                this.fetchSummary(),
-                this.fetchWallets(),
-                this.fetchBudgets(),
-                this.fetchGoals(),
-                this.fetchCategoryBreakdown(),
-                this.fetchMonthlyTrend(),
-            ]);
+            await this.fetchDashboardFeed();
         },
 
         async loadAll() {

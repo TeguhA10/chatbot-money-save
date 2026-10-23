@@ -102,16 +102,8 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         return next({ name: 'login' });
     }
-    if (to.meta.requiresAuth && authStore.isAuthenticated && !authStore.isPro) {
-        authStore.logout();
-        return next({ name: 'login', query: { error: 'subscription_required' } });
-    }
     if (to.meta.guestOnly && authStore.isAuthenticated) {
-        if (authStore.isPro) {
-            return next({ name: 'dashboard' });
-        } else {
-            authStore.logout();
-        }
+        return next({ name: 'dashboard' });
     }
     next();
 });

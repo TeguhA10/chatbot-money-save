@@ -48,18 +48,6 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // --- Subscription Enforcement: Web Dashboard is exclusive to HematWoy Pro subscribers ---
-        if (! $existingUser || ! $existingUser->hasActivePremium()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro. Silakan berlangganan terlebih dahulu melalui bot WhatsApp atau halaman paket.',
-                'error'   => [
-                    'code'    => 'SUBSCRIPTION_REQUIRED',
-                    'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro.',
-                ],
-            ], 403);
-        }
-
         // --- Rate Limiting: 60-second cooldown per phone / JID ---
         $cooldownKey = "otp_cooldown:{$jid}";
         if (Cache::has($cooldownKey)) {
@@ -196,18 +184,6 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}",
                 'error'   => ['code' => 'USER_BLOCKED', 'message' => "Akun WhatsApp Anda telah dinonaktifkan.{$reason}"],
-            ], 403);
-        }
-
-        // --- Subscription Enforcement: Web Dashboard is exclusive to HematWoy Pro subscribers ---
-        if (! $user->hasActivePremium()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro. Silakan berlangganan terlebih dahulu melalui bot WhatsApp atau halaman paket.',
-                'error'   => [
-                    'code'    => 'SUBSCRIPTION_REQUIRED',
-                    'message' => 'Akses Web Dashboard eksklusif untuk pelanggan aktif HematWoy Pro.',
-                ],
             ], 403);
         }
 

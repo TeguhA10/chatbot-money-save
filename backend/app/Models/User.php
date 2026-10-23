@@ -132,10 +132,19 @@ class User extends Authenticatable
     public function subscriptions(): HasMany { return $this->hasMany(Subscription::class, 'user_jid', 'jid'); }
     public function paymentOrders(): HasMany { return $this->hasMany(PaymentOrder::class, 'user_jid', 'jid'); }
     public function usageLogs(): HasMany { return $this->hasMany(UsageLog::class, 'user_jid', 'jid'); }
-    public function hasActivePremium(): bool { return $this->tier === 'PREMIUM' && $this->subscription_expires_at?->isFuture(); }
+    public function hasActivePremium(): bool
+    {
+        if ($this->tier === 'PREMIUM') {
+            return $this->subscription_expires_at === null || $this->subscription_expires_at->isFuture();
+        }
+        return false;
+    }
 
     public function getCurrentBalanceAttribute($value): int
     {
+        if ((int) $value !== 0) {
+            return (int) $value;
+        }
         if (!empty($this->attributes['encrypted_current_balance'])) {
             return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_current_balance']);
         }

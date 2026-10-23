@@ -100,7 +100,7 @@ class Transaction extends Model
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', 'ACTIVE');
+        return $query->where('transactions.status', 'ACTIVE');
     }
 
     /**
@@ -108,7 +108,7 @@ class Transaction extends Model
      */
     public function scopeVoided(Builder $query): Builder
     {
-        return $query->where('status', 'VOIDED');
+        return $query->where('transactions.status', 'VOIDED');
     }
 
     /**
@@ -116,8 +116,8 @@ class Transaction extends Model
      */
     public function scopeForMonth(Builder $query, int $year, int $month): Builder
     {
-        return $query->whereYear('transaction_date', $year)
-                     ->whereMonth('transaction_date', $month);
+        return $query->whereYear('transactions.transaction_date', $year)
+                     ->whereMonth('transactions.transaction_date', $month);
     }
 
     /**
@@ -125,7 +125,7 @@ class Transaction extends Model
      */
     public function scopeForDate(Builder $query, string $date): Builder
     {
-        return $query->whereDate('transaction_date', $date);
+        return $query->whereDate('transactions.transaction_date', $date);
     }
 
     /**
@@ -133,7 +133,7 @@ class Transaction extends Model
      */
     public function scopeExpenses(Builder $query): Builder
     {
-        return $query->where('type', 'EXPENSE');
+        return $query->where('transactions.type', 'EXPENSE');
     }
 
     /**
@@ -141,7 +141,7 @@ class Transaction extends Model
      */
     public function scopeIncomes(Builder $query): Builder
     {
-        return $query->where('type', 'INCOME');
+        return $query->where('transactions.type', 'INCOME');
     }
 
     /**
@@ -149,17 +149,28 @@ class Transaction extends Model
      */
     public function scopeTransfers(Builder $query): Builder
     {
-        return $query->where('type', 'TRANSFER');
+        return $query->where('transactions.type', 'TRANSFER');
     }
 
     public function getAmountAttribute($value): int
     {
-        if (!empty($this->attributes['encrypted_amount'])) return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_amount']);
+        if ((int) $value !== 0) {
+            return (int) $value;
+        }
+        if (!empty($this->attributes['encrypted_amount'])) {
+            return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_amount']);
+        }
         return (int) $value;
     }
+
     public function getBalanceAfterAttribute($value): int
     {
-        if (!empty($this->attributes['encrypted_balance_after'])) return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_balance_after']);
+        if ((int) $value !== 0) {
+            return (int) $value;
+        }
+        if (!empty($this->attributes['encrypted_balance_after'])) {
+            return app(\App\Services\EncryptionService::class)->decryptFromStorage($this->attributes['encrypted_balance_after']);
+        }
         return (int) $value;
     }
 }

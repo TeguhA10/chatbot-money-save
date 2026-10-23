@@ -43,14 +43,28 @@ class BudgetService
      */
     public function getMonthlyExpenseTotalsByCategory(string $userJid, int $year, int $month): \Illuminate\Support\Collection
     {
-        $transactions = Transaction::where('user_jid', $userJid)
+        $rawTotals = Transaction::where('user_jid', $userJid)
             ->active()
             ->expenses()
             ->forMonth($year, $month)
-            ->get();
+            ->whereNotNull('category_id')
+            ->groupBy('category_id')
+            ->selectRaw('category_id, COALESCE(SUM(amount), 0) as total')
+            ->pluck('total', 'category_id');
 
-        return $transactions->groupBy('category_id')
-            ->map(fn($group) => (int) $group->sum('amount'));
+        // Fallback for legacy rows with amount == 0
+        if ($rawTotals->sum() === 0 && Transaction::where('user_jid', $userJid)->active()->expenses()->forMonth($year, $month)->exists()) {
+            $transactions = Transaction::where('user_jid', $userJid)
+                ->active()
+                ->expenses()
+                ->forMonth($year, $month)
+                ->get();
+
+            return $transactions->groupBy('category_id')
+                ->map(fn($group) => (int) $group->sum('amount'));
+        }
+
+        return $rawTotals->map(fn($v) => (int) $v);
     }
 
     /**
@@ -76,16 +90,23 @@ class BudgetService
         if ($preloadedSpent !== null) {
             $spentAmount = $preloadedSpent;
         } else {
-            $transactions = Transaction::where('user_jid', $budget->user_jid)
+            $spentAmount = (int) Transaction::where('user_jid', $budget->user_jid)
                 ->where('category_id', $budget->category_id)
                 ->active()
                 ->expenses()
                 ->forMonth($year, $month)
-                ->get();
+                ->sum('amount');
 
-            $spentAmount = 0;
-            foreach ($transactions as $tx) {
-                $spentAmount += $tx->amount;
+            // Fallback for legacy rows with amount == 0
+            if ($spentAmount === 0 && Transaction::where('user_jid', $budget->user_jid)->where('category_id', $budget->category_id)->active()->expenses()->forMonth($year, $month)->exists()) {
+                $transactions = Transaction::where('user_jid', $budget->user_jid)
+                    ->where('category_id', $budget->category_id)
+                    ->active()
+                    ->expenses()
+                    ->forMonth($year, $month)
+                    ->get();
+
+                $spentAmount = (int) $transactions->sum('amount');
             }
         }
 

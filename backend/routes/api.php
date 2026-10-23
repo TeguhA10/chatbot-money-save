@@ -115,6 +115,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::post('/goals/{id}/contribute',[GoalController::class, 'contribute'])->name('api.goals.contribute');
 
         // Analytics Dashboard
+        Route::get('/analytics/dashboard-feed',      [AnalyticsController::class, 'dashboardFeed'])->name('api.analytics.dashboard-feed');
         Route::get('/analytics/summary',            [AnalyticsController::class, 'summary'])->name('api.analytics.summary');
         Route::get('/analytics/category-breakdown', [AnalyticsController::class, 'categoryBreakdown'])->name('api.analytics.category-breakdown');
         Route::get('/analytics/monthly-trend',      [AnalyticsController::class, 'monthlyTrend'])->name('api.analytics.monthly-trend');

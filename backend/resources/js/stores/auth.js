@@ -21,7 +21,7 @@ export const useAuthStore = defineStore('auth', {
         isAuthenticated: (state) => !!state.token,
         isPro: (state) => {
             if (state.subscription?.is_pro) return true;
-            if (state.user?.is_pro === true) return true;
+            if (state.user?.is_pro === true || state.user?.is_pro === 1 || state.user?.is_pro === '1' || state.user?.is_pro === 'true') return true;
             if (state.user?.tier === 'PREMIUM') {
                 if (!state.user.subscription_expires_at) return true;
                 return new Date(state.user.subscription_expires_at) > new Date();

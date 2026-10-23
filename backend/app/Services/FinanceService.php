@@ -242,9 +242,9 @@ class FinanceService
                     'category_id'             => $data['category_id'] ?? null,
                     'wallet_id'               => $targetWallet->id,
                     'type'                    => $type,
-                    'amount'                  => 0,
+                    'amount'                  => $amount,
                     'description'             => $data['description'] ?? '',
-                    'balance_after'           => 0,
+                    'balance_after'           => $newBalance,
                     'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
                     'encrypted_balance_after' => $this->encryption->encryptForStorage($newBalance),
                     'transaction_date'        => now(),
@@ -252,7 +252,12 @@ class FinanceService
                 ]);
 
                 // Update user balance atomically
-                $freshUser->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
+                $freshUser->update([
+                    'current_balance'           => $newBalance,
+                    'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance),
+                ]);
+
+                Cache::forget("dashboard_feed:{$freshUser->jid}:" . now()->format('Y-m'));
 
                 // Sync caller instance
                 $user->current_balance = $newBalance;
@@ -293,20 +298,24 @@ class FinanceService
                 $freshUser = User::where('jid', $user->jid)->first();
                 $memo = !empty($description) ? $description : "Transfer dari {$source->name} ke {$dest->name}";
 
-                return Transaction::create([
+                $tx = Transaction::create([
                     'user_jid'                => $freshUser->jid,
                     'wallet_id'               => $source->id,
                     'to_wallet_id'            => $dest->id,
                     'category_id'             => null,
                     'type'                    => 'TRANSFER',
-                    'amount'                  => 0,
+                    'amount'                  => $amount,
                     'description'             => $memo,
-                    'balance_after'           => 0,
+                    'balance_after'           => $freshUser->current_balance,
                     'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
                     'encrypted_balance_after' => $this->encryption->encryptForStorage($freshUser->current_balance),
                     'transaction_date'        => now(),
                     'status'                  => 'ACTIVE',
                 ]);
+
+                Cache::forget("dashboard_feed:{$freshUser->jid}:" . now()->format('Y-m'));
+
+                return $tx;
             });
         });
     }
@@ -743,35 +752,73 @@ class FinanceService
      */
     public function getMonthlySummary(User $user, int $year, int $month): array
     {
-        $transactions = Transaction::where('user_jid', $user->jid)
+        $aggregates = Transaction::where('user_jid', $user->jid)
             ->active()
             ->forMonth($year, $month)
-            ->with('category')
-            ->get();
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expense,
+                COUNT(*) as transaction_count
+            ")
+            ->first();
 
-        $totalIncome  = $transactions->where('type', 'INCOME')->sum('amount');
-        $totalExpense = $transactions->where('type', 'EXPENSE')->sum('amount');
+        $totalIncome = (int) ($aggregates->total_income ?? 0);
+        $totalExpense = (int) ($aggregates->total_expense ?? 0);
+        $transactionCount = (int) ($aggregates->transaction_count ?? 0);
 
-        // Category breakdown for expenses
-        $breakdown = $transactions
-            ->where('type', 'EXPENSE')
-            ->groupBy(fn($t) => $t->category?->name ?? 'Lain-lain')
-            ->map(fn($group) => [
-                'category_name' => $group->first()->category?->name ?? 'Lain-lain',
-                'icon'          => $group->first()->category?->icon ?? '📦',
-                'total_amount'  => $group->sum('amount'),
-                'count'         => $group->count(),
-            ])
-            ->sortByDesc('total_amount')
-            ->values()
-            ->toArray();
+        // Fallback for legacy rows where amount == 0
+        if ($transactionCount > 0 && $totalIncome === 0 && $totalExpense === 0) {
+            $transactions = Transaction::where('user_jid', $user->jid)
+                ->active()
+                ->forMonth($year, $month)
+                ->with('category')
+                ->get();
+
+            $totalIncome  = (int) $transactions->where('type', 'INCOME')->sum('amount');
+            $totalExpense = (int) $transactions->where('type', 'EXPENSE')->sum('amount');
+
+            $breakdown = $transactions
+                ->where('type', 'EXPENSE')
+                ->groupBy(fn($t) => $t->category?->name ?? 'Lain-lain')
+                ->map(fn($group) => [
+                    'category_name' => $group->first()->category?->name ?? 'Lain-lain',
+                    'icon'          => $group->first()->category?->icon ?? '📦',
+                    'total_amount'  => (int) $group->sum('amount'),
+                    'count'         => (int) $group->count(),
+                ])
+                ->sortByDesc('total_amount')
+                ->values()
+                ->toArray();
+        } else {
+            $breakdown = Transaction::where('transactions.user_jid', $user->jid)
+                ->active()
+                ->expenses()
+                ->forMonth($year, $month)
+                ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
+                ->selectRaw("
+                    COALESCE(categories.name, 'Lain-lain') as category_name,
+                    COALESCE(categories.icon, '📦') as icon,
+                    COALESCE(SUM(transactions.amount), 0) as total_amount,
+                    COUNT(transactions.id) as count
+                ")
+                ->groupBy('categories.id', 'categories.name', 'categories.icon')
+                ->orderByDesc('total_amount')
+                ->get()
+                ->map(fn($row) => [
+                    'category_name' => (string) $row->category_name,
+                    'icon'          => (string) $row->icon,
+                    'total_amount'  => (int) $row->total_amount,
+                    'count'         => (int) $row->count,
+                ])
+                ->toArray();
+        }
 
         return [
-            'total_income'       => (int) $totalIncome,
-            'total_expense'      => (int) $totalExpense,
-            'net_savings'        => (int) ($totalIncome - $totalExpense),
+            'total_income'       => $totalIncome,
+            'total_expense'      => $totalExpense,
+            'net_savings'        => $totalIncome - $totalExpense,
             'current_balance'    => $this->getBalance($user),
-            'transaction_count'  => $transactions->count(),
+            'transaction_count'  => $transactionCount,
             'category_breakdown' => $breakdown,
         ];
     }
@@ -783,15 +830,37 @@ class FinanceService
      */
     public function getDailySummary(User $user, string $date): array
     {
-        $transactions = Transaction::where('user_jid', $user->jid)
+        $aggregates = Transaction::where('user_jid', $user->jid)
             ->active()
             ->forDate($date)
-            ->get();
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expense,
+                COUNT(*) as transaction_count
+            ")
+            ->first();
+
+        $totalIncome = (int) ($aggregates->total_income ?? 0);
+        $totalExpense = (int) ($aggregates->total_expense ?? 0);
+        $transactionCount = (int) ($aggregates->transaction_count ?? 0);
+
+        if ($transactionCount > 0 && $totalIncome === 0 && $totalExpense === 0) {
+            $transactions = Transaction::where('user_jid', $user->jid)
+                ->active()
+                ->forDate($date)
+                ->get();
+
+            return [
+                'total_income'      => (int) $transactions->where('type', 'INCOME')->sum('amount'),
+                'total_expense'     => (int) $transactions->where('type', 'EXPENSE')->sum('amount'),
+                'transaction_count' => $transactions->count(),
+            ];
+        }
 
         return [
-            'total_income'      => (int) $transactions->where('type', 'INCOME')->sum('amount'),
-            'total_expense'     => (int) $transactions->where('type', 'EXPENSE')->sum('amount'),
-            'transaction_count' => $transactions->count(),
+            'total_income'      => $totalIncome,
+            'total_expense'     => $totalExpense,
+            'transaction_count' => $transactionCount,
         ];
     }
 

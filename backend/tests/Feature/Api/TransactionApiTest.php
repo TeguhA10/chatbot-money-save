@@ -193,5 +193,14 @@ class TransactionApiTest extends TestCase
         $trend->assertStatus(200);
         $this->assertIsArray($trend->json('data'));
         $this->assertCount(6, $trend->json('data'));
+
+        // 4. Consolidated Dashboard Feed
+        $feed = $this->getJson('/api/v1/analytics/dashboard-feed', $this->authHeaders());
+        $feed->assertStatus(200);
+        $feed->assertJson(['success' => true]);
+        $this->assertEquals(2000000, $feed->json('data.summary.total_income'));
+        $this->assertEquals(100000, $feed->json('data.summary.total_expense'));
+        $this->assertIsArray($feed->json('data.wallets.wallets'));
+        $this->assertIsArray($feed->json('data.recent_transactions'));
     }
 }
