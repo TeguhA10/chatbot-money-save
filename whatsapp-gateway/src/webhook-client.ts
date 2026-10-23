@@ -6,6 +6,7 @@ export interface WebhookPayload {
   push_name?: string;
   message_text: string;
   timestamp?: number;
+  is_voice_note?: boolean;
 }
 
 export interface WebhookResponse {

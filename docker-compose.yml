@@ -10,6 +10,7 @@ services:
       REDIS_PORT: 6379
       OCTANE_SERVER: frankenphp
       GATEWAY_OUTBOUND_URL: http://gateway:3001/send
+      VOICE_SERVICE_URL: http://voice-service:9000/transcribe
     ports: ["${BACKEND_PORT:-8001}:8000"]
     volumes:
       - backend_storage:/var/www/storage
@@ -34,6 +35,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       GATEWAY_OUTBOUND_URL: http://gateway:3001/send
+      VOICE_SERVICE_URL: http://voice-service:9000/transcribe
     volumes:
       - backend_storage:/var/www/storage
       - ./backend/app:/var/www/app
@@ -56,10 +58,26 @@ services:
     environment:
       LARAVEL_WEBHOOK_URL: http://backend:8000/api/webhook/whatsapp
       BAILEYS_AUTH_DIR: /data/auth_info_baileys
+      VOICE_SERVICE_URL: http://voice-service:9000/transcribe
     volumes: ["baileys_auth:/data/auth_info_baileys"]
     depends_on:
       backend: { condition: service_started }
+      voice-service: { condition: service_started }
     restart: unless-stopped
+
+  voice-service:
+    build: ./voice-service
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: tiny
+      WHISPER_LANGUAGE: id
+    volumes:
+      - whisper_cache:/root/.cache
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:9000/health\")' || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
 
   # postgres:
   #   image: postgres:16-alpine
@@ -117,3 +135,4 @@ volumes:
   baileys_auth: {}
   redis_data: {}
   postgres_data: {}
+  whisper_cache: {}

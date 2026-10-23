@@ -2,6 +2,7 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
+  downloadMediaMessage,
   type WASocket,
   type WACallEvent,
 } from '@whiskeysockets/baileys';
@@ -9,6 +10,7 @@ import pino from 'pino';
 import * as dotenv from 'dotenv';
 import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
+import axios from 'axios';
 import { OutboundQueue, QueuedMessage } from './queue.js';
 import { WebhookClient } from './webhook-client.js';
 import { createServer } from 'node:http';
@@ -37,6 +39,25 @@ const WEBHOOK_URL = process.env.LARAVEL_WEBHOOK_URL || 'http://127.0.0.1:8001/ap
 const WEBHOOK_SECRET = process.env.GATEWAY_WEBHOOK_SECRET || 'local_dev_secret_12345';
 const PAIRING_PHONE = process.env.PAIRING_PHONE_NUMBER ? process.env.PAIRING_PHONE_NUMBER.replace(/\D/g, '') : '';
 const AUTH_DIR = process.env.BAILEYS_AUTH_DIR || 'auth_info_baileys';
+const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || 'http://voice-service:9000/transcribe';
+
+async function transcribeAudio(audioBuffer: Buffer): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
+    formData.append('file', blob, 'voice.ogg');
+
+    const res = await axios.post<{ text?: string }>(VOICE_SERVICE_URL, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+
+    return res.data?.text?.trim() || null;
+  } catch (err: any) {
+    console.error('[Gateway] Local Voice Note transcription failed:', err?.message || err);
+    return null;
+  }
+}
 
 function resolvePort(): number {
   const argIdx = process.argv.indexOf('--port');
@@ -273,10 +294,49 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
   }
 
   const pushName = msg.pushName || '';
-  const messageText =
-    msg.message.conversation ||
-    msg.message.extendedTextMessage?.text ||
-    '';
+  const isAudio = Boolean(msg.message.audioMessage);
+  let messageText = '';
+  let isVoiceNote = false;
+
+  if (isAudio) {
+    isVoiceNote = true;
+    console.log(`[Gateway] 🎙️ Voice Note diterima dari ${pushName || 'User'} (${fromJid}). Mengunduh dan mentranskripsi via local whisper...`);
+    try {
+      const audioBuffer = await downloadMediaMessage(
+        msg,
+        'buffer',
+        {},
+        {
+          logger: pino({ level: 'silent' }),
+          reuploadRequest: sock?.updateMediaMessage,
+        }
+      );
+
+      if (audioBuffer && Buffer.isBuffer(audioBuffer)) {
+        const transcribed = await transcribeAudio(audioBuffer);
+        if (transcribed) {
+          messageText = transcribed;
+          console.log(`[Gateway] 🗣️ Voice Note berhasil ditranskrip secara lokal: "${messageText}"`);
+        }
+      }
+    } catch (err: any) {
+      console.error('[Gateway] Gagal mengunduh atau mentranskripsi audio:', err?.message || err);
+    }
+
+    if (!messageText.trim()) {
+      outboundQueue.enqueue({
+        jid: fromJid,
+        type: 'TEXT',
+        text: '⚠️ Maaf, rekaman suara tidak terdengar jelas atau sistem transkripsi lokal sedang memproses antrean. Silakan coba rekam ulang lebih dekat atau kirim teks secara manual. 🙏',
+      });
+      return;
+    }
+  } else {
+    messageText =
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      '';
+  }
 
   if (!messageText.trim()) {
     return;
@@ -293,7 +353,7 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
     return;
   }
 
-  console.log(`[Gateway] Pesan diterima dari ${pushName || 'User'} (${fromJid}) [konten disamarkan demi privasi]`);
+  console.log(`[Gateway] Pesan diproses untuk ${pushName || 'User'} (${fromJid}) [Voice: ${isVoiceNote}]`);
 
   // Relay to Laravel Webhook
   const response = await webhookClient.forwardMessage({
@@ -301,6 +361,7 @@ async function handleIncomingMessage(msg: WAMessage): Promise<void> {
     from_jid: fromJid,
     push_name: pushName,
     message_text: messageText,
+    is_voice_note: isVoiceNote,
     timestamp: typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp : Math.floor(Date.now() / 1000),
   });
 

@@ -103,12 +103,15 @@ class WebhookController extends Controller
         }
 
         $validated = $request->validate([
-            'message_id'   => 'required|string',
-            'from_jid'     => 'required|string',
-            'push_name'    => 'nullable|string',
-            'message_text' => 'required|string',
-            'timestamp'    => 'nullable|integer',
+            'message_id'    => 'required|string',
+            'from_jid'      => 'required|string',
+            'push_name'     => 'nullable|string',
+            'message_text'  => 'required|string',
+            'timestamp'     => 'nullable|integer',
+            'is_voice_note' => 'nullable|boolean',
         ]);
+
+        $isVoice = (bool) ($validated['is_voice_note'] ?? false);
 
         // Asynchronous ingestion option for Baileys Gateway (Fase 3 Decoupled Webhook)
         if ($request->header('X-Async-Processing') === 'true' || config('services.whatsapp.async_baileys', env('ASYNC_BAILEYS_WEBHOOK', false))) {
@@ -117,7 +120,9 @@ class WebhookController extends Controller
                 $validated['message_id'],
                 $validated['from_jid'],
                 $validated['push_name'] ?? '',
-                trim($validated['message_text'])
+                trim($validated['message_text']),
+                null,
+                $isVoice
             );
 
             return response()->json([
@@ -127,12 +132,22 @@ class WebhookController extends Controller
             ], 202);
         }
 
-        return $this->processMessage(
+        $res = $this->processMessage(
             $validated['message_id'],
             $validated['from_jid'],
             $validated['push_name'] ?? '',
             trim($validated['message_text'])
         );
+
+        if ($isVoice) {
+            $data = $res->getData(true);
+            if (!empty($data['reply_text'])) {
+                $data['reply_text'] = "🎤 _\"{$validated['message_text']}\"_\n\n" . $data['reply_text'];
+                return response()->json($data, $res->getStatusCode());
+            }
+        }
+
+        return $res;
     }
 
     /**
@@ -171,6 +186,8 @@ class WebhookController extends Controller
                     $messageId = $msg['id'] ?? Str::uuid()->toString();
                     $messageType = $msg['type'] ?? 'text';
                     $messageText = '';
+                    $isVoice = false;
+                    $mediaId = null;
 
                     if ($messageType === 'text') {
                         $messageText = trim($msg['text']['body'] ?? '');
@@ -181,9 +198,12 @@ class WebhookController extends Controller
                         } elseif (($interactive['type'] ?? '') === 'list_reply') {
                             $messageText = trim($interactive['list_reply']['id'] ?? $interactive['list_reply']['title'] ?? '');
                         }
+                    } elseif ($messageType === 'audio') {
+                        $isVoice = true;
+                        $mediaId = $msg['audio']['id'] ?? null;
                     }
 
-                    if ($messageText === '') {
+                    if ($messageText === '' && !$mediaId) {
                         continue;
                     }
 
@@ -194,7 +214,9 @@ class WebhookController extends Controller
                         $fromJid,
                         $contactName,
                         $messageText,
-                        $fromPhone
+                        $fromPhone,
+                        $isVoice,
+                        $mediaId
                     );
                     $queuedCount++;
                 }
