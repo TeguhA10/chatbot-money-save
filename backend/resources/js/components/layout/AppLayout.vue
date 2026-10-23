@@ -19,10 +19,10 @@
         <!-- Quick Action Button -->
         <button
           @click="openTransactionModal()"
-          class="w-full mb-6 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer active:scale-95"
+          class="w-full mb-6 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer active:scale-95"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          + Catat Transaksi
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>Catat Transaksi</span>
         </button>
 
         <!-- Navigation Links -->
@@ -141,42 +141,42 @@
     </aside>
 
     <!-- Mobile Top Navigation Header -->
-    <header class="md:hidden flex items-center justify-between p-4 bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1 shadow">
+    <header class="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center p-1 shadow">
           <img src="/images/logo.png" alt="HematWoy Logo" class="w-full h-full object-contain drop-shadow-[0_1px_4px_rgba(16,185,129,0.35)]" />
         </div>
-        <span class="font-bold text-base text-white">HematWoy</span>
+        <span class="font-bold text-sm text-white">HematWoy</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5">
         <!-- Upgrade or Extend Button on Mobile -->
         <button
           @click="openPricingModal('monthly')"
-          class="px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 shadow cursor-pointer active:scale-95 transition"
+          class="px-2 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 shadow cursor-pointer active:scale-95 transition"
           :class="isPro ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : 'bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950'"
         >
           <span>⭐</span>
-          <span>{{ isPro ? 'Perpanjang' : 'Pro' }}</span>
+          <span>{{ isPro ? 'Pro' : 'Upgrade' }}</span>
         </button>
 
         <!-- Privacy Eye on Mobile -->
         <button
           @click="vaultStore.toggleMask"
-          class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer"
+          class="p-1.5 rounded-lg bg-slate-800/90 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer text-xs"
           :title="vaultStore.isMasked ? 'Tampilkan Nominal' : 'Samarkan Nominal'"
         >
           <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
         </button>
         <button
           @click="openTransactionModal()"
-          class="p-2 rounded-lg bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 transition cursor-pointer"
+          class="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 transition cursor-pointer"
           title="Tambah Transaksi"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
         <button
           @click="showLogoutModal = true"
-          class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+          class="p-1.5 rounded-lg bg-slate-800/90 text-slate-400 hover:text-rose-400 transition cursor-pointer"
           title="Keluar"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/></svg>
@@ -186,7 +186,7 @@
 
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col min-w-0 h-full pb-20 md:pb-6 overflow-y-auto">
-      <div class="max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <div class="max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
         <slot />
       </div>
     </main>

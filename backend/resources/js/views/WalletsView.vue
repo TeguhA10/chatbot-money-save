@@ -1,132 +1,190 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-5 sm:space-y-6">
     <!-- Header Page -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-black text-white tracking-tight">Dompet & Rekening</h1>
-        <p class="text-xs text-slate-400 mt-0.5">Kelola multi-dompet & mutasi transfer dana</p>
+        <h1 class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+          <span>Dompet & Rekening</span>
+          <!-- Active sync indicator badge -->
+          <span
+            v-if="isSyncing"
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm animate-pulse"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>Memperbarui dompet...</span>
+          </span>
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5">Kelola multi-dompet, rekening bank, & mutasi transfer internal</p>
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <button
           @click="showTransferModal = true"
-          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-2 cursor-pointer transition active:scale-95"
         >
-          <span>⇄</span> Transfer Dana
+          <span>⇄</span>
+          <span>Transfer Dana</span>
         </button>
         <button
           @click="showWalletModal = true"
-          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          <span class="whitespace-nowrap">+ Dompet</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span class="whitespace-nowrap">Dompet Baru</span>
         </button>
       </div>
     </div>
 
-    <!-- TOTAL WEALTH BANNER -->
-    <div class="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
-      <div>
-        <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Total Saldo Dompet</span>
-        <p class="text-3xl font-black text-white mt-1 tracking-tight">
-          {{ formatRupiah(financeStore.totalBalance) }}
-        </p>
-        <p class="text-xs text-slate-400 mt-1">Tersebar di {{ financeStore.wallets.length }} rekening & dompet digital</p>
+    <!-- ERROR STATE ALERT WITH RETRY -->
+    <div
+      v-if="isError"
+      class="p-4 sm:p-5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in"
+    >
+      <div class="flex items-start gap-3">
+        <span class="text-2xl shrink-0">⚠️</span>
+        <div>
+          <h3 class="text-sm font-bold text-rose-200">Gagal Memuat Dompet</h3>
+          <p class="text-xs text-rose-300/90 mt-0.5 leading-relaxed">
+            {{ errorMessage || 'Terjadi gangguan koneksi saat mengambil daftar rekening dompet Anda.' }}
+          </p>
+        </div>
       </div>
-
-      <div class="flex items-center gap-2">
-        <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">
-          🛡️ Saldo Aman
-        </span>
-      </div>
-    </div>
-
-    <!-- WALLET CARDS GRID -->
-    <div v-if="financeStore.wallets.length === 0" class="py-12 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center flex flex-col items-center justify-center">
-      <div class="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-2xl mb-3 shadow-inner">
-        💳
-      </div>
-      <h3 class="text-sm font-bold text-white mb-1">Belum Ada Dompet Terdaftar</h3>
-      <p class="text-xs text-slate-400 max-w-sm mb-4">
-        Tambahkan rekening bank, dompet tunai, atau e-wallet (GoPay, OVO, ShopeePay) untuk mulai mengelola saldo dan transaksi.
-      </p>
       <button
-        @click="showWalletModal = true"
-        type="button"
-        class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
+        @click="loadWallets"
+        class="self-start sm:self-auto px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-md"
       >
-        + Tambah Dompet Pertama
+        <span>🔄 Coba Lagi</span>
       </button>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      <div
-        v-for="wallet in financeStore.wallets"
-        :key="wallet.id"
-        class="p-6 rounded-2xl border relative overflow-hidden flex flex-col justify-between h-48 transition hover:scale-[1.01]"
-        :class="getCardStyle(wallet.type)"
-      >
-        <!-- Top bar: Type and Default badge -->
-        <div class="flex items-center justify-between relative z-10">
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">{{ getWalletIcon(wallet.type) }}</span>
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">{{ wallet.type }}</span>
-          </div>
-          <span
-            v-if="wallet.is_default"
-            class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-          >
-            Utama
-          </span>
-        </div>
-
-        <!-- Middle: Wallet Name -->
-        <div class="relative z-10">
-          <h3 class="text-lg font-bold text-white tracking-wide">{{ wallet.name }}</h3>
-          <p class="text-xs text-slate-400">Rekening Terhubung</p>
-        </div>
-
-        <!-- Bottom: Balance -->
-        <div class="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
-          <span class="text-[11px] text-slate-400">Saldo Saat Ini</span>
-          <span class="text-lg font-black text-white tracking-tight">{{ formatRupiah(wallet.balance) }}</span>
-        </div>
+    <!-- SKELETON LOADER (Initial Cold Mount) -->
+    <div v-if="isInitialLoading" class="space-y-5 animate-in fade-in duration-150">
+      <div class="h-32 rounded-3xl bg-slate-900 border border-slate-800/80 animate-pulse p-6"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div v-for="i in 3" :key="i" class="h-48 rounded-2xl bg-slate-900 border border-slate-800/80 animate-pulse p-6"></div>
       </div>
     </div>
 
-    <!-- TRANSFER HISTORY PREVIEW -->
-    <div class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h2 class="text-base font-bold text-white">Riwayat Mutasi Transfer</h2>
-          <p class="text-xs text-slate-400">Perpindahan dana internal antar dompet</p>
+    <!-- MAIN WALLETS CONTENT -->
+    <template v-else>
+      <div :class="isSyncing ? 'opacity-70 transition-opacity pointer-events-none' : 'transition-opacity'" class="space-y-5 sm:space-y-6">
+        <!-- TOTAL WEALTH BANNER -->
+        <div class="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Total Saldo Dompet</span>
+            <p class="text-3xl font-black text-white mt-1 tracking-tight">
+              {{ formatRupiah(financeStore.totalBalance) }}
+            </p>
+            <p class="text-xs text-slate-400 mt-1">Tersebar di {{ financeStore.wallets.length }} rekening & dompet digital</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+              <span>🛡️</span>
+              <span>Saldo Aman & Terenkripsi</span>
+            </span>
+          </div>
         </div>
-        <RouterLink to="/transactions?type=TRANSFER" class="text-xs font-semibold text-blue-400 hover:underline">
-          Lihat Semua ➔
-        </RouterLink>
-      </div>
 
-      <div v-if="transferTransactions.length === 0" class="py-8 text-center text-slate-500 text-xs">
-        Belum ada riwayat transfer antar dompet.
-      </div>
-
-      <div v-else class="space-y-2.5">
+        <!-- EMPTY STATE (Only rendered after loading completes and truly empty) -->
         <div
-          v-for="item in transferTransactions"
-          :key="item.id"
-          class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs"
+          v-if="financeStore.wallets.length === 0"
+          class="py-16 px-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center flex flex-col items-center justify-center space-y-3"
         >
-          <div class="flex items-center gap-3">
-            <span class="p-2 rounded-lg bg-blue-500/10 text-blue-400 font-bold">⇄</span>
-            <div>
-              <p class="font-semibold text-slate-200">{{ item.description }}</p>
-              <p class="text-[11px] text-slate-400">{{ formatDate(item.transaction_date) }}</p>
+          <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-3xl shadow-inner">
+            💳
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-sm sm:text-base font-bold text-white">Belum Ada Dompet Terdaftar</h3>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+              Tambahkan rekening bank, dompet tunai (Cash), atau e-wallet (GoPay, OVO, ShopeePay) untuk mulai mengelola saldo dan transaksi.
+            </p>
+          </div>
+          <div class="pt-2">
+            <button
+              @click="showWalletModal = true"
+              type="button"
+              class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20 cursor-pointer active:scale-95"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              <span>Tambah Dompet Pertama</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- WALLET CARDS GRID -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div
+            v-for="wallet in financeStore.wallets"
+            :key="wallet.id"
+            class="p-6 rounded-2xl border relative overflow-hidden flex flex-col justify-between h-48 transition hover:scale-[1.01] shadow-md"
+            :class="getCardStyle(wallet.type)"
+          >
+            <!-- Top bar: Type and Default badge -->
+            <div class="flex items-center justify-between relative z-10">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">{{ getWalletIcon(wallet.type) }}</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">{{ wallet.type }}</span>
+              </div>
+              <span
+                v-if="wallet.is_default"
+                class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+              >
+                Utama
+              </span>
+            </div>
+
+            <!-- Middle: Wallet Name -->
+            <div class="relative z-10">
+              <h3 class="text-lg font-bold text-white tracking-wide truncate">{{ wallet.name }}</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Rekening Terhubung</p>
+            </div>
+
+            <!-- Bottom: Balance -->
+            <div class="relative z-10 pt-2 border-t border-white/10 flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">Saldo Saat Ini</span>
+              <span class="text-lg font-black text-white tracking-tight">{{ formatRupiah(wallet.balance) }}</span>
             </div>
           </div>
-          <span class="font-bold text-blue-400">{{ formatRupiah(item.amount) }}</span>
+        </div>
+
+        <!-- TRANSFER HISTORY PREVIEW -->
+        <div class="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-white">Riwayat Mutasi Transfer</h2>
+              <p class="text-xs text-slate-400">Perpindahan dana internal antar dompet</p>
+            </div>
+            <RouterLink to="/transactions?type=TRANSFER" class="text-xs font-semibold text-blue-400 hover:underline">
+              Lihat Semua ➔
+            </RouterLink>
+          </div>
+
+          <div v-if="transferTransactions.length === 0" class="py-10 text-center text-slate-500 text-xs">
+            Belum ada riwayat transfer antar dompet.
+          </div>
+
+          <div v-else class="space-y-2.5">
+            <div
+              v-for="item in transferTransactions"
+              :key="item.id"
+              class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs hover:bg-slate-900/50 transition"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 font-bold flex items-center justify-center shrink-0 border border-blue-500/20">
+                  ⇄
+                </span>
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-200 truncate">{{ item.description }}</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">{{ formatDate(item.transaction_date) }}</p>
+                </div>
+              </div>
+              <span class="font-black text-sm text-blue-400 whitespace-nowrap ml-3">{{ formatRupiah(item.amount) }}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- Modals -->
     <TransferModal
@@ -153,6 +211,11 @@ import WalletModal from '../components/modals/WalletModal.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+
+const isInitialLoading = ref(!financeStore.hasLoadedWallets);
+const isSyncing = ref(false);
+const isError = ref(false);
+const errorMessage = ref('');
 
 function formatRupiah(val) {
   if (vaultStore.isMasked) return 'Rp ••••••••';
@@ -186,11 +249,31 @@ function getCardStyle(type) {
   return 'bg-gradient-to-br from-slate-900 via-slate-800/40 to-slate-900 border-slate-700 shadow-lg';
 }
 
-async function loadWallets() {
-  await Promise.allSettled([
-    financeStore.fetchWallets(),
-    financeStore.fetchTransactions({ limit: 20 }),
-  ]);
+async function loadWallets(force = false) {
+  if (!financeStore.hasLoadedWallets) {
+    isInitialLoading.value = true;
+  } else {
+    isInitialLoading.value = false;
+    isSyncing.value = true;
+  }
+
+  isError.value = false;
+  errorMessage.value = '';
+
+  try {
+    await Promise.all([
+      financeStore.fetchWallets(force),
+      financeStore.fetchTransactions({ limit: 20 }, force),
+    ]);
+  } catch (err) {
+    if (!financeStore.hasLoadedWallets) {
+      isError.value = true;
+      errorMessage.value = err.response?.data?.message || err.message || 'Gagal mengambil data dompet.';
+    }
+  } finally {
+    isInitialLoading.value = false;
+    isSyncing.value = false;
+  }
 }
 
 onMounted(() => {
