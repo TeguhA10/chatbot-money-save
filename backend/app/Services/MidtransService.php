@@ -438,11 +438,8 @@ class MidtransService
                 'source_order_id' => $order->order_id,
             ]);
 
-            try {
-                $this->notificationService?->sendPaymentSuccessNotification($order, $user);
-            } catch (\Throwable $e) {
-                Log::warning('Failed sending payment notification via MidtransService: ' . $e->getMessage());
-            }
+            // Dispatch payment success WhatsApp notification to background worker queue
+            \App\Jobs\SendPaymentSuccessNotificationJob::dispatch($order->order_id, $user->jid);
 
             return $order;
         });

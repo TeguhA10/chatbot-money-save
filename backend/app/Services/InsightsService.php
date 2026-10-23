@@ -115,29 +115,8 @@ class InsightsService
             ->pluck('user_jid');
 
         $sentCount = 0;
-        $gatewayUrl = config('services.gateway.url', 'http://127.0.0.1:3000');
-
         foreach ($activeUserJids as $jid) {
-            $user = User::where('jid', $jid)->where('is_active', true)->first();
-            if (!$user || !$this->isDailyDigestEnabled($user)) {
-                continue;
-            }
-
-            $card = $this->generateDailyDigestCard($user, $today);
-            if (!$card) {
-                continue;
-            }
-
-            // Attempt sending via gateway sidecar
-            try {
-                Http::timeout(3)->post("{$gatewayUrl}/send-message", [
-                    'jid'     => $user->jid,
-                    'message' => $card,
-                ]);
-            } catch (\Throwable) {
-                // Non-fatal if gateway is currently offline
-            }
-
+            \App\Jobs\SendDailyDigestJob::dispatch($jid, $today);
             $sentCount++;
         }
 

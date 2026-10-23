@@ -145,11 +145,8 @@ class PaymentCheckoutController extends Controller
         $order->refresh();
         if ($user) {
             $user->refresh();
-            try {
-                $this->notificationService?->sendPaymentSuccessNotification($order, $user);
-            } catch (\Throwable $e) {
-                Log::warning('PaymentCheckoutController: Error sending simulation notification: ' . $e->getMessage());
-            }
+            // Dispatch payment success WhatsApp notification to background worker queue
+            \App\Jobs\SendPaymentSuccessNotificationJob::dispatch($order->order_id, $user->jid);
         }
 
         return response()->json([

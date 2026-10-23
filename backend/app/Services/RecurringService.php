@@ -155,46 +155,13 @@ class RecurringService
         $processed = [];
 
         foreach ($dueSchedules as $schedule) {
-            try {
-                DB::transaction(function () use ($schedule, &$processed) {
-                    $user = $schedule->user;
-                    if (!$user || !$user->is_active) {
-                        return;
-                    }
-
-                    $amount = $schedule->amount;
-                    $memo = "{$schedule->description} (Otomatis)";
-
-                    $this->financeService->recordTransaction($user, [
-                        'type'        => $schedule->type,
-                        'amount'      => $amount,
-                        'description' => $memo,
-                        'category_id' => $schedule->category_id,
-                        'wallet_id'   => $schedule->wallet_id,
-                    ]);
-
-                    // Advance to next cycle
-                    $currentRun = Carbon::parse($schedule->next_run_date);
-                    $nextRun = $this->calculateNextRunDate((int) $schedule->day_of_month, $currentRun);
-
-                    $schedule->update([
-                        'last_run_at'   => now(),
-                        'next_run_date' => $nextRun->toDateString(),
-                    ]);
-
-                    $processed[] = [
-                        'schedule_id' => $schedule->id,
-                        'user_jid'    => $user->jid,
-                        'description' => $schedule->description,
-                        'amount'      => $amount,
-                    ];
-                });
-            } catch (\Throwable $e) {
-                Log::error('RecurringService: Failed processing schedule', [
-                    'schedule_id' => $schedule->id,
-                    'error'       => $e->getMessage(),
-                ]);
-            }
+            \App\Jobs\ProcessRecurringScheduleJob::dispatch($schedule->id);
+            $processed[] = [
+                'schedule_id' => $schedule->id,
+                'user_jid'    => $schedule->user_jid,
+                'description' => $schedule->description,
+                'amount'      => $schedule->amount,
+            ];
         }
 
         return $processed;

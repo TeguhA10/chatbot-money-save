@@ -18,3 +18,5 @@ services:
         value: "true"
       - key: QUEUE_CONNECTION
         value: sync
+      - key: ENABLE_SCHEDULER
+        value: "true"

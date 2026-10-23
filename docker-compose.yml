@@ -36,6 +36,7 @@ services:
       REDIS_PORT: 6379
       GATEWAY_OUTBOUND_URL: http://gateway:3001/send
       VOICE_SERVICE_URL: http://voice-service:9000/transcribe
+      ENABLE_SCHEDULER: "true"
     volumes:
       - backend_storage:/var/www/storage
       - ./backend/app:/var/www/app
@@ -43,6 +44,7 @@ services:
       - ./backend/config:/var/www/config
       - ./backend/resources:/var/www/resources
       - ./backend/database:/var/www/database
+      - ./backend/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'artisan queue:work' > /dev/null || exit 1"]
       interval: 15s

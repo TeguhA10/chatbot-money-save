@@ -29,5 +29,11 @@ if [ -n "$PORT" ] && [ "$PORT" != "8000" ]; then
     set -- $(echo "$@" | sed "s/--port=8000/--port=$PORT/g")
 fi
 
+# Start Laravel scheduler daemon in background if enabled
+if [ "$ENABLE_SCHEDULER" = "true" ]; then
+    echo "Starting Laravel background scheduler daemon (schedule:work)..."
+    php artisan schedule:work &
+fi
+
 # Execute passed command (defaults to Octane FrankenPHP)
 exec "$@"

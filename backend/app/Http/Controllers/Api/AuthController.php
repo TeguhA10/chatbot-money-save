@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Jobs\SendWhatsAppOtpJob;
 use App\Models\User;
 use App\Services\FinanceService;
 use App\Services\WhatsAppNotificationService;
@@ -87,10 +88,10 @@ class AuthController extends Controller
         $history = array_slice($history, -3); // keep last 3 valid OTPs
         Cache::put("otp_history:{$jid}", $history, now()->addMinutes(5));
 
-        // Send OTP via WhatsApp (Meta WhatsApp Cloud API or Baileys Gateway)
-        $delivered = $this->whatsappService->sendOtp($phone, $otp);
+        // Dispatch OTP delivery asynchronously via background worker queue
+        \App\Jobs\SendWhatsAppOtpJob::dispatch($phone, $otp);
 
-        \Illuminate\Support\Facades\Log::info("OTP dispatch for {$jid} (" . ($delivered ? 'delivered' : 'pending') . ")");
+        \Illuminate\Support\Facades\Log::info("OTP job dispatched to queue worker for {$jid}");
 
         return response()->json([
             'success'   => true,
