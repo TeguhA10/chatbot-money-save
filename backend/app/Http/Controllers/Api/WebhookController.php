@@ -6,6 +6,7 @@ use App\Models\BotMenu;
 use App\Models\Budget;
 use App\Models\FinancialGoal;
 use App\Models\ProcessedMessage;
+use App\Models\PaymentOrder;
 use App\Models\RecurringSchedule;
 use App\Models\SubscriptionPlan;
 use App\Models\Transaction;
@@ -374,8 +375,48 @@ class WebhookController extends Controller
         $lowerText = strtolower(trim($messageText));
         $userName = $user->display_name ?: 'Kak';
 
-        // 1. Greetings (Halo, Hai, Assalamualaikum, Selamat Pagi/Siang/Malam, P, Ping)
-        if (preg_match('/^(?:halo+|hai+|hey+|hei+|hello+|hi+|p+|ping|assalam(?:u[\'\’]?alaikum)?|samlikum|selamat\s+(?:pagi|siang|sore|malam)|pagi|siang|sore|malam)$/i', $lowerText)) {
+        // =====================================================================
+        // WEB-TO-WHATSAPP SMART INTENT ROUTERS
+        // =====================================================================
+
+        // A. Payment Confirmation Handler (from CustomPaymentModal.vue or manual user message)
+        // Matches e.g.: "Halo Admin HematWoy, saya mau konfirmasi pembayaran Order HW-PRO-..."
+        if (preg_match('/(?:konfirmasi(?:\s+pembayaran)?|bukti\s+transfer|sudah\s+transfer|sudah\s+bayar|cek\s+pembayaran)/i', $lowerText)) {
+            return $this->handlePaymentConfirmationIntent($user, $messageText, $userName);
+        }
+
+        // B. Pro Upgrade Celebration Handler (from CheckoutView.vue)
+        // Matches: "Halo HematWoy, saya sudah upgrade ke Pro!"
+        if (preg_match('/(?:sudah\s+upgrade(?:\s+ke)?\s+pro|sudah\s+pro|baru\s+upgrade|selesai\s+upgrade)/i', $lowerText)) {
+            return $this->handleUpgradeCelebrationIntent($user, $userName);
+        }
+
+        // C. Privacy & Data Security Inquiry (from PrivacyView.vue)
+        // Matches: "Halo HematWoy, saya ingin bertanya seputar Kebijakan Privasi dan Data."
+        if (preg_match('/(?:kebijakan\s+privasi|privasi\s+dan\s+data|kebijakan\s+data|keamanan\s+data|tanya\s+privasi|data\s+saya\s+aman)/i', $lowerText)) {
+            return $this->handlePrivacyPolicyIntent($user, $userName);
+        }
+
+        // D. Web Onboarding / Trial Intent (from LandingPage, Navbar, Simulator, Dashboard, Paywall)
+        // Matches:
+        // "Halo HematWoy, saya mau coba catat keuangan!"
+        // "Halo HematWoy, saya mau catat keuangan!"
+        // "Halo HematWoy, saya mau coba catat keuangan gratis di WhatsApp!"
+        if (
+            preg_match('/^(?:halo|hai|hey|hei|hello)\s+(?:admin\s+)?hematwoy[,.!]?\s*(?:saya\s+)?(?:mau|pengen|ingin|siap)?\s*(?:coba\s+)?catat(?:\s+keuangan)?(?:\s+gratis)?(?:\s+di\s+whatsapp)?!*$/i', $lowerText)
+            || preg_match('/^(?:coba\s+catat(?:\s+keuangan)?|mau\s+catat\s+keuangan|mau\s+coba\s+catat|mulai\s+catat(?:\s+keuangan)?)[.!]?$/i', $lowerText)
+        ) {
+            return $this->handleWebOnboardingIntent($user, $userName);
+        }
+
+        // E. Quick Tutorial / How-To
+        // Matches: "cara pakainya gimana", "bisa apa aja", "ini bot apa", "tutorial"
+        if (preg_match('/^(?:cara\s+pakai(?:nya)?(?:\s+gimana)?|bisa\s+apa\s+aja|ini\s+bot\s+apa|tutorial|panduan\s+singkat)[.?!]*$/i', $lowerText)) {
+            return $this->handleTutorialIntent($user, $userName);
+        }
+
+        // 1. Greetings (Halo, Hai, Assalamualaikum, Selamat Pagi/Siang/Malam, P, Ping, Halo HematWoy)
+        if (preg_match('/^(?:halo+|hai+|hey+|hei+|hello+|hi+|p+|ping|assalam(?:u[\'\’]?alaikum)?|samlikum|selamat\s+(?:pagi|siang|sore|malam)|pagi|siang|sore|malam)(?:\s+(?:hematwoy|min|admin|kak|bot|woy))?[.!]?$/i', $lowerText)) {
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => "👋 Halo *{$userName}*! Selamat datang di *HematWoy* 💰\n\n"
@@ -1895,6 +1936,292 @@ class WebhookController extends Controller
                 'reply_text' => "⚠️ Gagal menyimpan transaksi. Coba lagi ya!\n\nContoh format:\n_keluar 25000 makan siang_",
             ]);
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Web-to-WhatsApp Smart Intent Handlers
+    // ---------------------------------------------------------------------------
+
+    private function handlePaymentConfirmationIntent(User $user, string $messageText, string $userName): JsonResponse
+    {
+        $orderId = null;
+        if (preg_match('/(?:HW-PRO-[A-Za-z0-9\-]+|ORDER-[A-Za-z0-9\-]+|[A-Za-z0-9\-]{10,40})/i', $messageText, $matches)) {
+            $orderId = trim($matches[0]);
+        }
+
+        $order = null;
+        if ($orderId) {
+            $order = PaymentOrder::where('order_id', $orderId)->first()
+                ?? PaymentOrder::where('order_id', 'like', "%{$orderId}%")->first();
+        }
+
+        if (!$order) {
+            $order = PaymentOrder::where('user_jid', $user->jid)->latest('created_at')->first();
+        }
+
+        if ($order) {
+            // If still pending, query Midtrans API in real-time
+            if ($order->status !== 'SETTLEMENT' && !$order->paid_at) {
+                try {
+                    $this->midtrans->checkOrderStatus($order->order_id);
+                    $order->refresh();
+                } catch (\Throwable $e) {
+                    Log::warning("Order check error: " . $e->getMessage());
+                }
+            }
+
+            if ($order->status === 'SETTLEMENT' || $order->paid_at) {
+                $user->refresh();
+                $expiry = $user->subscription_expires_at ? $user->subscription_expires_at->translatedFormat('d F Y') : '-';
+                $reply = "🎉 *Pembayaran Terkonfirmasi!* 🚀\n\n"
+                    . "Halo *{$userName}*, pesanan dengan ID `{$order->order_id}` sudah *BERHASIL TERKONFIRMASI*!\n\n"
+                    . "⭐ *Status Akun :* HEMATWOY PRO (Aktif)\n"
+                    . "📅 *Masa Aktif  :* Sampai *{$expiry}*\n"
+                    . "💬 *Kuota Pesan :* Unlimited (Tanpa Batas)\n"
+                    . "💼 *Fitur Pro   :* Multi-Dompet, Ekspor Excel, Budget & Target\n\n"
+                    . "Terima kasih telah berlangganan! Silakan ketik `saldo` atau `web` untuk menikmati seluruh fitur Pro. 😊";
+
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => $reply,
+                    'interactive' => [
+                        'type' => 'button',
+                        'header' => ['type' => 'text', 'text' => '🎉 Pembayaran Terkonfirmasi'],
+                        'body' => ['text' => $reply],
+                        'footer' => ['text' => 'Pilih aksi cepat di bawah'],
+                        'action' => [
+                            'buttons' => [
+                                ['type' => 'reply', 'reply' => ['id' => 'saldo', 'title' => 'Cek Saldo']],
+                                ['type' => 'reply', 'reply' => ['id' => 'web', 'title' => 'Buka Web']],
+                                ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Menu Lengkap']],
+                            ],
+                        ],
+                    ],
+                ]);
+            }
+
+            $formattedAmount = $this->formatRupiah((int) $order->gross_amount);
+            $orderCreatedAt = $order->created_at ? $order->created_at->format('d/m/Y H:i') : '-';
+            $payUrl = $order->payment_url ?: url("/pay/{$order->order_id}");
+
+            $reply = "⏳ *Status Pesanan: Menunggu Pembayaran*\n\n"
+                . "Halo *{$userName}*, pesanan kamu dengan ID `{$order->order_id}` saat ini masih berstatus *MENUNGGU PEMBAYARAN*.\n\n"
+                . "📦 *Rincian Pesanan:*\n"
+                . "• Total: *{$formattedAmount}*\n"
+                . "• Tanggal Dibuat: *{$orderCreatedAt}*\n"
+                . "• Link Bayar: {$payUrl}\n\n"
+                . "💡 *Sudah menyelesaikan pembayaran?*\n"
+                . "Jika kamu sudah transfer / scan QRIS namun status belum berubah otomatis, silakan kirimkan foto / screenshot struk bukti transfer ke chat ini ya. Tim admin kami akan segera membantu verifikasi manual dalam 1-5 menit! 🙏";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $reply,
+            ]);
+        }
+
+        $reply = "🔍 *Konfirmasi Pembayaran HematWoy*\n\n"
+            . "Halo *{$userName}*! Untuk membantu proses verifikasi pembayaran langgananmu:\n\n"
+            . "1️⃣ Sertakan *Nomor Order ID* (contoh: `konfirmasi pembayaran HW-PRO-20261024-XXXX`).\n"
+            . "2️⃣ Atau kirimkan foto / screenshot bukti transfer di chat ini.\n\n"
+            . "Tim admin kami siap membantu mengecek akunmu secepatnya! 😊";
+
+        return response()->json([
+            'action'     => 'REPLY_TEXT',
+            'reply_text' => $reply,
+        ]);
+    }
+
+    private function handleUpgradeCelebrationIntent(User $user, string $userName): JsonResponse
+    {
+        $isPro = $user->hasActivePremium();
+        $webUrl = url('/');
+
+        if ($isPro) {
+            $expiry = $user->subscription_expires_at ? $user->subscription_expires_at->translatedFormat('d F Y') : '-';
+            $reply = "🎉 *Selamat Bergabung di HematWoy Pro, {$userName}!* ⭐\n\n"
+                . "Akun Pro kamu telah aktif sampai *{$expiry}*! Mulai sekarang, kelola keuanganmu tanpa rasa khawatir:\n\n"
+                . "✨ *Fitur Spesial yang Kini Aktif:*\n"
+                . "✅ *Pencatatan Tanpa Batas:* Kuota pesan finansialmu UNLIMITED.\n"
+                . "✅ *Multi-Dompet:* Kelola BCA, Mandiri, Cash, GoPay, OVO (ketik `tambah dompet BCA 1jt`).\n"
+                . "✅ *Laporan Excel Resmi:* Unduh rekap pembukuan siap pakai kapan pun (ketik `export excel`).\n"
+                . "✅ *Budget & Target Impian:* Atur batas belanja & tabungan (ketik `budget 3jt`).\n"
+                . "✅ *Web Dashboard Visual:* Pantau grafik analitik interaktif di: {$webUrl}\n\n"
+                . "Yuk langsung mulai catat transaksimu sekarang! 😊\n"
+                . "Contoh: `keluar 50rb makan siang via bca`";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $reply,
+                'interactive' => [
+                    'type' => 'button',
+                    'header' => ['type' => 'text', 'text' => '⭐ HematWoy Pro Aktif'],
+                    'body' => ['text' => $reply],
+                    'footer' => ['text' => 'Pilih aksi cepat di bawah'],
+                    'action' => [
+                        'buttons' => [
+                            ['type' => 'reply', 'reply' => ['id' => 'saldo', 'title' => 'Cek Saldo']],
+                            ['type' => 'reply', 'reply' => ['id' => 'web', 'title' => 'Buka Dashboard']],
+                            ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Lihat Menu']],
+                        ],
+                    ],
+                ],
+            ]);
+        }
+
+        $reply = "👋 *Halo {$userName}!* Terima kasih sudah melakukan upgrade ke Pro!\n\n"
+            . "Jika kamu baru saja menyelesaikan pembayaran QRIS/Transfer, sistem biasanya membutuhkan waktu 10-30 detik untuk verifikasi otomatis.\n\n"
+            . "💡 *Pilihan Cepat:*\n"
+            . "• Ketik `status langganan` untuk cek aktivasi paket.\n"
+            . "• Ketik `konfirmasi pembayaran` jika kamu butuh bantuan admin verifikasi bukti transfer.";
+
+        return response()->json([
+            'action'     => 'REPLY_TEXT',
+            'reply_text' => $reply,
+        ]);
+    }
+
+    private function handlePrivacyPolicyIntent(User $user, string $userName): JsonResponse
+    {
+        $reply = "🔒 *Kebijakan Privasi & Keamanan Data HematWoy* 🛡️\n\n"
+            . "Halo *{$userName}*! Kami sangat menghargai perhatianmu terhadap privasi dan keamanan finansial. Di HematWoy, privasimu adalah komitmen utama kami:\n\n"
+            . "🛡️ *4 Standar Keamanan & Privasi Kami:*\n"
+            . "1️⃣ 🔐 *Zero-Knowledge & Enkripsi Standar Perbankan (AES-256):*\n"
+            . "Nominal transaksi dan saldo disimpan dengan enkripsi kuat. Dengan fitur Master PIN / Privacy Mode, hanya kamu yang memegang kunci untuk membuka nominal sensitifmu. Server kami tidak dapat melihat nominalmu tanpa PIN kamu.\n\n"
+            . "2️⃣ 🚫 *Zero Data Selling (100% Anti Jual-Beli Data):*\n"
+            . "Data keuanganmu adalah aset pribadimu. Kami *TIDAK PERNAH* dan *TIDAK AKAN PERNAH* menjual, menyewakan, atau membagikan riwayat transaksimu kepada pihak ketiga, pengiklan, lembaga pinjol, atau pihak mana pun.\n\n"
+            . "3️⃣ 🗑️ *Hak Hapus Data Permanen (Right to be Forgotten):*\n"
+            . "Kamu memiliki kendali penuh atas datamu. Kapan pun kamu mau, kamu bisa menghapus seluruh riwayat data transaksi secara permanen hanya dengan mengetik `hapus data saya`.\n\n"
+            . "4️⃣ 🇮🇩 *Kepatuhan Regulasi:*\n"
+            . "Sistem kami dirancang mengacu pada standar Undang-Undang Perlindungan Data Pribadi (UU PDP No. 27/2022).\n\n"
+            . "Ada hal spesifik yang ingin kamu tanyakan atau butuh bantuan setup akun? Silakan ketik langsung pertanyaanmu ya, tim kami siap membantu! 😊";
+
+        return response()->json([
+            'action'     => 'REPLY_TEXT',
+            'reply_text' => $reply,
+            'interactive' => [
+                'type' => 'button',
+                'header' => ['type' => 'text', 'text' => '🔒 Privasi & Keamanan Data'],
+                'body' => ['text' => $reply],
+                'footer' => ['text' => 'Pilih aksi cepat di bawah'],
+                'action' => [
+                    'buttons' => [
+                        ['type' => 'reply', 'reply' => ['id' => 'set pin', 'title' => 'Atur Master PIN']],
+                        ['type' => 'reply', 'reply' => ['id' => 'web', 'title' => 'Buka Web']],
+                        ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Panduan Fitur']],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function handleWebOnboardingIntent(User $user, string $userName): JsonResponse
+    {
+        $hasPin = $user->pin_status === 'ACTIVE';
+
+        if (!$hasPin) {
+            $reply = "👋 *Halo {$userName}! Selamat datang di HematWoy* 💰\n"
+                . "Asisten keuangan cerdas harianmu langsung dari WhatsApp!\n\n"
+                . "Keren banget kamu mulai peduli merapikan keuanganmu hari ini. 🚀\n\n"
+                . "🔒 *Langkah Awal (Kerahasiaan Data Pribadi):*\n"
+                . "Sebelum transaksi pertama, buat Master PIN pengaman akunmu dulu yuk (min. 6 karakter, bebas kombinasi angka atau kata sandi):\n"
+                . "👉 Cukup ketik: `set pin 123456`\n"
+                . "_(Nominal transaksimu akan dienkripsi rapat sehingga hanya kamu yang bisa membacanya)_\n\n"
+                . "⚡ *Setelah PIN aktif, kamu bisa langsung catat santai:*\n"
+                . "• 💸 *Pengeluaran:* `keluar 25rb makan siang`\n"
+                . "• 💰 *Pemasukan:* `masuk 5jt gaji bulanan`\n"
+                . "• 📊 *Cek Saldo:* `saldo`\n"
+                . "• 🌐 *Dashboard Web:* `web`\n\n"
+                . "Yuk ketik `set pin <pin_pilihanmu>` sekarang untuk mulai! 😊";
+
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => $reply,
+                'interactive' => [
+                    'type' => 'button',
+                    'header' => ['type' => 'text', 'text' => '👋 Selamat Datang di HematWoy'],
+                    'body' => ['text' => $reply],
+                    'footer' => ['text' => 'Mulai dengan membuat PIN'],
+                    'action' => [
+                        'buttons' => [
+                            ['type' => 'reply', 'reply' => ['id' => 'set pin 123456', 'title' => 'Contoh Buat PIN']],
+                            ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Panduan Menu']],
+                        ],
+                    ],
+                ],
+            ]);
+        }
+
+        $reply = "👋 *Halo {$userName}! Siap mencatat keuanganmu hari ini?* 💰\n\n"
+            . "Akunmu sudah aktif dan terlindungi enkripsi rapat! Kamu bisa langsung mencatat pengeluaran atau pemasukan secara instan tanpa ribet:\n\n"
+            . "⚡ *Contoh Perintah Cepat:*\n"
+            . "• 💸 *Pengeluaran:*\n"
+            . "  👉 `keluar 25rb makan siang`\n"
+            . "  👉 `beli kopi 18k via gopay`\n\n"
+            . "• 💰 *Pemasukan:*\n"
+            . "  👉 `masuk 5jt gaji bulanan`\n"
+            . "  👉 `+500rb freelance desain`\n\n"
+            . "• 📊 *Inquiry & Kontrol:*\n"
+            . "  👉 `saldo` (cek rincian saldo semua dompet)\n"
+            . "  👉 `rekap hari ini` (laporan pengeluaran hari ini)\n"
+            . "  👉 `web` (buka dashboard grafik visual di browser)\n\n"
+            . "💡 *Coba sekarang yuk!* Kirim pesan pengeluaran terbarumu, misal:\n"
+            . "`keluar 15rb kopi susu`";
+
+        return response()->json([
+            'action'     => 'REPLY_TEXT',
+            'reply_text' => $reply,
+            'interactive' => [
+                'type' => 'button',
+                'header' => ['type' => 'text', 'text' => '💰 Catat Keuangan Cepat'],
+                'body' => ['text' => $reply],
+                'footer' => ['text' => 'Ketik transaksi atau pilih aksi di bawah'],
+                'action' => [
+                    'buttons' => [
+                        ['type' => 'reply', 'reply' => ['id' => 'saldo', 'title' => 'Cek Saldo']],
+                        ['type' => 'reply', 'reply' => ['id' => 'web', 'title' => 'Buka Dashboard']],
+                        ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Menu Lengkap']],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function handleTutorialIntent(User $user, string $userName): JsonResponse
+    {
+        $reply = "💡 *Panduan Singkat — Cara Pakai HematWoy* 💰\n\n"
+            . "Halo *{$userName}*! HematWoy adalah asisten finansial cerdas yang membantumu mencatat pengeluaran & pemasukan semudah chatting:\n\n"
+            . "1️⃣ *Catat Pengeluaran:*\n"
+            . "Cukup ketik santai saat belanja:\n"
+            . "👉 `keluar 25rb makan siang`\n"
+            . "👉 `beli bensin 50rb via bca`\n\n"
+            . "2️⃣ *Catat Pemasukan:*\n"
+            . "Ketik nominal uang yang kamu terima:\n"
+            . "👉 `masuk 5jt gaji bulanan`\n"
+            . "👉 `+500rb freelance`\n\n"
+            . "3️⃣ *Cek Saldo & Laporan:*\n"
+            . "👉 Ketik `saldo` untuk cek isi semua dompetmu.\n"
+            . "👉 Ketik `rekap hari ini` atau `rekap bulan ini`.\n\n"
+            . "4️⃣ *Web Dashboard Grafik:*\n"
+            . "👉 Ketik `web` untuk membuka visualisasi chart dan analisis pengeluaran di browser.\n\n"
+            . "_Mau lihat semua fitur lengkap? Ketik `menu` kapan saja!_ 😊";
+
+        return response()->json([
+            'action'     => 'REPLY_TEXT',
+            'reply_text' => $reply,
+            'interactive' => [
+                'type' => 'button',
+                'header' => ['type' => 'text', 'text' => '💡 Cara Pakai HematWoy'],
+                'body' => ['text' => $reply],
+                'footer' => ['text' => 'Pilih aksi cepat di bawah'],
+                'action' => [
+                    'buttons' => [
+                        ['type' => 'reply', 'reply' => ['id' => 'saldo', 'title' => 'Cek Saldo']],
+                        ['type' => 'reply', 'reply' => ['id' => 'web', 'title' => 'Buka Dashboard']],
+                        ['type' => 'reply', 'reply' => ['id' => 'menu', 'title' => 'Menu Lengkap']],
+                    ],
+                ],
+            ],
+        ]);
     }
 
     // ---------------------------------------------------------------------------

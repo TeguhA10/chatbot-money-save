@@ -244,8 +244,10 @@ const showMobileDetails = ref(false);
 
 const currentYear = new Date().getFullYear();
 
+const botRawNumber = (typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number) || '6285111355992';
+
 const whatsappUrl = computed(() => {
-  return 'https://wa.me/?text=Halo%20HematWoy,%20saya%20sudah%20upgrade%20ke%20Pro!';
+  return `https://wa.me/${botRawNumber}?text=Halo%20HematWoy,%20saya%20sudah%20upgrade%20ke%20Pro!`;
 });
 
 function formatNumber(num) {

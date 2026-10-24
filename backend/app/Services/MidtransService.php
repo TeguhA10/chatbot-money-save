@@ -444,4 +444,76 @@ class MidtransService
             return $order;
         });
     }
+
+    /**
+     * Check status of an order directly from Midtrans API and synchronize local PaymentOrder if settled.
+     */
+    public function checkOrderStatus(string $orderId): ?array
+    {
+        $serverKey = config('services.midtrans.server_key', env('MIDTRANS_SERVER_KEY', ''));
+        if (empty($serverKey)) {
+            return null;
+        }
+
+        $isProduction = (bool) config('services.midtrans.is_production', false);
+        $url = ($isProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com') . "/v2/{$orderId}/status";
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . base64_encode($serverKey . ':'),
+                'Accept'        => 'application/json',
+            ])->timeout(5)->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $txStatus = strtolower($data['transaction_status'] ?? '');
+
+                // If settled/capture, sync with local DB and activate subscription if not yet activated
+                if (in_array($txStatus, ['settlement', 'capture'], true)) {
+                    $order = PaymentOrder::find($orderId);
+                    if ($order && !$order->paid_at) {
+                        try {
+                            if (isset($data['signature_key']) && $this->verify($data)) {
+                                $this->processNotification($data);
+                            } else {
+                                $user = $order->user;
+                                if ($user) {
+                                    $daysToAdd = (int) $order->gross_amount >= 150000 ? 365 : 30;
+                                    $start = $user->subscription_expires_at?->isFuture() ? $user->subscription_expires_at : now();
+                                    $end = $start->copy()->addDays($daysToAdd);
+
+                                    $order->update([
+                                        'paid_at'      => now(),
+                                        'status'       => 'SETTLEMENT',
+                                        'payment_type' => $data['payment_type'] ?? $order->payment_type,
+                                        'last_webhook_payload' => $data,
+                                    ]);
+
+                                    $user->update([
+                                        'tier'                    => 'PREMIUM',
+                                        'subscription_expires_at' => $end,
+                                    ]);
+
+                                    Subscription::create([
+                                        'user_jid'        => $user->jid,
+                                        'starts_at'       => $start,
+                                        'ends_at'         => $end,
+                                        'source_order_id' => $order->order_id,
+                                    ]);
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning("checkOrderStatus auto-sync error for {$orderId}: " . $e->getMessage());
+                        }
+                    }
+                }
+
+                return $data;
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Midtrans checkOrderStatus exception for {$orderId}: " . $e->getMessage());
+        }
+
+        return null;
+    }
 }
