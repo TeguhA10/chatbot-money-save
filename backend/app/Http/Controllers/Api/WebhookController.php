@@ -1342,6 +1342,21 @@ class WebhookController extends Controller
 
         if (!$parsed) {
             if ($isNewUser) return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $this->buildWelcomeMessage($user)]);
+
+            // Coba proses dengan AI Financial Agent (Google Gemini) yang cerdas & terisolasi per user
+            try {
+                $aiAgent = app(\App\Services\AiFinancialAgentService::class);
+                $aiResponse = $aiAgent->process($user, $messageText);
+                if (!empty($aiResponse)) {
+                    return response()->json([
+                        'action'     => 'REPLY_TEXT',
+                        'reply_text' => $aiResponse,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("AI Financial Agent fallback error: " . $e->getMessage());
+            }
+
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->buildUnrecognizedMessage($messageText),

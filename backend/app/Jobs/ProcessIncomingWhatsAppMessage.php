@@ -260,7 +260,7 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
             $geminiKey = config('services.gemini.key', env('GEMINI_API_KEY'));
             if ($geminiKey) {
                 try {
-                    $model = config('services.gemini.model', env('GEMINI_MODEL', 'gemini-1.5-flash'));
+                    $model = config('services.gemini.model', env('GEMINI_MODEL', 'gemini-flash-lite-latest'));
                     $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$geminiKey}";
                     $geminiResp = Http::timeout(20)->post($url, [
                         'contents' => [

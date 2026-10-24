@@ -88,6 +88,29 @@ class BudgetService
     }
 
     /**
+     * Get consumption for a user's active monthly budget.
+     */
+    public function getBudgetConsumption(User $user, ?int $year = null, ?int $month = null): array
+    {
+        $budget = Budget::where('user_jid', $user->jid)->first();
+
+        if (!$budget) {
+            return [
+                'budget'           => null,
+                'limit_amount'     => 0,
+                'spent_amount'     => 0,
+                'remaining_amount' => 0,
+                'percentage'       => 0.0,
+                'is_warning'       => false,
+                'is_exceeded'      => false,
+                'progress_bar'     => '',
+            ];
+        }
+
+        return $this->getConsumption($budget, $year, $month);
+    }
+
+    /**
      * Render a 20-block Unicode progress bar.
      */
     public function renderProgressBar(float $percentage, int $length = 20): string

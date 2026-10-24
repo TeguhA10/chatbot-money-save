@@ -111,7 +111,7 @@ async function transcribeAudio(audioBuffer: Buffer): Promise<TranscriptionResult
   if (geminiApiKey) {
     try {
       const base64Audio = audioBuffer.toString('base64');
-      const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      const geminiModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
 
       const res = await axios.post(url, {

@@ -12,6 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         // 1. Remove category_id from transactions
         if (Schema::hasTable('transactions') && Schema::hasColumn('transactions', 'category_id')) {
             Schema::table('transactions', function (Blueprint $table) {
@@ -55,6 +57,8 @@ return new class extends Migration
 
         // 4. Drop categories table permanently
         Schema::dropIfExists('categories');
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**
