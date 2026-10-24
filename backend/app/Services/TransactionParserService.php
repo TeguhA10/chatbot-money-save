@@ -95,11 +95,11 @@ class TransactionParserService
             return null;
         }
 
-        // Extract wallet tag if present (e.g., "via dana", "ke bca")
+        // Extract wallet tag if present (e.g., "via dana", "pake gopay", "bayar pake cash", "ke bca")
         $walletTag = null;
-        if (preg_match('/\b(?:via|pakai|menggunakan|ke)\s+([a-zA-Z0-9_-]+)\b/i', $message, $wMatch)) {
+        if (preg_match('/\b(?:via|pakai|pake|bayar\s+pake|bayar\s+pakai|menggunakan|ke)\s+([a-zA-Z0-9_-]+)\b/i', $message, $wMatch)) {
             $walletTag = trim($wMatch[1]);
-            $message = trim(preg_replace('/\b(?:via|pakai|menggunakan|ke)\s+[a-zA-Z0-9_-]+\b/i', '', $message));
+            $message = trim(preg_replace('/\b(?:via|pakai|pake|bayar\s+pake|bayar\s+pakai|menggunakan|ke)\s+[a-zA-Z0-9_-]+\b/i', '', $message));
         }
 
         // 3. Extract description (words remaining after removing direction keyword + amount)
@@ -438,6 +438,9 @@ class TransactionParserService
     /**
      * Extract description by removing direction keywords, amount tokens, and stop words.
      */
+    /**
+     * Extract description by removing direction keywords, amount tokens, conversational fillers, and stop words.
+     */
     private function extractDescription(string $message, ?string $rawMatched = null): string
     {
         $cleaned = trim($message);
@@ -445,17 +448,7 @@ class TransactionParserService
         // Remove sign prefix
         $cleaned = preg_replace('/^[+-]\s*/', '', $cleaned) ?? $cleaned;
 
-        // Remove expense/income keywords at start (case-insensitive)
-        $allKeywords = array_merge(self::EXPENSE_KEYWORDS, self::INCOME_KEYWORDS);
-        usort($allKeywords, fn($a, $b) => strlen($b) - strlen($a)); // longest first
-        foreach ($allKeywords as $kw) {
-            if (preg_match('/^' . preg_quote($kw, '/') . '(?:\s+|$)/i', $cleaned, $m)) {
-                $cleaned = substr($cleaned, strlen($m[0]));
-                break;
-            }
-        }
-
-        // Remove the matched amount token cleanly
+        // Remove the matched amount token cleanly first
         if (!empty($rawMatched)) {
             $cleaned = preg_replace('/' . preg_quote($rawMatched, '/') . '/i', '', $cleaned, 1) ?? $cleaned;
         } else {
@@ -463,9 +456,53 @@ class TransactionParserService
             $cleaned = preg_replace('/\d+(?:[.,]\d+)*\s*(?:k|rb|ribu|jt|juta|m|milyar|miliar)?\s*/i', '', $cleaned) ?? $cleaned;
         }
 
-        // Clean any leftover "rp" or "rp." or leading/trailing punctuation
+        // Clean common conversational fillers / prefixes (e.g. "aku baru aja masuk dari", "tadi siang beli", "tolong catat")
+        $fillers = [
+            'aku baru aja masuk dari',
+            'aku baru aja masuk',
+            'baru aja masuk dari',
+            'baru aja masuk',
+            'baru saja masuk dari',
+            'baru saja masuk',
+            'aku baru aja keluar',
+            'baru aja keluar',
+            'baru saja keluar',
+            'aku baru aja',
+            'baru saja',
+            'baru aja',
+            'tadi siang',
+            'tadi pagi',
+            'tadi malam',
+            'tadi sore',
+            'barusan',
+            'tolong catat',
+            'tolong catatin',
+            'bantu catat',
+            'catat ya',
+            'catat dong',
+            'catatin ya',
+            'catat',
+            'tolong',
+            'bantu',
+        ];
+
+        foreach ($fillers as $filler) {
+            $cleaned = preg_replace('/\b' . preg_quote($filler, '/') . '\b/i', '', $cleaned) ?? $cleaned;
+        }
+
+        // Remove direction keywords (case-insensitive with word boundary)
+        $allKeywords = array_merge(self::EXPENSE_KEYWORDS, self::INCOME_KEYWORDS);
+        usort($allKeywords, fn($a, $b) => strlen($b) - strlen($a)); // longest first
+        foreach ($allKeywords as $kw) {
+            $cleaned = preg_replace('/\b' . preg_quote($kw, '/') . '\b/i', '', $cleaned) ?? $cleaned;
+        }
+
+        // Remove connector stop words at beginning or end of description (e.g. "dari gaji" -> "gaji", "buat beli makan" -> "makan")
+        $cleaned = preg_replace('/\b(?:dari|buat|untuk|sebesar|sebanyak|uang)\b/i', '', $cleaned) ?? $cleaned;
+
+        // Clean any leftover "rp" or "rp." or leading/trailing punctuation (like periods at end of voice transcript)
         $cleaned = preg_replace('/\brp\.?\s*/i', '', $cleaned) ?? $cleaned;
-        $cleaned = trim(preg_replace('/^[:\-+\s]+|[:\-+\s]+$/', '', $cleaned) ?? $cleaned);
+        $cleaned = trim(preg_replace('/^[:\-+.,\s]+|[:\-+.,\s]+$/', '', $cleaned) ?? $cleaned);
         $description = trim(preg_replace('/\s+/', ' ', $cleaned) ?? $cleaned);
 
         return $description;

@@ -376,6 +376,29 @@ class WebhookController extends Controller
         $userName = $user->display_name ?: 'Kak';
 
         // =====================================================================
+        // AI FINANCIAL ASSISTANT (VIONA TRIGGER)
+        // Memisahkan secara tegas: jika menyebut "Halo Viona", "Hai Viona", atau "Viona",
+        // pesan 100% diproses oleh AI Assistant (Gemini) tanpa pernah bentrok dengan regex!
+        // =====================================================================
+        if (preg_match('/\b(?:halo\s+viona|hai\s+viona|hey\s+viona|hei\s+viona|viona)\b/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+
+            try {
+                $aiAgent = app(\App\Services\AiFinancialAgentService::class);
+                $aiResponse = $aiAgent->process($user, $messageText);
+                if (!empty($aiResponse)) {
+                    $this->consumeFinancialQuota($user, $messageId);
+                    return response()->json([
+                        'action'     => 'REPLY_TEXT',
+                        'reply_text' => $aiResponse,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Viona AI Assistant error: " . $e->getMessage());
+            }
+        }
+
+        // =====================================================================
         // WEB-TO-WHATSAPP SMART INTENT ROUTERS
         // =====================================================================
 
@@ -1431,11 +1454,10 @@ class WebhookController extends Controller
         foreach ($transactions as $index => $transaction) {
             $number = $index + 1;
 
-            $category = $transaction->category
-                ? $transaction->category->icon
-                    . ' '
-                    . $transaction->category->name
-                : '📦 Lain-lain';
+            $desc = !empty($transaction->description) && $transaction->description !== '.' 
+                ? $transaction->description 
+                : 'Tanpa keterangan';
+            $walletName = $transaction->wallet ? $transaction->wallet->name : 'Cash';
 
             // Mengambil 8 karakter terakhir UUID v7 agar unik (menghindari timestamp kembar di depan)
             $shortId = substr(
@@ -1443,20 +1465,9 @@ class WebhookController extends Controller
                 -8
             );
 
-            $text .= "*{$number}. {$category}*\n";
-
-            if ($transaction->description !== '') {
-                $text .= "   📝 {$transaction->description}\n";
-            }
-
-            $text .= "   💵 "
-                . $this->formatRupiah($transaction->amount)
-                . "\n";
-
-            $text .= "   🕐 "
-                . $transaction->transaction_date->format('d/m/Y H:i')
-                . "\n";
-
+            $text .= "*{$number}. {$desc}*\n";
+            $text .= "   💵 " . $this->formatRupiah($transaction->amount) . " ({$walletName})\n";
+            $text .= "   🕐 " . $transaction->transaction_date->format('d/m/Y H:i') . "\n";
             $text .= "   🆔 `{$shortId}`\n\n";
         }
 
