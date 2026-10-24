@@ -215,6 +215,9 @@ class AiFinancialAgentService
                 case 'tambah_dompet':
                     return $this->toolTambahDompet($user, $args);
 
+                case 'ubah_dompet':
+                    return $this->toolUbahDompet($user, $args);
+
                 case 'transfer_dompet':
                     return $this->toolTransferDompet($user, $args);
 
@@ -445,6 +448,41 @@ class AiFinancialAgentService
             'status'      => 'success',
             'pesan'       => "Dompet '{$name}' berhasil dibuat" . ($initialBalance > 0 ? " dengan saldo awal Rp" . number_format($initialBalance, 0, ',', '.') : "") . ".",
             'total_saldo' => $this->financeService->getBalance($user),
+        ];
+    }
+
+    protected function toolUbahDompet(User $user, array $args): array
+    {
+        $oldName = trim($args['old_name'] ?? '');
+        $newName = trim($args['new_name'] ?? '');
+
+        if (empty($oldName)) {
+            return ['status' => 'error', 'message' => 'Nama dompet yang ingin diubah harus disebutkan.'];
+        }
+
+        $wallet = $user->wallets()->where('name', 'like', "%{$oldName}%")->first();
+        if (!$wallet) {
+            // Coba ambil dompet non-default terbaru jika namanya mirip typo
+            $wallet = $user->wallets()->where('is_default', false)->latest('created_at')->first();
+        }
+
+        if (!$wallet) {
+            return ['status' => 'error', 'message' => "Dompet dengan nama '{$oldName}' tidak ditemukan."];
+        }
+
+        $prevName = $wallet->name;
+        if (!empty($newName)) {
+            $wallet->update(['name' => $newName]);
+        }
+
+        return [
+            'status' => 'success',
+            'pesan'  => "Nama dompet '{$prevName}' berhasil diubah menjadi '{$wallet->name}'.",
+            'dompet' => [
+                'id'      => $wallet->id,
+                'name'    => $wallet->name,
+                'balance' => (int) $wallet->balance,
+            ],
         ];
     }
 
@@ -711,6 +749,18 @@ class AiFinancialAgentService
                                 'initial_balance' => ['type' => 'INTEGER', 'description' => 'Saldo awal dompet dalam Rupiah (opsional)'],
                             ],
                             'required'   => ['name'],
+                        ],
+                    ],
+                    [
+                        'name'        => 'ubah_dompet',
+                        'description' => 'Mengubah atau mengoreksi nama dompet/rekening yang sudah ada (contoh: ganti nama dompet seabang jadi seabank)',
+                        'parameters'  => [
+                            'type'       => 'OBJECT',
+                            'properties' => [
+                                'old_name' => ['type' => 'STRING', 'description' => 'Nama dompet lama yang ingin diganti'],
+                                'new_name' => ['type' => 'STRING', 'description' => 'Nama baru untuk dompet tersebut'],
+                            ],
+                            'required'   => ['old_name', 'new_name'],
                         ],
                     ],
                     [

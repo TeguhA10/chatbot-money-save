@@ -145,7 +145,8 @@ class WebhookController extends Controller
             $validated['message_id'],
             $validated['from_jid'],
             $validated['push_name'] ?? '',
-            trim($validated['message_text'])
+            trim($validated['message_text']),
+            $isVoice
         );
 
         if ($isVoice) {
@@ -333,7 +334,7 @@ class WebhookController extends Controller
     /**
      * Process message through the financial engine and command router.
      */
-    public function processMessage(string $messageId, string $fromJid, string $pushName, string $messageText): JsonResponse
+    public function processMessage(string $messageId, string $fromJid, string $pushName, string $messageText, bool $isVoice = false): JsonResponse
     {
 
         // --- Payload Length Protection (Anti-ReDoS / Memory Spike) ---
@@ -377,10 +378,12 @@ class WebhookController extends Controller
 
         // =====================================================================
         // AI FINANCIAL ASSISTANT (VIONA TRIGGER)
-        // Memisahkan secara tegas: jika menyebut "Halo Viona", "Hai Viona", atau "Viona",
+        // Memisahkan secara tegas: jika pesan suara (Voice Note) ATAU menyebut
+        // "Halo Viona" / "Halo Fiona" / "Viona" / "Fiona" (karena STT Whisper
+        // sering mentranskripsikan Viona sebagai Fiona),
         // pesan 100% diproses oleh AI Assistant (Gemini) tanpa pernah bentrok dengan regex!
         // =====================================================================
-        if (preg_match('/\b(?:halo\s+viona|hai\s+viona|hey\s+viona|hei\s+viona|viona)\b/i', $messageText)) {
+        if ($isVoice || preg_match('/\b(?:halo\s+[vf]iona|hai\s+[vf]iona|hey\s+[vf]iona|hei\s+[vf]iona|[vf]iona)\b/i', $messageText)) {
             if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
 
             try {

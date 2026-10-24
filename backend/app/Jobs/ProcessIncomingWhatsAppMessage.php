@@ -86,7 +86,8 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
                 $this->messageId,
                 $this->fromJid,
                 $this->pushName,
-                $this->messageText
+                $this->messageText,
+                $this->isVoiceNote
             );
 
             $data = $response->getData(true);
