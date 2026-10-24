@@ -39,38 +39,34 @@
           </RouterLink>
         </nav>
 
-        <!-- Privacy Controls -->
-        <div class="mt-6 pt-4 border-t border-slate-800/80 space-y-2">
-          <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2">Keamanan & Privasi</div>
-          <!-- Privacy Eye (Shoulder Surfing Mask) -->
-          <button
+        <!-- Privacy Toggle Setting -->
+        <div class="mt-6 pt-4 border-t border-slate-800/80">
+          <div
             @click="vaultStore.toggleMask"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-300 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 transition-colors cursor-pointer"
-            :title="vaultStore.isMasked ? 'Tampilkan Nominal' : 'Samarkan Nominal'"
+            class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-800/50 cursor-pointer transition select-none group"
+            :title="vaultStore.isMasked ? 'Klik untuk membuka sensor saldo' : 'Klik untuk menyembunyikan nominal saldo'"
           >
-            <span class="flex items-center gap-2">
-              <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
-              <span>{{ vaultStore.isMasked ? 'Saldo Disamarkan' : 'Sensor Nominal' }}</span>
-            </span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 font-mono text-slate-400">
-              {{ vaultStore.isMasked ? 'ON' : 'OFF' }}
-            </span>
-          </button>
+            <div class="flex items-center gap-2.5">
+              <svg v-if="vaultStore.isMasked" class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+              </svg>
+              <svg v-else class="w-4 h-4 text-slate-400 group-hover:text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              <span class="text-xs font-medium" :class="vaultStore.isMasked ? 'text-slate-200' : 'text-slate-400 group-hover:text-slate-300'">
+                Sembunyikan Saldo
+              </span>
+            </div>
 
-          <!-- Vault Lock Button -->
-          <button
-            @click="toggleVaultLock"
-            class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-            :class="vaultStore.isUnlocked ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-slate-800' : 'bg-slate-800/60 text-slate-300 border border-slate-700/60'"
-          >
-            <span class="flex items-center gap-2">
-              <span>{{ vaultStore.isUnlocked ? '🛡️' : '🔒' }}</span>
-              <span>{{ vaultStore.isUnlocked ? 'Kunci Brankas' : 'Buka Brankas' }}</span>
-            </span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">
-              {{ vaultStore.isUnlocked ? 'Aktif' : 'Terkunci' }}
-            </span>
-          </button>
+            <!-- Sleek Switch Toggle -->
+            <div
+              class="w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 flex items-center shrink-0"
+              :class="vaultStore.isMasked ? 'bg-emerald-500 justify-end shadow-sm shadow-emerald-500/25' : 'bg-slate-700 justify-start'"
+            >
+              <span class="w-3.5 h-3.5 rounded-full bg-white shadow-sm block transition-transform duration-200"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -171,10 +167,16 @@
         <!-- Privacy Eye on Mobile -->
         <button
           @click="vaultStore.toggleMask"
-          class="p-1.5 rounded-lg bg-slate-800/90 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer text-xs"
-          :title="vaultStore.isMasked ? 'Tampilkan Nominal' : 'Samarkan Nominal'"
+          class="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer"
+          :title="vaultStore.isMasked ? 'Buka sensor saldo' : 'Sembunyikan saldo'"
         >
-          <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
+          <svg v-if="vaultStore.isMasked" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
         </button>
         <button
           @click="openTransactionModal()"

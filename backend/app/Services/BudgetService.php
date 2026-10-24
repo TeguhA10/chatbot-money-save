@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Budget;
-use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
@@ -11,9 +10,9 @@ use Carbon\Carbon;
 class BudgetService
 {
     /**
-     * Upsert a static monthly budget rule for a user's category.
+     * Upsert an overall monthly budget limit for a user.
      */
-    public function setBudget(User $user, string $categoryId, int $limitAmount, int $thresholdPercent = 80): Budget
+    public function setBudget(User $user, int $limitAmount, int $thresholdPercent = 80): Budget
     {
         if ($limitAmount <= 0) {
             throw new \InvalidArgumentException('Budget limit must be a positive integer.');
@@ -23,8 +22,7 @@ class BudgetService
 
         $budget = Budget::updateOrCreate(
             [
-                'user_jid'    => $user->jid,
-                'category_id' => $categoryId,
+                'user_jid' => $user->jid,
             ],
             [
                 'encrypted_limit_amount'  => $encryptedLimit,
@@ -36,35 +34,17 @@ class BudgetService
     }
 
     /**
-     * Get spent amount mapped by category_id for a given month in a single query.
-     * Prevents N+1 queries when processing multiple budgets.
-     *
-     * @return \Illuminate\Support\Collection<string, int>
+     * Get total expense for a user in the given month.
      */
-    public function getMonthlyExpenseTotalsByCategory(string $userJid, int $year, int $month): \Illuminate\Support\Collection
+    public function getMonthlyExpenseTotal(string $userJid, int $year, int $month): int
     {
-        $rawTotals = Transaction::where('user_jid', $userJid)
+        $total = Transaction::where('user_jid', $userJid)
             ->active()
             ->expenses()
             ->forMonth($year, $month)
-            ->whereNotNull('category_id')
-            ->groupBy('category_id')
-            ->selectRaw('category_id, COALESCE(SUM(amount), 0) as total')
-            ->pluck('total', 'category_id');
+            ->sum('amount');
 
-        // Fallback for legacy rows with amount == 0
-        if ($rawTotals->sum() === 0 && Transaction::where('user_jid', $userJid)->active()->expenses()->forMonth($year, $month)->exists()) {
-            $transactions = Transaction::where('user_jid', $userJid)
-                ->active()
-                ->expenses()
-                ->forMonth($year, $month)
-                ->get();
-
-            return $transactions->groupBy('category_id')
-                ->map(fn($group) => (int) $group->sum('amount'));
-        }
-
-        return $rawTotals->map(fn($v) => (int) $v);
+        return (int) $total;
     }
 
     /**
@@ -81,35 +61,13 @@ class BudgetService
      *   progress_bar: string
      * }
      */
-    public function getConsumption(Budget $budget, ?int $year = null, ?int $month = null, ?int $preloadedSpent = null): array
+    public function getConsumption(Budget $budget, ?int $year = null, ?int $month = null): array
     {
         $now = Carbon::now();
         $year = $year ?? $now->year;
         $month = $month ?? $now->month;
 
-        if ($preloadedSpent !== null) {
-            $spentAmount = $preloadedSpent;
-        } else {
-            $spentAmount = (int) Transaction::where('user_jid', $budget->user_jid)
-                ->where('category_id', $budget->category_id)
-                ->active()
-                ->expenses()
-                ->forMonth($year, $month)
-                ->sum('amount');
-
-            // Fallback for legacy rows with amount == 0
-            if ($spentAmount === 0 && Transaction::where('user_jid', $budget->user_jid)->where('category_id', $budget->category_id)->active()->expenses()->forMonth($year, $month)->exists()) {
-                $transactions = Transaction::where('user_jid', $budget->user_jid)
-                    ->where('category_id', $budget->category_id)
-                    ->active()
-                    ->expenses()
-                    ->forMonth($year, $month)
-                    ->get();
-
-                $spentAmount = (int) $transactions->sum('amount');
-            }
-        }
-
+        $spentAmount = $this->getMonthlyExpenseTotal($budget->user_jid, $year, $month);
         $limitAmount = $budget->limit_amount;
         $remainingAmount = max(0, $limitAmount - $spentAmount);
         $percentage = $limitAmount > 0 ? round(($spentAmount / $limitAmount) * 100, 1) : 0.0;
@@ -151,107 +109,76 @@ class BudgetService
     }
 
     /**
-     * Render the confirmation card when setting a budget.
+     * Render the confirmation card when setting an overall monthly budget.
      */
     public function renderSetBudgetCard(Budget $budget): string
     {
-        $category = $budget->category;
-        $catName = $category ? ($category->icon . ' ' . $category->name) : 'Kategori';
         $consumption = $this->getConsumption($budget);
-
         $limitFormatted = 'Rp' . number_format($budget->limit_amount, 0, ',', '.');
         $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
+        $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
 
-        return "🎯 *Plafon Anggaran Diatur*\n" .
-               "Kategori: {$catName}\n" .
-               "Limit Bulanan: {$limitFormatted}\n" .
-               "Status Saat Ini: {$spentFormatted} / {$limitFormatted} (" . (int) round($consumption['percentage']) . "%)\n" .
+        return "🎯 *Plafon Anggaran Bulanan Diatur*\n\n" .
+               "• Limit Bulanan : {$limitFormatted}\n" .
+               "• Terpakai      : {$spentFormatted} (" . (int) round($consumption['percentage']) . "%)\n" .
+               "• Sisa Anggaran : {$remainingFormatted}\n\n" .
                "{$consumption['progress_bar']}";
     }
 
     /**
      * Render mini-card attached to an expense confirmation.
      */
-    public function renderExpenseBudgetSnippet(User $user, string $categoryId): ?string
+    public function renderExpenseBudgetSnippet(User $user): ?string
     {
-        $budget = Budget::where('user_jid', $user->jid)
-            ->where('category_id', $categoryId)
-            ->first();
+        $budget = Budget::where('user_jid', $user->jid)->first();
 
         if (!$budget) {
             return null;
         }
 
         $consumption = $this->getConsumption($budget);
-        $category = $budget->category;
-        $catName = $category ? $category->name : 'Kategori';
-        $icon = $category ? $category->icon : '📌';
-
         $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
         $limitFormatted = 'Rp' . number_format($consumption['limit_amount'], 0, ',', '.');
         $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
 
         $lines = [
-            "{$icon} *Budget {$catName}*",
-            "Terpakai: {$spentFormatted} / {$limitFormatted}",
-            "Sisa: {$remainingFormatted}",
+            "🎯 *Status Budget Bulanan*",
+            "Terpakai: {$spentFormatted} / {$limitFormatted} (Sisa: {$remainingFormatted})",
             $consumption['progress_bar']
         ];
 
         if ($consumption['is_exceeded']) {
             $over = $consumption['spent_amount'] - $consumption['limit_amount'];
             $overFormatted = 'Rp' . number_format($over, 0, ',', '.');
-            $lines[] = "⚠️ *Peringatan:* Anda telah melebihi budget sebesar {$overFormatted}!";
+            $lines[] = "🚨 *Peringatan:* Pengeluaran Anda telah melebihi budget sebesar {$overFormatted}!";
         } elseif ($consumption['is_warning']) {
-            $lines[] = "⚠️ *Perhatian:* Pengeluaran telah mencapai " . (int) round($consumption['percentage']) . "% dari plafon!";
+            $lines[] = "⚠️ *Perhatian:* Pengeluaran telah mencapai " . (int) round($consumption['percentage']) . "% dari plafon bulanan!";
         }
 
         return implode("\n", $lines);
     }
 
     /**
-     * Render the all-budgets overview card for the current month.
+     * Render the overall budget overview card for the current month.
      */
     public function renderAllBudgetsCard(User $user): string
     {
-        $budgets = Budget::where('user_jid', $user->jid)->with('category')->get();
+        $budget = Budget::where('user_jid', $user->jid)->first();
 
-        if ($budgets->isEmpty()) {
-            return "📊 *Ringkasan Budget*\n\nBelum ada plafon anggaran yang diatur.\nKetik contoh: `budget makan 1jt` atau `budget transport 500rb`.";
+        if (!$budget) {
+            return "📊 *Ringkasan Budget Bulanan*\n\nBelum ada plafon anggaran yang diatur.\nKetik contoh: `budget 2jt` atau `anggaran 3.000.000`.";
         }
 
-        $now = Carbon::now();
-        $spentByCategory = $this->getMonthlyExpenseTotalsByCategory($user->jid, $now->year, $now->month);
+        $consumption = $this->getConsumption($budget);
+        $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
+        $limitFormatted = 'Rp' . number_format($consumption['limit_amount'], 0, ',', '.');
+        $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
+        $monthName = Carbon::now()->translatedFormat('F Y');
 
-        $totalBudgeted = 0;
-        $totalSpent = 0;
-        $sections = [];
-
-        foreach ($budgets as $budget) {
-            $preloadedSpent = $spentByCategory->get($budget->category_id, 0);
-            $consumption = $this->getConsumption($budget, $now->year, $now->month, $preloadedSpent);
-            $totalBudgeted += $consumption['limit_amount'];
-            $totalSpent += $consumption['spent_amount'];
-
-            $category = $budget->category;
-            $catName = $category ? ($category->icon . ' ' . $category->name) : 'Kategori';
-
-            $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
-            $limitFormatted = 'Rp' . number_format($consumption['limit_amount'], 0, ',', '.');
-            $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
-
-            $sections[] = "{$catName}\n" .
-                          "{$spentFormatted} / {$limitFormatted} (Sisa: {$remainingFormatted})\n" .
-                          $consumption['progress_bar'];
-        }
-
-        $totalPercent = $totalBudgeted > 0 ? (int) round(($totalSpent / $totalBudgeted) * 100) : 0;
-        $totalSpentFormatted = 'Rp' . number_format($totalSpent, 0, ',', '.');
-        $totalBudgetedFormatted = 'Rp' . number_format($totalBudgeted, 0, ',', '.');
-
-        return "📊 *Ringkasan Budget Bulan Ini*\n\n" .
-               implode("\n\n", $sections) . "\n" .
-               "-----------------------------------\n" .
-               "Total Terpakai: {$totalSpentFormatted} / {$totalBudgetedFormatted} ({$totalPercent}%)";
+        return "📊 *Ringkasan Budget Bulan {$monthName}*\n\n" .
+               "• Limit Anggaran: {$limitFormatted}\n" .
+               "• Total Terpakai: {$spentFormatted}\n" .
+               "• Sisa Anggaran : {$remainingFormatted}\n\n" .
+               "{$consumption['progress_bar']}";
     }
 }

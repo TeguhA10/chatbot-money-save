@@ -158,18 +158,6 @@
           />
         </div>
 
-        <!-- Filter Category -->
-        <div>
-          <SelectDropdown
-            v-model="filters.category_id"
-            :options="categoryOptions"
-            placeholder="Semua Kategori"
-            icon="🏷️"
-            searchable
-            @change="applyFilters"
-          />
-        </div>
-
         <!-- Filter Wallet -->
         <div>
           <SelectDropdown
@@ -270,7 +258,6 @@
             <tr class="text-slate-400 uppercase text-[10px] font-bold tracking-wider bg-slate-950/60 border-b border-slate-800">
               <th class="py-3.5 px-5 w-32 font-bold">Tanggal</th>
               <th class="py-3.5 px-5 min-w-[220px] font-bold">Deskripsi</th>
-              <th class="py-3.5 px-5 w-44 font-bold">Kategori</th>
               <th class="py-3.5 px-5 w-32 text-center font-bold">Kanal Input</th>
               <th class="py-3.5 px-5 w-36 text-right font-bold">Nominal</th>
               <th class="py-3.5 px-5 w-24 text-center font-bold">Aksi</th>
@@ -296,18 +283,6 @@
                   ></span>
                   <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
                 </div>
-              </td>
-
-              <!-- Category Pill -->
-              <td class="py-4 px-5 text-slate-300">
-                <span
-                  v-if="t.category"
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800/90 text-slate-200 border border-slate-700/60 shadow-sm"
-                >
-                  <span>{{ t.category.icon }}</span>
-                  <span>{{ t.category.name }}</span>
-                </span>
-                <span v-else class="text-slate-500 italic text-[11px]">- Umum -</span>
               </td>
 
               <!-- Source Channel (WhatsApp vs Web) -->
@@ -364,21 +339,17 @@
           :key="'mobile-' + t.id"
           class="p-4 hover:bg-slate-800/30 transition flex items-center justify-between gap-3"
         >
-          <!-- Left: Category Icon & Details -->
+          <!-- Left: Icon & Details -->
           <div class="flex items-center gap-3 min-w-0">
             <div
               class="w-11 h-11 rounded-2xl flex items-center justify-center text-lg shrink-0 border shadow-inner"
               :class="t.type === 'INCOME' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' : 'bg-rose-500/15 border-rose-500/30 text-rose-400')"
             >
-              <span>{{ t.category?.icon || (t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '⇄' : '💸')) }}</span>
+              <span>{{ t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '⇄' : '💸') }}</span>
             </div>
             <div class="min-w-0">
               <p class="font-bold text-xs text-white truncate">{{ t.description || 'Transaksi' }}</p>
               <div class="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400">
-                <span class="inline-block px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-medium truncate max-w-[110px]">
-                  {{ t.category?.name || 'Umum' }}
-                </span>
-                <span>•</span>
                 <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
               </div>
             </div>
@@ -489,15 +460,6 @@ const typeOptions = [
   { value: 'TRANSFER', label: 'Transfer Dompet', icon: '🔵' },
 ];
 
-const categoryOptions = computed(() => [
-  { value: '', label: 'Semua Kategori', icon: '🏷️' },
-  ...financeStore.categories.map(cat => ({
-    value: cat.id,
-    label: cat.name,
-    icon: cat.icon || '🏷️'
-  }))
-]);
-
 const walletOptions = computed(() => [
   { value: '', label: 'Semua Dompet', icon: '👛' },
   ...financeStore.wallets.map(w => ({
@@ -533,7 +495,6 @@ const activeDatePreset = ref('all');
 const filters = ref({
   search: '',
   type: '',
-  category_id: '',
   wallet_id: '',
   start_date: '',
   end_date: '',
@@ -544,7 +505,6 @@ const hasActiveFilters = computed(() => {
   return !!(
     filters.value.search ||
     filters.value.type ||
-    filters.value.category_id ||
     filters.value.wallet_id ||
     filters.value.start_date ||
     filters.value.end_date
@@ -594,7 +554,6 @@ function resetFilters() {
   filters.value = {
     search: '',
     type: '',
-    category_id: '',
     wallet_id: '',
     start_date: '',
     end_date: '',
@@ -697,12 +656,9 @@ function refreshList() {
 
 onMounted(async () => {
   try {
-    await Promise.all([
-      financeStore.fetchCategories(),
-      financeStore.fetchWallets(),
-    ]);
+    await financeStore.fetchWallets();
   } catch (e) {
-    // Non-fatal if categories or wallets fail
+    // Non-fatal if wallets fail
   }
   applyFilters();
 });

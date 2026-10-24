@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
@@ -46,7 +45,6 @@ class InsightsService
         $transactions = Transaction::where('user_jid', $user->jid)
             ->whereDate('transaction_date', $targetDate)
             ->active()
-            ->with('category')
             ->get();
 
         if ($transactions->isEmpty()) {
@@ -55,24 +53,16 @@ class InsightsService
 
         $totalIncome = 0;
         $totalExpense = 0;
-        $categoryTotals = [];
 
         foreach ($transactions as $tx) {
             if ($tx->type === 'INCOME') {
                 $totalIncome += $tx->amount;
             } elseif ($tx->type === 'EXPENSE') {
                 $totalExpense += $tx->amount;
-
-                $catName = $tx->category ? $tx->category->name : 'Lainnya';
-                $icon    = $tx->category ? $tx->category->icon : '📦';
-                $key     = "{$icon} {$catName}";
-
-                $categoryTotals[$key] = ($categoryTotals[$key] ?? 0) + $tx->amount;
             }
         }
 
-        arsort($categoryTotals);
-        $topCategories = array_slice($categoryTotals, 0, 3, true);
+        $topExpenses = $transactions->where('type', 'EXPENSE')->sortByDesc('amount')->take(3);
 
         $net = $totalIncome - $totalExpense;
         $netSign = $net >= 0 ? '+' : '-';
@@ -88,11 +78,12 @@ class InsightsService
             "Net: {$netFmt}\n",
         ];
 
-        if (!empty($topCategories)) {
+        if ($topExpenses->isNotEmpty()) {
             $lines[] = "Pengeluaran terbesar:";
-            foreach ($topCategories as $name => $amount) {
-                $amtFmt = 'Rp' . number_format($amount, 0, ',', '.');
-                $lines[] = "{$name} — {$amtFmt}";
+            foreach ($topExpenses as $tx) {
+                $amtFmt = 'Rp' . number_format($tx->amount, 0, ',', '.');
+                $desc = $tx->description ?: 'Pengeluaran';
+                $lines[] = "• {$desc} — {$amtFmt}";
             }
             $lines[] = "";
         }
@@ -148,36 +139,18 @@ class InsightsService
         $lastMonth = $lastMonthDate->month;
 
         // Current month expenses
-        $currentTxs = Transaction::where('user_jid', $user->jid)
+        $currentSpent = (int) Transaction::where('user_jid', $user->jid)
             ->forMonth($currentYear, $currentMonth)
             ->active()
             ->expenses()
-            ->with('category')
-            ->get();
-
-        $currentSpent = 0;
-        $currentCatTotals = [];
-        foreach ($currentTxs as $tx) {
-            $currentSpent += $tx->amount;
-            $catId = $tx->category_id ?? 'uncategorized';
-            $currentCatTotals[$catId] = ($currentCatTotals[$catId] ?? 0) + $tx->amount;
-        }
+            ->sum('amount');
 
         // Previous month expenses
-        $lastTxs = Transaction::where('user_jid', $user->jid)
+        $lastSpent = (int) Transaction::where('user_jid', $user->jid)
             ->forMonth($lastYear, $lastMonth)
             ->active()
             ->expenses()
-            ->with('category')
-            ->get();
-
-        $lastSpent = 0;
-        $lastCatTotals = [];
-        foreach ($lastTxs as $tx) {
-            $lastSpent += $tx->amount;
-            $catId = $tx->category_id ?? 'uncategorized';
-            $lastCatTotals[$catId] = ($lastCatTotals[$catId] ?? 0) + $tx->amount;
-        }
+            ->sum('amount');
 
         $percentageDelta = 0.0;
         if ($lastSpent > 0) {
@@ -185,29 +158,6 @@ class InsightsService
         } elseif ($currentSpent > 0) {
             $percentageDelta = 100.0;
         }
-
-        // Build category map from already eager-loaded transactions to avoid N+1 queries
-        $categoriesMap = $currentTxs->concat($lastTxs)
-            ->filter(fn($t) => $t->category !== null)
-            ->pluck('category', 'category_id');
-
-        // Top category increases
-        $increases = [];
-        foreach ($currentCatTotals as $catId => $amt) {
-            $prevAmt = $lastCatTotals[$catId] ?? 0;
-            $delta = $amt - $prevAmt;
-            if ($delta > 0) {
-                $category = $catId !== 'uncategorized' ? ($categoriesMap->get($catId) ?? Category::find($catId)) : null;
-                $increases[] = [
-                    'name'  => $category ? $category->name : 'Lainnya',
-                    'icon'  => $category ? $category->icon : '📦',
-                    'delta' => $delta,
-                ];
-            }
-        }
-
-        usort($increases, fn($a, $b) => $b['delta'] - $a['delta']);
-        $topIncreases = array_slice($increases, 0, 3);
 
         // Projection
         $dailyBurnRate = $currentDay > 0 ? ($currentSpent / $currentDay) : 0;
@@ -218,7 +168,7 @@ class InsightsService
             'previous_spent'    => $lastSpent,
             'percentage_delta'  => abs($percentageDelta),
             'is_higher'         => $percentageDelta >= 0,
-            'top_increases'     => $topIncreases,
+            'top_increases'     => [],
             'projection_to_eom' => $projection,
         ];
     }

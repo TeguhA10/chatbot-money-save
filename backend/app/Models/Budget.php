@@ -11,11 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * App\Models\Budget
  *
- * Static monthly limit rule for a specific category per user.
+ * Overall monthly spending limit per user.
  *
  * @property string $id
  * @property string $user_jid
- * @property string $category_id
  * @property string $encrypted_limit_amount
  * @property int    $alert_threshold_percent
  * @property int    $limit_amount Virtual decrypted limit
@@ -26,7 +25,6 @@ class Budget extends Model
 
     protected $fillable = [
         'user_jid',
-        'category_id',
         'encrypted_limit_amount',
         'alert_threshold_percent',
     ];
@@ -42,11 +40,6 @@ class Budget extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_jid', 'jid');
-    }
-
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(Category::class, 'category_id', 'id');
     }
 
     public function getLimitAmountAttribute(): int

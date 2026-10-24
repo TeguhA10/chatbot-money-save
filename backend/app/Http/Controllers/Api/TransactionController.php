@@ -28,16 +28,12 @@ class TransactionController extends Controller
         $user = $request->user();
 
         $query = Transaction::where('user_jid', $user->jid)
-            ->with('category')
             ->orderByDesc('transaction_date')
             ->orderByDesc('created_at');
 
         // Filters
         if ($request->filled('type')) {
             $query->where('type', strtoupper($request->type));
-        }
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
         }
         if ($request->filled('start_date')) {
             $query->where('transaction_date', '>=', $request->start_date);
@@ -80,7 +76,6 @@ class TransactionController extends Controller
         $validated = $request->validate([
             'type'             => 'required|in:EXPENSE,INCOME',
             'amount'           => 'required|integer|min:1',
-            'category_id'      => 'nullable|uuid',
             'description'      => 'nullable|string|max:255',
             'transaction_date' => 'nullable|date',
         ]);
@@ -89,7 +84,7 @@ class TransactionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatTransaction($transaction->load('category')),
+            'data'    => $this->formatTransaction($transaction),
             'message' => 'Transaksi berhasil dicatat.',
         ], 201);
     }
@@ -127,7 +122,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'transaction' => $this->formatTransaction($result['transaction']->load('category')),
+                'transaction' => $this->formatTransaction($result['transaction']),
                 'new_balance' => $result['new_balance'],
             ],
             'message' => 'Transaksi berhasil diubah.',
@@ -173,11 +168,6 @@ class TransactionController extends Controller
             'type'             => $t->type,
             'amount'           => $t->amount,
             'description'      => $t->description,
-            'category'         => $t->category ? [
-                'id'   => $t->category->id,
-                'name' => $t->category->name,
-                'icon' => $t->category->icon,
-            ] : null,
             'balance_after'    => $t->balance_after,
             'transaction_date' => $t->transaction_date?->toISOString(),
             'status'           => $t->status,

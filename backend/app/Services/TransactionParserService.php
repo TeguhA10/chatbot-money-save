@@ -41,47 +41,7 @@ class TransactionParserService
         'masukk', 'msk', 'in', 'dpt',
     ];
 
-    // ---------------------------------------------------------------------------
-    // Category hint keyword maps (best-effort, not required)
-    // ---------------------------------------------------------------------------
 
-    private const CATEGORY_HINTS = [
-        'makan'      => 'makan',
-        'minum'      => 'makan',
-        'kopi'       => 'makan',
-        'nasi'       => 'makan',
-        'lunch'      => 'makan',
-        'dinner'     => 'makan',
-        'sarapan'    => 'makan',
-        'siang'      => 'makan',
-        'bensin'     => 'transport',
-        'parkir'     => 'transport',
-        'ojek'       => 'transport',
-        'grab'       => 'transport',
-        'gojek'      => 'transport',
-        'taxi'       => 'transport',
-        'bus'        => 'transport',
-        'kereta'     => 'transport',
-        'listrik'    => 'tagihan',
-        'air'        => 'tagihan',
-        'internet'   => 'tagihan',
-        'pulsa'      => 'tagihan',
-        'token'      => 'tagihan',
-        'film'       => 'hiburan',
-        'netflix'    => 'hiburan',
-        'game'       => 'hiburan',
-        'baju'       => 'belanja',
-        'celana'     => 'belanja',
-        'sepatu'     => 'belanja',
-        'obat'       => 'kesehatan',
-        'dokter'     => 'kesehatan',
-        'klinik'     => 'kesehatan',
-        'gaji'       => 'gaji',
-        'salary'     => 'gaji',
-        'bonus'      => 'gaji',
-        'freelance'  => 'bisnis',
-        'proyek'     => 'bisnis',
-    ];
 
     // ---------------------------------------------------------------------------
     // Amount normalization regex tokens
@@ -145,14 +105,11 @@ class TransactionParserService
         // 3. Extract description (words remaining after removing direction keyword + amount)
         $description = $this->extractDescription($message, $rawMatched);
 
-        // 4. Detect optional category hint
-        $categoryHint = $this->detectCategoryHint($message);
-
         return [
             'type'          => $type,
             'amount'        => $amount,
             'description'   => $description,
-            'category_hint' => $categoryHint,
+            'category_hint' => null,
             'wallet_tag'    => $walletTag,
         ];
     }
@@ -365,6 +322,14 @@ class TransactionParserService
     }
 
     /**
+     * Parse and normalize amount from the message to integer Rupiah.
+     */
+    public function parseAmount(string $message): ?int
+    {
+        return $this->extractAmount($message);
+    }
+
+    /**
      * Parse a single numeric token with an optional multiplier unit.
      */
     private function parseSingleNumber(string $rawNum, ?string $unit): int
@@ -507,43 +472,17 @@ class TransactionParserService
     }
 
     /**
-     * Detect optional category hint from message keywords (best-effort, non-blocking).
-     */
-    private function detectCategoryHint(string $message): ?string
-    {
-        $lowerMessage = strtolower($message);
-
-        foreach (self::CATEGORY_HINTS as $keyword => $hint) {
-            if (str_contains($lowerMessage, $keyword)) {
-                return $hint;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Public accessor to normalize and extract an amount from a string.
-     */
-    public function parseAmount(string $raw): ?int
-    {
-        return $this->extractAmount($raw);
-    }
-
-    /**
-     * Parse budget set command: "budget <category> <amount>" or "anggaran <category> <amount>"
+     * Parse budget set command: "budget <amount>" or "anggaran <amount>"
      *
-     * @return array{category: string, amount: int}|null
+     * @return array{amount: int}|null
      */
     public function parseBudgetSet(string $message): ?array
     {
-        if (preg_match('/^(?:budget|anggaran)\s+(.+?)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
-            $catName = trim($matches[1]);
-            $amount = $this->extractAmount($matches[2]);
-            if ($amount && $amount > 0 && !empty($catName)) {
+        if (preg_match('/^(?:budget|anggaran)(?:\s+bulanan)?\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
+            $amount = $this->extractAmount($matches[1]);
+            if ($amount && $amount > 0) {
                 return [
-                    'category' => $catName,
-                    'amount'   => $amount,
+                    'amount' => $amount,
                 ];
             }
         }

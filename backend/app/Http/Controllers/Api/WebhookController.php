@@ -536,7 +536,7 @@ class WebhookController extends Controller
         $isFinancialInput = (bool) preg_match('/^(?:keluar|masuk|\+|\-|\d)/i', $lowerText);
         $isGoalCommand = (bool) preg_match('/^(?:daftar\s+target|target\s+tabungan|daftar\s+goals?|buat\s+target|tabung\s+\d+)/i', $lowerText);
         $isRecurringSchedule = (bool) preg_match('/^(?:daftar\s+langganan|hapus\s+langganan|(?:langganan|buat\s+langganan)\s+.+?\s+[0-9.,]+.*setiap\s+tanggal)/i', $lowerText);
-        $isCategoryOrWallet = (bool) preg_match('/^(?:daftar\s+(?:dompet|kategori)|tambah\s+(?:dompet|kategori))/i', $lowerText);
+        $isCategoryOrWallet = (bool) preg_match('/^(?:daftar\s+dompet|tambah\s+dompet)/i', $lowerText);
 
         $isSubscriptionIntent = ! $isFinancialInput && ! $isRecurringSchedule && ! $isGoalCommand && ! $isCategoryOrWallet && (
             preg_match('/^(?:halo\s+hematwoy[,.!]?\s*)?(?:saya\s+)?(?:mau|ingin|pengen|bisa)?\s*(?:beli|upgrade|ambil|daftar|berlangganan|langganan|perpanjang)\s+(?:ke\s+)?(?:hematwoy\s*)?(?:paket\s*)?(?:pro|tahunan|bulanan|premium)/i', $lowerText)
@@ -993,33 +993,15 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Set budget: "budget <kategori> <nominal>"
+        // Set budget: "budget <nominal>" or "anggaran <nominal>"
         if ($budgetData = $this->parser->parseBudgetSet($messageText)) {
             if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
-            $cat = $this->financeService->matchCategory($user, $budgetData['category'], 'EXPENSE');
-            if (!$cat) {
-                $cat = $this->financeService->addCustomCategory($user, $budgetData['category'], 'EXPENSE');
-            }
-            $budget = $this->budgetService->setBudget($user, $cat->id, $budgetData['amount']);
+            $budget = $this->budgetService->setBudget($user, $budgetData['amount']);
             $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->budgetService->renderSetBudgetCard($budget),
             ]);
-        }
-
-        // Category list
-        if (preg_match('/^(kategori|daftar kategori|list kategori)$/i', $messageText)) {
-            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
-            $this->consumeFinancialQuota($user, $messageId);
-            return $this->handleListCategories($user);
-        }
-
-        // Add category: "tambah kategori <name>"
-        if (preg_match('/^tambah kategori\s+(.+)$/i', $messageText, $matches)) {
-            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
-            $this->consumeFinancialQuota($user, $messageId);
-            return $this->handleAddCategory($user, trim($matches[1]));
         }
 
         if (preg_match('/^pengeluaran hari ini$/i', $messageText, $matches)) {
@@ -1566,7 +1548,6 @@ class WebhookController extends Controller
             $text = $header;
             $text .= "━━━━━━━━━━━━━━━━━\n";
             $text .= "📝 Keterangan: {$updated->description}\n";
-            $text .= "🏷️ Kategori: {$category}\n";
             $text .= "💵 {$typeLabel}: "
                 . $this->formatRupiah($updated->amount)
                 . "\n";
@@ -1714,16 +1695,7 @@ class WebhookController extends Controller
         $text .= "💚 Total Masuk : " . $this->formatRupiah($summary['total_income']) . "\n";
         $text .= "❤️ Total Keluar : " . $this->formatRupiah($summary['total_expense']) . "\n";
         $text .= "💎 Net Savings : " . $this->formatRupiah($summary['net_savings']) . "\n";
-        $text .= "━━━━━━━━━━━━━━━━━\n";
-
-        if (!empty($summary['category_breakdown'])) {
-            $text .= "🏷️ *Top Pengeluaran*:\n";
-            foreach (array_slice($summary['category_breakdown'], 0, 5) as $cat) {
-                $text .= "  {$cat['icon']} {$cat['category_name']}: " . $this->formatRupiah($cat['total_amount']) . "\n";
-            }
-        }
-
-        $text .= "━━━━━━━━━━━━━━━━━\n";
+            $text .= "━━━━━━━━━━━━━━━━━\n";
         $text .= "💰 Saldo Sekarang: " . $this->formatRupiah($summary['current_balance']);
 
         return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
@@ -1867,54 +1839,14 @@ class WebhookController extends Controller
         ]);
     }
 
-    private function handleListCategories(User $user): JsonResponse
-    {
-        $categories = $this->financeService->getCategoriesForUser($user);
-
-        $expenses = $categories->where('type', 'EXPENSE');
-        $incomes  = $categories->where('type', 'INCOME');
-
-        $text  = "🏷️ *Daftar Kategori Kamu*\n\n";
-        $text .= "*Pengeluaran:*\n";
-        foreach ($expenses as $cat) {
-            $tag   = $cat->is_default ? '' : ' _(kustom)_';
-            $text .= "  {$cat->icon} {$cat->name}{$tag}\n";
-        }
-        $text .= "\n*Pemasukan:*\n";
-        foreach ($incomes as $cat) {
-            $tag   = $cat->is_default ? '' : ' _(kustom)_';
-            $text .= "  {$cat->icon} {$cat->name}{$tag}\n";
-        }
-        $text .= "\n_Ketik \"tambah kategori <nama>\" untuk menambah kategori baru._";
-
-        return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
-    }
-
-    private function handleAddCategory(User $user, string $categoryName): JsonResponse
-    {
-        try {
-            $category = $this->financeService->addCustomCategory($user, $categoryName, 'EXPENSE');
-            $text = "✅ Kategori *{$category->name}* berhasil ditambahkan!\n";
-            $text .= "Sekarang kamu bisa pakai kategori ini saat catat transaksi.";
-        } catch (\RuntimeException $e) {
-            $text = "⚠️ " . $e->getMessage();
-        }
-
-        return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
-    }
-
     private function handleTransaction(User $user, array $parsed, string $messageId): JsonResponse
     {
-        // Match category from hint
-        $category = $this->financeService->matchCategory($user, $parsed['category_hint'], $parsed['type']);
-
         try {
-            [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $category, $messageId) {
+            [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $messageId) {
                 $transaction = $this->financeService->recordTransaction($user, [
                     'type'        => $parsed['type'],
                     'amount'      => $parsed['amount'],
                     'description' => $parsed['description'],
-                    'category_id' => $category?->id,
                     'wallet_name' => $parsed['wallet_tag'] ?? null,
                 ]);
                 return [$transaction, $this->subscriptions->consume($user, $messageId)];
@@ -1924,7 +1856,6 @@ class WebhookController extends Controller
             $typeLabel    = $parsed['type'] === 'EXPENSE' ? '💸 Pengeluaran' : '💰 Pemasukan';
             $typeEmoji    = '✅';
             $typeTitle    = $parsed['type'] === 'EXPENSE' ? 'Catatan Pengeluaran Tersimpan' : 'Catatan Pemasukan Tersimpan';
-            $categoryName = $category ? "{$category->icon} {$category->name}" : '📦 Lain-lain';
             $walletObj    = $transaction->wallet;
             $walletName   = $walletObj ? $walletObj->name : 'Cash';
             $walletBal    = $walletObj ? $this->formatRupiah($walletObj->balance) : $this->formatRupiah($user->current_balance);
@@ -1936,13 +1867,12 @@ class WebhookController extends Controller
                 $text .= "📝 *Keterangan*: {$parsed['description']}\n";
             }
 
-            $text .= "🏷️ *Kategori*: {$categoryName}\n";
             $text .= "👛 *Dompet*: {$walletName} (Sisa: {$walletBal})\n";
             $text .= "{$typeLabel}: " . $this->formatRupiah($parsed['amount']) . "\n";
             $text .= "━━━━━━━━━━━━━━━━━\n";
 
-            if ($parsed['type'] === 'EXPENSE' && $category) {
-                $budgetSnippet = $this->budgetService->renderExpenseBudgetSnippet($user, $category->id);
+            if ($parsed['type'] === 'EXPENSE') {
+                $budgetSnippet = $this->budgetService->renderExpenseBudgetSnippet($user);
                 if ($budgetSnippet) {
                     $text .= "\n" . $budgetSnippet . "\n━━━━━━━━━━━━━━━━━\n";
                 }
@@ -2027,7 +1957,7 @@ class WebhookController extends Controller
             . "  • `tambah dompet BCA saldo 1jt`\n"
             . "  • `transfer 200rb dari Cash ke BCA`\n\n"
             . "🎯 *Plafon Anggaran (Budget):*\n"
-            . "  • `budget makan 1jt`\n"
+            . "  • `budget 2jt` (atur batas pengeluaran bulanan)\n"
             . "  • `cek budget` (status plafon & bar terpakai)\n\n"
             . "⏰ *Langganan & Transaksi Rutin:*\n"
             . "  • `langganan Netflix 186rb setiap tanggal 15 via dana`\n"
@@ -2050,7 +1980,6 @@ class WebhookController extends Controller
             . "  • `koreksi 35rb` (ubah nominal transaksi terakhir)\n"
             . "  • `batal` (batalkan transaksi terakhir)\n"
             . "  • `set pin 123456`\n"
-            . "  • `kategori` / `tambah kategori <nama>`\n"
             . "  • `hapus data saya` (hapus permanen seluruh data)\n\n"
             . "_💡 Format nominal fleksibel: 25000, 25.000, 25k, 25rb, 1.5jt_";
     }

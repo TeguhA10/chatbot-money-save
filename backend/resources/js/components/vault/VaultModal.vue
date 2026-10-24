@@ -7,13 +7,13 @@
         type="button"
         class="vault-modal-close"
         @click="dismissModal"
-        title="Tutup & Tetap di Mode Sensor"
+        title="Tutup & Tetap Sembunyikan Saldo"
         aria-label="Tutup"
       >
         ✕
       </button>
 
-      <!-- Shield Header Icon -->
+      <!-- Header Icon -->
       <div class="vault-icon-wrapper" :class="{ 'is-locked': mode === 'unlock', 'is-setup': mode === 'setup', 'is-success': mode === 'recovery_success' }">
         <svg v-if="mode === 'unlock'" class="vault-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -31,9 +31,9 @@
 
       <!-- 1. MODE UNLOCK -->
       <div v-if="mode === 'unlock'">
-        <h2 class="vault-title">Kunci PIN Keamanan</h2>
+        <h2 class="vault-title">Buka Sensor Saldo</h2>
         <p class="vault-subtitle">
-          Masukkan PIN keamanan finansial Anda untuk membuka proteksi saldo privat.
+          Masukkan PIN Anda untuk melihat nominal saldo di layar.
         </p>
 
         <form @submit.prevent="handleUnlock" class="vault-form">
@@ -45,7 +45,7 @@
                 v-model="pinInput"
                 :type="showPassword ? 'text' : 'password'"
                 class="form-input"
-                placeholder="Masukkan PIN keamanan..."
+                placeholder="Masukkan PIN Anda..."
                 autocomplete="current-password"
                 :disabled="vaultStore.cooldownSeconds > 0 || vaultStore.loading"
                 required
@@ -58,7 +58,7 @@
 
           <!-- Error & Rate Limit Alerts -->
           <div v-if="vaultStore.cooldownSeconds > 0" class="alert-cooldown">
-            ⚠️ Terlalu banyak percobaan salah. Coba lagi dalam <strong>{{ vaultStore.cooldownSeconds }} detik</strong>.
+            ⚠️ Terlalu banyak salah. Tunggu <strong>{{ vaultStore.cooldownSeconds }} detik</strong> lagi.
           </div>
           <div v-else-if="localError || vaultStore.error" class="alert-error">
             {{ localError || vaultStore.error }}
@@ -71,20 +71,20 @@
               :disabled="vaultStore.cooldownSeconds > 0 || vaultStore.loading || !pinInput"
             >
               <span v-if="vaultStore.loading" class="spinner"></span>
-              <span v-else>🔓 Buka Kunci</span>
+              <span v-else>🔓 Buka Saldo</span>
             </button>
             <button
               type="button"
               class="btn-dismiss-vault"
               @click="dismissModal"
             >
-              Tutup
+              Batal
             </button>
           </div>
 
           <div class="vault-footer-links">
             <button type="button" class="btn-link" @click="mode = 'reset'">
-              Lupa PIN? Pulihkan dengan Recovery Code
+              Lupa PIN? Gunakan Kode Pemulihan
             </button>
           </div>
         </form>
@@ -92,21 +92,21 @@
 
       <!-- 2. MODE SETUP -->
       <div v-else-if="mode === 'setup'">
-        <h2 class="vault-title">Atur Master PIN / Passphrase</h2>
+        <h2 class="vault-title">Buat PIN Keamanan</h2>
         <p class="vault-subtitle">
-          Lindungi data keuangan Anda dari peretasan. PIN ini mendukung <strong>huruf, angka, & simbol</strong> dan tidak disimpan mentah di server (Zero-Knowledge).
+          Atur PIN untuk menyembunyikan dan membuka nominal saldo Anda saat dibutuhkan.
         </p>
 
         <form @submit.prevent="handleSetup" class="vault-form">
           <div class="form-group">
-            <label class="form-label" for="setup-pin">Buat Master PIN / Passphrase (Min. 6 Karakter)</label>
+            <label class="form-label" for="setup-pin">Buat PIN (Minimal 6 Digit / Karakter)</label>
             <div class="input-password-wrapper">
               <input
                 id="setup-pin"
                 v-model="pinInput"
                 :type="showPassword ? 'text' : 'password'"
                 class="form-input"
-                placeholder="Contoh: Rahasia123! atau 6 digit angka"
+                placeholder="Contoh: 123456 atau kata sandi Anda"
                 autocomplete="new-password"
                 minlength="6"
                 required
@@ -121,18 +121,18 @@
               <div class="strength-bar" :class="strengthClass" :style="{ width: strengthWidth }"></div>
             </div>
             <div class="strength-label" v-if="pinInput">
-              Kekuatan Sandi: <strong>{{ strengthLabel }}</strong>
+              Keamanan PIN: <strong>{{ strengthLabel }}</strong>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="setup-pin-confirm">Konfirmasi PIN / Passphrase</label>
+            <label class="form-label" for="setup-pin-confirm">Ketik Ulang PIN</label>
             <input
               id="setup-pin-confirm"
               v-model="pinConfirmInput"
               :type="showPassword ? 'text' : 'password'"
               class="form-input"
-              placeholder="Ulangi PIN / Passphrase..."
+              placeholder="Ketik ulang PIN yang sama..."
               autocomplete="new-password"
               required
             />
@@ -145,7 +145,14 @@
           <div class="vault-actions">
             <button type="submit" class="btn-primary-vault" :disabled="vaultStore.loading || !canSubmitSetup">
               <span v-if="vaultStore.loading" class="spinner"></span>
-              <span v-else>🛡️ Simpan & Amankan Vault</span>
+              <span v-else>✨ Simpan PIN</span>
+            </button>
+            <button
+              type="button"
+              class="btn-dismiss-vault"
+              @click="dismissModal"
+            >
+              Batal
             </button>
           </div>
         </form>
@@ -153,39 +160,39 @@
 
       <!-- 3. MODE RECOVERY SUCCESS -->
       <div v-else-if="mode === 'recovery_success'">
-        <h2 class="vault-title" style="color: #10b981;">Vault Berhasil Diamankan!</h2>
+        <h2 class="vault-title" style="color: #10b981;">PIN Berhasil Dibuat! 🎉</h2>
         <p class="vault-subtitle">
-          Simpan <strong>Recovery Code</strong> di bawah ini di tempat offline yang aman. Ini adalah kunci darurat jika Anda lupa Master PIN Anda.
+          Simpan <strong>Kode Pemulihan</strong> di bawah ini. Kode ini berguna jika suatu saat Anda lupa PIN.
         </p>
 
         <div class="recovery-box">
           <div class="recovery-code-display">{{ newlyGeneratedRecoveryCode }}</div>
           <button type="button" class="btn-copy" @click="copyRecoveryCode">
-            {{ copied ? '✅ Tersalin!' : '📋 Salin Kode' }}
+            {{ copied ? '✅ Berhasil Disalin!' : '📋 Salin Kode' }}
           </button>
         </div>
 
         <div class="alert-warning">
-          ⚠️ <strong>Penting:</strong> Kode ini hanya ditampilkan sekali. Jika Anda lupa PIN dan kehilangan kode ini, data tidak akan bisa dipulihkan oleh siapapun.
+          💡 <strong>Tips:</strong> Salin dan simpan kode ini di catatan HP Anda agar mudah dicari jika lupa PIN.
         </div>
 
         <div class="vault-actions" style="margin-top: 20px;">
           <button type="button" class="btn-primary-vault" @click="finishSetup">
-            Saya Sudah Menyimpannya, Lanjutkan 🚀
+            Selesai & Lanjutkan 🚀
           </button>
         </div>
       </div>
 
       <!-- 4. MODE RESET WITH RECOVERY CODE -->
       <div v-else-if="mode === 'reset'">
-        <h2 class="vault-title">Pemulihan Darurat</h2>
+        <h2 class="vault-title">Atur Ulang PIN</h2>
         <p class="vault-subtitle">
-          Masukkan 16 digit Recovery Code untuk mereset Master PIN / Passphrase Anda.
+          Masukkan Kode Pemulihan Anda untuk membuat PIN baru.
         </p>
 
         <form @submit.prevent="handleReset" class="vault-form">
           <div class="form-group">
-            <label class="form-label" for="recovery-code">Recovery Code (16 Karakter)</label>
+            <label class="form-label" for="recovery-code">Kode Pemulihan (16 Karakter)</label>
             <input
               id="recovery-code"
               v-model="recoveryInput"
@@ -198,7 +205,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="new-pin">Master PIN / Passphrase Baru</label>
+            <label class="form-label" for="new-pin">Buat PIN Baru</label>
             <input
               id="new-pin"
               v-model="pinInput"
@@ -217,13 +224,14 @@
           <div class="vault-actions">
             <button type="submit" class="btn-primary-vault" :disabled="vaultStore.loading || !recoveryInput || !pinInput">
               <span v-if="vaultStore.loading" class="spinner"></span>
-              <span v-else>🔄 Reset & Buka Vault</span>
+              <span v-else>🔄 Simpan PIN Baru</span>
             </button>
-          </div>
-
-          <div class="vault-footer-links">
-            <button type="button" class="btn-link" @click="mode = 'unlock'">
-              Kembali ke Menu Buka PIN
+            <button
+              type="button"
+              class="btn-dismiss-vault"
+              @click="mode = 'unlock'"
+            >
+              Kembali
             </button>
           </div>
         </form>
@@ -295,9 +303,9 @@ const strengthClass = computed(() => {
 });
 
 const strengthLabel = computed(() => {
-  if (strengthScore.value <= 1) return 'Lemah (tambahkan variasi karakter)';
-  if (strengthScore.value <= 3) return 'Sedang';
-  return 'Sangat Kuat (Aman dari Brute-Force) 🛡️';
+  if (strengthScore.value <= 1) return 'Cukup (minimal 6 karakter)';
+  if (strengthScore.value <= 3) return 'Bagus & Aman 👍';
+  return 'Sangat Kuat & Aman 🛡️';
 });
 
 const canSubmitSetup = computed(() => {
@@ -311,6 +319,8 @@ async function handleUnlock() {
     if (success) {
       pinInput.value = '';
       localError.value = '';
+      vaultStore.isMasked = false;
+      localStorage.setItem('vault_masked', 'false');
       vaultStore.closeModal();
       try {
         await financeStore.refreshAllData();
@@ -350,6 +360,8 @@ function copyRecoveryCode() {
 async function finishSetup() {
   pinInput.value = '';
   pinConfirmInput.value = '';
+  vaultStore.isMasked = false;
+  localStorage.setItem('vault_masked', 'false');
   vaultStore.closeModal();
   try {
     await financeStore.refreshAllData();
@@ -366,6 +378,8 @@ async function handleReset() {
       recoveryInput.value = '';
       pinInput.value = '';
       localError.value = '';
+      vaultStore.isMasked = false;
+      localStorage.setItem('vault_masked', 'false');
       vaultStore.closeModal();
       try {
         await financeStore.refreshAllData();
@@ -487,9 +501,9 @@ onMounted(() => {
 }
 
 .vault-icon-wrapper.is-setup {
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .vault-icon-wrapper.is-success {
@@ -552,8 +566,8 @@ onMounted(() => {
 }
 
 .form-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
 }
 
 .recovery-input-field {
@@ -634,17 +648,18 @@ onMounted(() => {
 .btn-primary-vault {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #022c22;
   border: none;
   border-radius: 10px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s, transform 0.1s;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 
 .btn-primary-vault:hover:not(:disabled) {
@@ -665,10 +680,16 @@ onMounted(() => {
 .btn-link {
   background: none;
   border: none;
-  color: #818cf8;
+  color: #10b981;
   font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-link:hover {
   text-decoration: underline;
+  opacity: 0.85;
 }
 
 .recovery-box {

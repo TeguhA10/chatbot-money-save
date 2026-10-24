@@ -10,29 +10,10 @@
 
       <div class="mb-4 shrink-0">
         <h2 class="text-xl font-bold text-white mb-1">Pasang Limit Anggaran</h2>
-        <p class="text-xs text-slate-400">Tentukan plafon pengeluaran bulanan per kategori</p>
+        <p class="text-xs text-slate-400">Tentukan plafon total pengeluaran bulanan Anda</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="space-y-4 overflow-y-auto pr-1 flex-1">
-        <!-- Category Selection -->
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Kategori</label>
-          <select
-            v-model="form.category_id"
-            required
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 shadow-inner cursor-pointer transition"
-          >
-            <option value="" disabled>Pilih kategori pengeluaran...</option>
-            <option
-              v-for="cat in expenseCategories"
-              :key="cat.id"
-              :value="cat.id"
-            >
-              {{ cat.icon }} {{ cat.name }}
-            </option>
-          </select>
-        </div>
-
         <!-- Limit Amount -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
@@ -105,7 +86,6 @@ const toastStore = useToastStore();
 
 const submitting = ref(false);
 const form = ref({
-  category_id: '',
   limit_amount: null,
 });
 
@@ -124,23 +104,18 @@ function addPreset(val) {
   form.value.limit_amount = (form.value.limit_amount || 0) + val;
 }
 
-const expenseCategories = computed(() => {
-  return financeStore.categories.filter((c) => c.type === 'EXPENSE' || !c.type);
-});
-
 async function handleSubmit() {
-  if (!form.value.category_id || !form.value.limit_amount) {
-    toastStore.warning('Pilih kategori dan tentukan batas anggaran.');
+  if (!form.value.limit_amount || form.value.limit_amount <= 0) {
+    toastStore.warning('Tentukan batas anggaran bulanan yang valid.');
     return;
   }
   submitting.value = true;
   try {
     await financeStore.createBudget({
-      category_id: form.value.category_id,
       limit_amount: form.value.limit_amount,
     });
     toastStore.success('Batas anggaran berhasil dipasang.');
-    form.value = { category_id: '', limit_amount: null };
+    form.value = { limit_amount: null };
     emit('saved');
     emit('close');
   } catch (err) {

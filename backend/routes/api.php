@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\BotMenuController;
-use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\HealthController;
@@ -96,10 +95,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::post('/transactions',        [TransactionController::class, 'store'])->name('api.transactions.store');
         Route::put('/transactions/{id}',    [TransactionController::class, 'update'])->name('api.transactions.update');
         Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('api.transactions.destroy');
-
-        // Categories
-        Route::get('/categories',  [CategoryController::class, 'index'])->name('api.categories.index');
-        Route::post('/categories', [CategoryController::class, 'store'])->name('api.categories.store');
 
         // Budgets
         Route::get('/budgets',  [BudgetController::class, 'index'])->name('api.budgets.index');

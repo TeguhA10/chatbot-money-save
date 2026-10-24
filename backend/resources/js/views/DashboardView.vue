@@ -116,10 +116,16 @@
           </div>
           <button
             @click="vaultStore.toggleMask"
-            class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-medium active:scale-95 transition flex items-center gap-1 cursor-pointer"
+            class="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            :title="vaultStore.isMasked ? 'Buka sensor saldo' : 'Sembunyikan saldo'"
           >
-            <span>{{ vaultStore.isMasked ? '👁️' : '👁️‍🗨️' }}</span>
-            <span>{{ vaultStore.isMasked ? 'Buka' : 'Sensor' }}</span>
+            <svg v-if="vaultStore.isMasked" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
           </button>
         </div>
 
@@ -318,7 +324,7 @@
 
       <!-- ANALYTICS SECTION: CHARTS & BREAKDOWN -->
       <div class="space-y-3">
-        <!-- Mobile Segmented Tabs for Analytics (Chart vs Category) -->
+        <!-- Mobile Segmented Tabs for Analytics (Chart vs Snapshot) -->
         <div class="sm:hidden flex rounded-xl bg-slate-900 p-1 border border-slate-800">
           <button
             @click="activeAnalyticsTab = 'trend'"
@@ -328,11 +334,11 @@
             📊 Tren 6 Bulan
           </button>
           <button
-            @click="activeAnalyticsTab = 'breakdown'"
+            @click="activeAnalyticsTab = 'snapshot'"
             class="flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer"
-            :class="activeAnalyticsTab === 'breakdown' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'"
+            :class="activeAnalyticsTab === 'snapshot' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'"
           >
-            🍩 Kategori
+            📋 Ringkasan
           </button>
         </div>
 
@@ -385,47 +391,43 @@
             </div>
           </div>
 
-          <!-- Expense Category Breakdown -->
+          <!-- Monthly Snapshot Card -->
           <div
             class="p-4 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between"
-            :class="activeAnalyticsTab === 'breakdown' ? 'block' : 'hidden sm:flex'"
+            :class="activeAnalyticsTab === 'snapshot' ? 'block' : 'hidden sm:flex'"
           >
             <div>
               <div class="flex items-center justify-between mb-4">
                 <div>
-                  <h2 class="text-sm sm:text-base font-bold text-white">Pengeluaran Kategori</h2>
-                  <p class="text-[11px] sm:text-xs text-slate-400">Distribusi belanja bulan ini</p>
+                  <h2 class="text-sm sm:text-base font-bold text-white">Ringkasan Bulan Ini</h2>
+                  <p class="text-[11px] sm:text-xs text-slate-400">Ikhtisar mutasi & tabungan</p>
                 </div>
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
-                  {{ financeStore.categoryBreakdown.length }} item
+                  {{ financeStore.selectedMonth }}
                 </span>
               </div>
 
-              <div v-if="financeStore.categoryBreakdown.length === 0" class="py-10 text-center text-slate-500 text-xs">
-                Belum ada data pengeluaran bulan ini.
-              </div>
-
-              <div v-else class="space-y-3">
-                <div
-                  v-for="cat in financeStore.categoryBreakdown.slice(0, 5)"
-                  :key="cat.category_name"
-                  class="space-y-1"
-                >
+              <div class="space-y-3">
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="font-medium text-slate-200 flex items-center gap-1.5 truncate">
-                      <span>{{ cat.icon || '📌' }}</span>
-                      <span class="truncate">{{ cat.category_name }}</span>
-                    </span>
-                    <span class="font-bold text-white shrink-0 ml-2">
-                      {{ formatRupiah(cat.total_amount) }}
-                      <span class="text-[10px] text-slate-400 font-normal">({{ cat.percentage }}%)</span>
-                    </span>
+                    <span class="text-slate-400">Total Pemasukan</span>
+                    <span class="font-bold text-emerald-400">+{{ formatRupiah(financeStore.summary?.total_income || 0) }}</span>
                   </div>
-                  <div class="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      class="bg-gradient-to-r from-teal-500 to-emerald-400 h-full rounded-full transition-all"
-                      :style="{ width: `${cat.percentage}%` }"
-                    ></div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Total Pengeluaran</span>
+                    <span class="font-bold text-rose-400">-{{ formatRupiah(financeStore.summary?.total_expense || 0) }}</span>
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Tabungan Bersih</span>
+                    <span class="font-black" :class="(financeStore.summary?.net_savings || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                      {{ (financeStore.summary?.net_savings || 0) >= 0 ? '+' : '' }}{{ formatRupiah(financeStore.summary?.net_savings || 0) }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -463,7 +465,7 @@
               class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1.5"
             >
               <div class="flex items-center justify-between text-xs">
-                <span class="font-medium text-slate-200">{{ b.category_icon }} {{ b.category_name }}</span>
+                <span class="font-medium text-slate-200">🎯 Batas Pengeluaran Bulanan</span>
                 <span
                   class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   :class="b.percentage >= 90 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (b.percentage >= 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400')"
@@ -578,15 +580,11 @@
                 class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-lg shadow-inner"
                 :class="t.type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' : (t.type === 'TRANSFER' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25' : 'bg-rose-500/10 text-rose-400 border border-rose-500/25')"
               >
-                <span>{{ t.category?.icon || (t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '↔' : '💸')) }}</span>
+                <span>{{ t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '↔' : '💸') }}</span>
               </div>
               <div class="min-w-0">
                 <p class="text-xs font-bold text-white truncate">{{ t.description || 'Transaksi Tanpa Keterangan' }}</p>
                 <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
-                  <span class="inline-block px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-medium truncate max-w-[100px]">
-                    {{ t.category?.name || (t.type === 'TRANSFER' ? 'Transfer' : 'Umum') }}
-                  </span>
-                  <span>&bull;</span>
                   <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
                 </div>
               </div>
@@ -616,7 +614,6 @@
               <tr class="text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-800/80 bg-slate-950/40">
                 <th class="py-3.5 px-5 w-32 font-bold">Tanggal</th>
                 <th class="py-3.5 px-5 min-w-[220px] font-bold">Deskripsi</th>
-                <th class="py-3.5 px-5 w-44 font-bold">Kategori</th>
                 <th class="py-3.5 px-5 w-28 text-center font-bold">Tipe</th>
                 <th class="py-3.5 px-5 w-36 text-right font-bold">Nominal</th>
               </tr>
@@ -637,18 +634,6 @@
                   <div class="flex items-center gap-2">
                     <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
                   </div>
-                </td>
-
-                <!-- Category Pill -->
-                <td class="py-4 px-5 text-slate-300">
-                  <span
-                    v-if="t.category"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-800/90 text-slate-200 border border-slate-700/60 shadow-sm"
-                  >
-                    <span>{{ t.category.icon }}</span>
-                    <span>{{ t.category.name }}</span>
-                  </span>
-                  <span v-else class="text-slate-500 italic text-[11px]">- Umum -</span>
                 </td>
 
                 <!-- Type Badge -->

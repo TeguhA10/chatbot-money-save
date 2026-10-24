@@ -51,7 +51,6 @@ class ProcessRecurringScheduleJob implements ShouldQueue
                 'type'        => $schedule->type,
                 'amount'      => $amount,
                 'description' => $memo,
-                'category_id' => $schedule->category_id,
                 'wallet_id'   => $schedule->wallet_id,
             ]);
 

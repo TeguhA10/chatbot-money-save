@@ -152,7 +152,7 @@
           <div class="space-y-1">
             <h3 class="text-sm sm:text-base font-bold text-white">Belum Ada Anggaran yang Dibuat</h3>
             <p class="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-              Pasang batas anggaran untuk kategori favorit Anda seperti Makanan, Transport, atau Hiburan untuk mencegah pengeluaran berlebih.
+              Pasang batas anggaran bulanan untuk mengendalikan dan membatasi total pengeluaran Anda.
             </p>
           </div>
           <div class="pt-2">
@@ -195,10 +195,10 @@
             <!-- Header -->
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2.5">
-                <span class="text-2xl">{{ b.category_icon || '🏷️' }}</span>
+                <span class="text-2xl">🎯</span>
                 <div>
-                  <h3 class="text-sm font-bold text-white">{{ b.category_name }}</h3>
-                  <p class="text-[11px] text-slate-400">Plafon Bulanan</p>
+                  <h3 class="text-sm font-bold text-white">Batas Pengeluaran Bulanan</h3>
+                  <p class="text-[11px] text-slate-400">Plafon Keseluruhan</p>
                 </div>
               </div>
               <span
@@ -275,7 +275,6 @@ const budgetSortOptions = [
   { value: 'PERCENT_DESC', label: 'Persentase Terpakai Tertinggi', icon: '📈' },
   { value: 'PERCENT_ASC', label: 'Persentase Terpakai Terendah', icon: '📉' },
   { value: 'LIMIT_DESC', label: 'Plafon Nominal Terbesar', icon: '💰' },
-  { value: 'NAME_ASC', label: 'Nama Kategori (A-Z)', icon: '🔤' },
 ];
 
 const isInitialLoading = ref(!financeStore.hasLoadedBudgets);
@@ -333,10 +332,7 @@ const filteredBudgets = computed(() => {
       return (Number(a.percentage) || 0) - (Number(b.percentage) || 0);
     }
     if (budgetSort.value === 'LIMIT_DESC') {
-      return (Number(b.amount) || 0) - (Number(a.amount) || 0);
-    }
-    if (budgetSort.value === 'NAME_ASC') {
-      return (a.category_name || '').localeCompare(b.category_name || '');
+      return (Number(b.limit_amount) || 0) - (Number(a.limit_amount) || 0);
     }
     return 0;
   });
@@ -356,10 +352,7 @@ async function loadBudgets(force = false) {
   errorMessage.value = '';
 
   try {
-    await Promise.all([
-      financeStore.fetchBudgets(force),
-      financeStore.fetchCategories(force),
-    ]);
+    await financeStore.fetchBudgets(force);
   } catch (err) {
     if (!financeStore.hasLoadedBudgets) {
       isError.value = true;

@@ -90,14 +90,6 @@ class User extends Authenticatable
     }
 
     /**
-     * All custom categories created by this user.
-     */
-    public function categories(): HasMany
-    {
-        return $this->hasMany(Category::class, 'user_jid', 'jid');
-    }
-
-    /**
      * All wallets belonging to this user.
      */
     public function wallets(): HasMany

@@ -319,10 +319,9 @@
     <thead>
       <tr>
         <th class="text-center" style="width: 4%;">No</th>
-        <th style="width: 14%;">Tanggal & Jam</th>
-        <th style="width: 28%;">Keterangan / Catatan</th>
-        <th style="width: 14%;">Kategori</th>
-        <th style="width: 12%;">Dompet</th>
+        <th style="width: 16%;">Tanggal & Jam</th>
+        <th style="width: 36%;">Keterangan / Catatan</th>
+        <th style="width: 16%;">Dompet</th>
         <th class="text-right" style="width: 14%;">Masuk (Kredit)</th>
         <th class="text-right" style="width: 14%;">Keluar (Debit)</th>
       </tr>
@@ -338,7 +337,6 @@
               <span style="font-size: 7pt; color: #0284c7;"> &rarr; {{ $tx['to_wallet'] }}</span>
             @endif
           </td>
-          <td><span class="tag-category">{{ $tx['category'] }}</span></td>
           <td class="tag-wallet">{{ $tx['wallet'] }}</td>
           <td class="text-right mono {{ $tx['type'] === 'INCOME' ? 'text-income' : '' }}">
             {{ $tx['type'] === 'INCOME' ? 'Rp' . number_format($tx['amount'], 0, ',', '.') : '-' }}
@@ -349,7 +347,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="7" class="text-center" style="padding: 20px; color: #64748b;">
+          <td colspan="6" class="text-center" style="padding: 20px; color: #64748b;">
             Tidak ada transaksi yang tercatat pada periode dan filter ini.
           </td>
         </tr>

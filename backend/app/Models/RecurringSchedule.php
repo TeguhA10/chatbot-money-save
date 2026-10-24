@@ -20,7 +20,6 @@ class RecurringSchedule extends Model
     protected $fillable = [
         'user_jid',
         'wallet_id',
-        'category_id',
         'type',
         'encrypted_amount',
         'description',
@@ -50,11 +49,6 @@ class RecurringSchedule extends Model
     public function wallet(): BelongsTo
     {
         return $this->belongsTo(Wallet::class, 'wallet_id', 'id');
-    }
-
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(Category::class, 'category_id', 'id');
     }
 
     public function getAmountAttribute(): int

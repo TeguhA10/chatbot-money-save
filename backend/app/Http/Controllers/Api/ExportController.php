@@ -35,7 +35,6 @@ class ExportController extends Controller
         if ($request->filled('end_date'))    $filters['end_date']    = $request->query('end_date');
         if ($request->filled('wallet_id'))   $filters['wallet_id']   = $request->query('wallet_id');
         if ($request->filled('type'))        $filters['type']        = $request->query('type');
-        if ($request->filled('category_id')) $filters['category_id'] = $request->query('category_id');
         if ($request->filled('month'))       $filters['month']       = $request->query('month');
         if ($request->filled('year'))        $filters['year']        = $request->query('year');
 

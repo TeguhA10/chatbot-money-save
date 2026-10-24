@@ -8,7 +8,6 @@ export const useFinanceStore = defineStore('finance', {
         // Summary & Analytics
         summary: null,
         monthlyTrend: [],
-        categoryBreakdown: [],
         selectedMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
 
         // Data collections
@@ -22,10 +21,10 @@ export const useFinanceStore = defineStore('finance', {
         wallets: [],
         totalBalance: 0,
         budgets: [],
+        budget: null,
         totalBudgeted: 0,
         totalSpent: 0,
         goals: [],
-        categories: [],
 
         // Cache tracking & SWR status
         hasLoadedFeed: false,
@@ -33,17 +32,14 @@ export const useFinanceStore = defineStore('finance', {
         hasLoadedBudgets: false,
         hasLoadedGoals: false,
         hasLoadedTransactions: false,
-        hasLoadedCategories: false,
         lastFetchedAt: {
             feed: {}, // key by month 'YYYY-MM'
             summary: {},
-            categoryBreakdown: {},
             monthlyTrend: 0,
             transactions: 0,
             wallets: 0,
             budgets: 0,
             goals: 0,
-            categories: 0,
         },
 
         // Loading states
@@ -65,7 +61,6 @@ export const useFinanceStore = defineStore('finance', {
                 // Return cached data immediately without hitting network
                 return {
                     summary: this.summary,
-                    category_breakdown: this.categoryBreakdown,
                     monthly_trend: this.monthlyTrend,
                     wallets: { wallets: this.wallets, total_balance: this.totalBalance },
                     budgets: { budgets: this.budgets, total_budgeted: this.totalBudgeted, total_spent: this.totalSpent },
@@ -80,11 +75,11 @@ export const useFinanceStore = defineStore('finance', {
                 const data = res.data.data;
                 if (data) {
                     this.summary = data.summary;
-                    this.categoryBreakdown = data.category_breakdown;
                     this.monthlyTrend = data.monthly_trend;
                     this.wallets = data.wallets?.wallets || [];
                     this.totalBalance = data.wallets?.total_balance ?? 0;
                     this.budgets = data.budgets?.budgets || [];
+                    this.budget = data.budgets?.budgets?.[0] || null;
                     this.totalBudgeted = data.budgets?.total_budgeted ?? 0;
                     this.totalSpent = data.budgets?.total_spent ?? 0;
                     this.goals = data.goals?.goals || [];
@@ -130,21 +125,8 @@ export const useFinanceStore = defineStore('finance', {
             }
         },
 
-        async fetchCategoryBreakdown(month = this.selectedMonth, force = false) {
-            const lastFetched = this.lastFetchedAt.categoryBreakdown[month];
-            if (!force && this.categoryBreakdown.length > 0 && this.isFresh(lastFetched)) {
-                return this.categoryBreakdown;
-            }
-
-            try {
-                const res = await api.get('/analytics/category-breakdown', { params: { month } });
-                this.categoryBreakdown = res.data.data;
-                this.lastFetchedAt.categoryBreakdown[month] = Date.now();
-                return this.categoryBreakdown;
-            } catch (err) {
-                console.error('Error fetching category breakdown:', err);
-                throw err;
-            }
+        async fetchCategoryBreakdown() {
+            return [];
         },
 
         async fetchMonthlyTrend(force = false) {
@@ -165,7 +147,7 @@ export const useFinanceStore = defineStore('finance', {
 
         async fetchTransactions(filters = {}, force = false) {
             // Only use cached transactions if no custom filter/search/pagination is requested
-            const isDefaultFilter = !filters.search && !filters.type && !filters.category_id && !filters.start_date && !filters.end_date && (!filters.page || filters.page === 1);
+            const isDefaultFilter = !filters.search && !filters.type && !filters.start_date && !filters.end_date && (!filters.page || filters.page === 1);
             if (!force && isDefaultFilter && this.hasLoadedTransactions && this.isFresh(this.lastFetchedAt.transactions)) {
                 return this.transactions;
             }
@@ -176,7 +158,6 @@ export const useFinanceStore = defineStore('finance', {
                     page: filters.page || 1,
                     limit: filters.limit || 20,
                     type: filters.type || undefined,
-                    category_id: filters.category_id || undefined,
                     start_date: filters.start_date || undefined,
                     end_date: filters.end_date || undefined,
                     search: filters.search || undefined,
@@ -255,9 +236,11 @@ export const useFinanceStore = defineStore('finance', {
             this.loadingBudgets = true;
             try {
                 const res = await api.get('/budgets');
-                this.budgets = res.data.data.budgets;
-                this.totalBudgeted = res.data.data.total_budgeted;
-                this.totalSpent = res.data.data.total_spent;
+                const b = res.data.data?.budget;
+                this.budget = b || null;
+                this.budgets = b ? [b] : [];
+                this.totalBudgeted = res.data.data?.total_budgeted ?? 0;
+                this.totalSpent = res.data.data?.total_spent ?? 0;
                 this.hasLoadedBudgets = true;
                 this.lastFetchedAt.budgets = Date.now();
                 return this.budgets;
@@ -309,27 +292,13 @@ export const useFinanceStore = defineStore('finance', {
             return res.data;
         },
 
-        async fetchCategories(force = false) {
-            if (!force && this.hasLoadedCategories && this.categories.length > 0) {
-                return this.categories;
-            }
-
-            try {
-                const res = await api.get('/categories');
-                this.categories = res.data.data;
-                this.hasLoadedCategories = true;
-                this.lastFetchedAt.categories = Date.now();
-                return this.categories;
-            } catch (err) {
-                console.error('Error fetching categories:', err);
-                throw err;
-            }
+        async fetchCategories() {
+            return [];
         },
 
         invalidateCache() {
             this.lastFetchedAt.feed = {};
             this.lastFetchedAt.summary = {};
-            this.lastFetchedAt.categoryBreakdown = {};
             this.lastFetchedAt.monthlyTrend = 0;
             this.lastFetchedAt.transactions = 0;
             this.lastFetchedAt.wallets = 0;

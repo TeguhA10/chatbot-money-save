@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * @property string       $id               UUID primary key
  * @property string       $user_jid         FK to users.jid
- * @property string|null  $category_id      FK to categories.id (nullable)
  * @property string       $type             'EXPENSE' | 'INCOME'
  * @property int          $amount           Positive integer Rupiah (never zero, never negative)
  * @property string       $description      Short human-readable label
@@ -30,7 +29,6 @@ class Transaction extends Model
 
     protected $fillable = [
         'user_jid',
-        'category_id',
         'wallet_id',
         'to_wallet_id',
         'type',
@@ -65,14 +63,6 @@ class Transaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_jid', 'jid');
-    }
-
-    /**
-     * The category this transaction is tagged under (can be null).
-     */
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(Category::class, 'category_id', 'id');
     }
 
     /**

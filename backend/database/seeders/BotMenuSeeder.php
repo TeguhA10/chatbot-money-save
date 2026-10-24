@@ -31,7 +31,7 @@ class BotMenuSeeder extends Seeder
             ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'transfer 200rb dari Cash ke BCA', 'description' => null, 'is_quick_command' => false, 'sort_order' => 22],
 
             // Plafon Anggaran (Budget)
-            ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'budget makan 1jt', 'description' => null, 'is_quick_command' => false, 'sort_order' => 30],
+            ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'budget 1jt', 'description' => 'atur batas belanja bulanan', 'is_quick_command' => false, 'sort_order' => 30],
             ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'cek budget', 'description' => 'status plafon & bar terpakai', 'is_quick_command' => false, 'sort_order' => 31],
 
             // Langganan & Transaksi Rutin
@@ -59,8 +59,6 @@ class BotMenuSeeder extends Seeder
             ['category' => 'Web Dashboard & Pengaturan', 'category_icon' => '🌐', 'command' => 'koreksi 35rb', 'description' => 'ubah nominal transaksi terakhir', 'is_quick_command' => false, 'sort_order' => 71],
             ['category' => 'Web Dashboard & Pengaturan', 'category_icon' => '🌐', 'command' => 'batal', 'description' => 'batalkan transaksi terakhir', 'is_quick_command' => false, 'sort_order' => 72],
             ['category' => 'Web Dashboard & Pengaturan', 'category_icon' => '🌐', 'command' => 'set pin 123456', 'description' => null, 'is_quick_command' => false, 'sort_order' => 73],
-            ['category' => 'Web Dashboard & Pengaturan', 'category_icon' => '🌐', 'command' => 'kategori', 'description' => null, 'is_quick_command' => false, 'sort_order' => 74],
-            ['category' => 'Web Dashboard & Pengaturan', 'category_icon' => '🌐', 'command' => 'tambah kategori <nama>', 'description' => null, 'is_quick_command' => false, 'sort_order' => 75],
 
             // Quick Menu item
             ['category' => 'Panduan Lengkap', 'category_icon' => '📚', 'command' => 'menu', 'description' => 'panduan lengkap seluruh fitur', 'is_quick_command' => true, 'sort_order' => 80],

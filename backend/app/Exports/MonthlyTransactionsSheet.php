@@ -55,7 +55,7 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
         $query = $this->user->transactions()
             ->active()
             ->whereBetween('created_at', [$start, $end])
-            ->with(['category', 'wallet', 'toWallet']);
+            ->with(['wallet', 'toWallet']);
 
         if (!empty($this->filters['wallet_id'])) {
             $walletId = $this->filters['wallet_id'];
@@ -67,10 +67,6 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
 
         if (!empty($this->filters['type']) && in_array(strtoupper($this->filters['type']), ['INCOME', 'EXPENSE', 'TRANSFER'], true)) {
             $query->where('type', strtoupper($this->filters['type']));
-        }
-
-        if (!empty($this->filters['category_id'])) {
-            $query->where('category_id', $this->filters['category_id']);
         }
 
         $transactions = $query->orderBy('created_at', 'asc')->get();
@@ -86,7 +82,6 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
             'No',
             'Tanggal & Waktu',
             'Tipe',
-            'Kategori',
             'Keterangan',
             'Dompet Asal',
             'Dompet Tujuan',
@@ -109,10 +104,6 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
             default    => $row->type,
         };
 
-        $categoryLabel = $row->category
-            ? (($row->category->icon ? $row->category->icon . ' ' : '') . $row->category->name)
-            : ($row->type === 'TRANSFER' ? '🔄 Transfer Antar Dompet' : 'Lainnya');
-
         $fromWallet = $row->wallet?->name ?? 'Cash';
         $toWallet   = $row->type === 'TRANSFER' ? ($row->toWallet?->name ?? '-') : '-';
 
@@ -120,7 +111,6 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
             $this->rowNumber,
             $row->created_at ? $row->created_at->format('Y-m-d H:i') : '',
             $typeLabel,
-            $categoryLabel,
             $row->description !== '' ? $row->description : '-',
             $fromWallet,
             $toWallet,
@@ -132,15 +122,15 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
     public function columnFormats(): array
     {
         return [
+            'G' => '#,##0',
             'H' => '#,##0',
-            'I' => '#,##0',
         ];
     }
 
     public function styles(Worksheet $sheet): array
     {
         // Header styling
-        $sheet->getStyle('A1:I1')->applyFromArray([
+        $sheet->getStyle('A1:H1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E40AF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
@@ -153,11 +143,11 @@ class MonthlyTransactionsSheet implements FromCollection, WithHeadings, WithMapp
             $sheet->getStyle("A2:A{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("B2:B{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("C2:C{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("F2:G{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("H2:I{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("E2:F{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("G2:H{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             
             // All borders
-            $sheet->getStyle("A1:I{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getStyle("A1:H{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         }
 
         return [];

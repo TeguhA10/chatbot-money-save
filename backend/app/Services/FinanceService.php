@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Category;
+
 use App\Models\FinancialGoal;
 use App\Models\Transaction;
 use App\Models\User;
@@ -239,7 +239,6 @@ class FinanceService
                 // Persist transaction with balance snapshot
                 $transaction = Transaction::create([
                     'user_jid'                => $freshUser->jid,
-                    'category_id'             => $data['category_id'] ?? null,
                     'wallet_id'               => $targetWallet->id,
                     'type'                    => $type,
                     'amount'                  => $amount,
@@ -302,7 +301,6 @@ class FinanceService
                     'user_jid'                => $freshUser->jid,
                     'wallet_id'               => $source->id,
                     'to_wallet_id'            => $dest->id,
-                    'category_id'             => null,
                     'type'                    => 'TRANSFER',
                     'amount'                  => $amount,
                     'description'             => $memo,
@@ -346,7 +344,6 @@ class FinanceService
         $query = Transaction::query()
             ->where('user_jid', $user->jid)
             ->active()
-            ->with('category')
             ->orderByDesc('transaction_date')
             ->orderByDesc('created_at')
             ->orderByDesc('id');
@@ -475,7 +472,7 @@ class FinanceService
             $oldAmount = $transaction->amount;
             $diff = $amount - $oldAmount;
 
-            $transaction->update(['amount' => 0, 'encrypted_amount' => $this->encryption->encryptForStorage($amount), 'description' => $description]);
+            $transaction->update(['amount' => $amount, 'encrypted_amount' => $this->encryption->encryptForStorage($amount), 'description' => $description]);
 
             if ($transaction->wallet_id && $diff !== 0) {
                 $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
@@ -614,11 +611,11 @@ class FinanceService
             }
 
             if ((int) $transaction->balance_after !== $balance) {
-                $transaction->update(['balance_after' => 0, 'encrypted_balance_after' => $this->encryption->encryptForStorage($balance)]);
+                $transaction->update(['balance_after' => $balance, 'encrypted_balance_after' => $this->encryption->encryptForStorage($balance)]);
             }
         }
 
-        User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($balance)]);
+        User::where('jid', $user->jid)->update(['current_balance' => $balance, 'encrypted_current_balance' => $this->encryption->encryptForStorage($balance)]);
 
         $user->current_balance = $balance;
 
@@ -707,7 +704,7 @@ class FinanceService
                 }
 
                 // Update user balance
-                User::where('jid', $user->jid)->update(['current_balance' => 0, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
+                User::where('jid', $user->jid)->update(['current_balance' => $newBalance, 'encrypted_current_balance' => $this->encryption->encryptForStorage($newBalance)]);
                 $user->current_balance = $newBalance;
 
                 // Void the transaction
@@ -766,51 +763,23 @@ class FinanceService
         $totalExpense = (int) ($aggregates->total_expense ?? 0);
         $transactionCount = (int) ($aggregates->transaction_count ?? 0);
 
-        // Fallback for legacy rows where amount == 0
-        if ($transactionCount > 0 && $totalIncome === 0 && $totalExpense === 0) {
-            $transactions = Transaction::where('user_jid', $user->jid)
+        // Fallback safety if any legacy transactions still had amount == 0 in raw database
+        if ($transactionCount > 0) {
+            $hasZeroAmounts = Transaction::where('user_jid', $user->jid)
                 ->active()
                 ->forMonth($year, $month)
-                ->with('category')
-                ->get();
+                ->where('amount', 0)
+                ->exists();
 
-            $totalIncome  = (int) $transactions->where('type', 'INCOME')->sum('amount');
-            $totalExpense = (int) $transactions->where('type', 'EXPENSE')->sum('amount');
+            if ($hasZeroAmounts) {
+                $transactions = Transaction::where('user_jid', $user->jid)
+                    ->active()
+                    ->forMonth($year, $month)
+                    ->get();
 
-            $breakdown = $transactions
-                ->where('type', 'EXPENSE')
-                ->groupBy(fn($t) => $t->category?->name ?? 'Lain-lain')
-                ->map(fn($group) => [
-                    'category_name' => $group->first()->category?->name ?? 'Lain-lain',
-                    'icon'          => $group->first()->category?->icon ?? '📦',
-                    'total_amount'  => (int) $group->sum('amount'),
-                    'count'         => (int) $group->count(),
-                ])
-                ->sortByDesc('total_amount')
-                ->values()
-                ->toArray();
-        } else {
-            $breakdown = Transaction::where('transactions.user_jid', $user->jid)
-                ->active()
-                ->expenses()
-                ->forMonth($year, $month)
-                ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
-                ->selectRaw("
-                    COALESCE(categories.name, 'Lain-lain') as category_name,
-                    COALESCE(categories.icon, '📦') as icon,
-                    COALESCE(SUM(transactions.amount), 0) as total_amount,
-                    COUNT(transactions.id) as count
-                ")
-                ->groupBy('categories.id', 'categories.name', 'categories.icon')
-                ->orderByDesc('total_amount')
-                ->get()
-                ->map(fn($row) => [
-                    'category_name' => (string) $row->category_name,
-                    'icon'          => (string) $row->icon,
-                    'total_amount'  => (int) $row->total_amount,
-                    'count'         => (int) $row->count,
-                ])
-                ->toArray();
+                $totalIncome = (int) $transactions->where('type', 'INCOME')->sum('amount');
+                $totalExpense = (int) $transactions->where('type', 'EXPENSE')->sum('amount');
+            }
         }
 
         return [
@@ -819,7 +788,7 @@ class FinanceService
             'net_savings'        => $totalIncome - $totalExpense,
             'current_balance'    => $this->getBalance($user),
             'transaction_count'  => $transactionCount,
-            'category_breakdown' => $breakdown,
+            'category_breakdown' => [],
         ];
     }
 
@@ -864,81 +833,7 @@ class FinanceService
         ];
     }
 
-    // ---------------------------------------------------------------------------
-    // Category Management — FR-005
-    // ---------------------------------------------------------------------------
 
-    /**
-     * Get all categories visible to a user (system defaults + their custom categories).
-     */
-    public function getCategoriesForUser(User $user): Collection
-    {
-        return Category::forUser($user->jid)->orderBy('is_default', 'desc')->orderBy('name')->get();
-    }
-
-    /**
-     * Create a new custom category for a user.
-     *
-     * @throws \Exception if category name already exists for this user
-     */
-    public function addCustomCategory(User $user, string $name, string $type, string $icon = '📌'): Category
-    {
-        // Check for name collision with system defaults or user's own categories
-        $exists = Category::where('name', $name)
-            ->where(function ($q) use ($user) {
-                $q->whereNull('user_jid')->orWhere('user_jid', $user->jid);
-            })
-            ->exists();
-
-        if ($exists) {
-            throw new \RuntimeException("Kategori '{$name}' sudah ada. Pilih nama yang berbeda.");
-        }
-
-        return Category::create([
-            'user_jid'   => $user->jid,
-            'name'       => $name,
-            'type'       => strtoupper($type),
-            'icon'       => $icon,
-            'is_default' => false,
-        ]);
-    }
-
-    // ---------------------------------------------------------------------------
-    // Smart Category Matching
-    // ---------------------------------------------------------------------------
-
-    /**
-     * Match a category hint string to an actual Category model for a user.
-     * Returns null if no match found (caller should use 'Lain-lain' or similar fallback).
-     */
-    public function matchCategory(User $user, ?string $categoryHint, string $type): ?Category
-    {
-        if (empty($categoryHint)) {
-            return null;
-        }
-
-        $hintToNameMap = [
-            'makan'     => 'Makanan & Minuman',
-            'transport' => 'Transportasi',
-            'tagihan'   => 'Tagihan & Utilitas',
-            'hiburan'   => 'Hiburan',
-            'belanja'   => 'Belanja',
-            'kesehatan' => 'Kesehatan',
-            'gaji'      => 'Gaji & Pendapatan',
-            'bisnis'    => 'Bisnis',
-        ];
-
-        $categoryName = $hintToNameMap[$categoryHint] ?? null;
-
-        if (!$categoryName) {
-            return null;
-        }
-
-        return Category::forUser($user->jid)
-            ->where('name', $categoryName)
-            ->where('type', strtoupper($type))
-            ->first();
-    }
 
     // ---------------------------------------------------------------------------
     // Financial Goals (Target Tabungan)
@@ -1001,19 +896,10 @@ class FinanceService
         }
 
         return DB::transaction(function () use ($user, $goal, $amount, $targetWallet) {
-            $category = Category::where('user_jid', $user->jid)->where('name', 'Tabungan')->first();
-            if (!$category) {
-                $category = Category::whereNull('user_jid')->where('name', 'Tabungan')->first();
-            }
-            if (!$category) {
-                $category = $this->addCustomCategory($user, 'Tabungan', 'EXPENSE');
-            }
-
             $tx = $this->recordTransaction($user, [
                 'type'        => 'EXPENSE',
                 'amount'      => $amount,
                 'description' => "Tabungan untuk {$goal->name}",
-                'category_id' => $category->id,
                 'wallet_id'   => $targetWallet->id,
             ]);
 

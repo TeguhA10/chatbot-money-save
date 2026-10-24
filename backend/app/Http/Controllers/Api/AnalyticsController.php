@@ -61,27 +61,11 @@ class AnalyticsController extends Controller
 
     /**
      * GET /api/v1/analytics/category-breakdown?month=YYYY-MM
-     * Returns expense distribution per category for pie/donut charts.
+     * Deprecated: categories have been removed. Returns empty data.
      */
     public function categoryBreakdown(Request $request): JsonResponse
     {
-        $user  = $request->user();
-        $month = $request->get('month', now()->format('Y-m'));
-        [$year, $monthNum] = explode('-', $month);
-
-        $summary    = $this->financeService->getMonthlySummary($user, (int) $year, (int) $monthNum);
-        $breakdown  = $summary['category_breakdown'];
-        $totalExpense = $summary['total_expense'];
-
-        // Add percentage to each category
-        $result = array_map(function ($cat) use ($totalExpense) {
-            $cat['percentage'] = $totalExpense > 0
-                ? round(($cat['total_amount'] / $totalExpense) * 100, 1)
-                : 0;
-            return $cat;
-        }, $breakdown);
-
-        return response()->json(['success' => true, 'data' => $result]);
+        return response()->json(['success' => true, 'data' => []]);
     }
 
     /**
@@ -122,14 +106,8 @@ class AnalyticsController extends Controller
                 ],
             ];
 
-            // 2. Category Breakdown
-            $totalExpense = $current['total_expense'];
-            $breakdown = array_map(function ($cat) use ($totalExpense) {
-                $cat['percentage'] = $totalExpense > 0
-                    ? round(($cat['total_amount'] / $totalExpense) * 100, 1)
-                    : 0;
-                return $cat;
-            }, $current['category_breakdown']);
+            // 2. Category Breakdown (empty)
+            $breakdown = [];
 
             // 3. Monthly Trend (6 months)
             $trend = $this->getMonthlyTrendData($user);
@@ -154,23 +132,18 @@ class AnalyticsController extends Controller
                 ];
             }
 
-            // 5. Budgets
+            // 5. Monthly Budget
             $budgetService = app(\App\Services\BudgetService::class);
-            $budgets = \App\Models\Budget::where('user_jid', $user->jid)->with('category')->get();
-            $expenseTotals = $budgetService->getMonthlyExpenseTotalsByCategory($user->jid, (int) $year, (int) $monthNum);
+            $budget = \App\Models\Budget::where('user_jid', $user->jid)->first();
             $budgetItems = [];
             $totalBudgeted = 0;
             $totalSpent = 0;
-            foreach ($budgets as $b) {
-                $preloaded = $expenseTotals->get($b->category_id, 0);
-                $consumed = $budgetService->getConsumption($b, (int) $year, (int) $monthNum, $preloaded);
-                $totalBudgeted += $consumed['limit_amount'];
-                $totalSpent += $consumed['spent_amount'];
+            if ($budget) {
+                $consumed = $budgetService->getConsumption($budget, (int) $year, (int) $monthNum);
+                $totalBudgeted = $consumed['limit_amount'];
+                $totalSpent = $consumed['spent_amount'];
                 $budgetItems[] = [
-                    'id'                      => $b->id,
-                    'category_id'             => $b->category_id,
-                    'category_name'           => $b->category?->name ?? 'Kategori',
-                    'category_icon'           => $b->category?->icon ?? '📦',
+                    'id'                      => $budget->id,
                     'limit_amount'            => $consumed['limit_amount'],
                     'spent_amount'            => $consumed['spent_amount'],
                     'remaining_amount'        => $consumed['remaining_amount'],
@@ -178,7 +151,7 @@ class AnalyticsController extends Controller
                     'is_warning'              => $consumed['is_warning'],
                     'is_exceeded'             => $consumed['is_exceeded'],
                     'progress_bar'            => $consumed['progress_bar'],
-                    'alert_threshold_percent' => $b->alert_threshold_percent,
+                    'alert_threshold_percent' => $budget->alert_threshold_percent,
                 ];
             }
 
@@ -199,7 +172,6 @@ class AnalyticsController extends Controller
             // 7. Recent Transactions (limit 5)
             $recent = Transaction::where('user_jid', $user->jid)
                 ->active()
-                ->with('category')
                 ->orderByDesc('transaction_date')
                 ->orderByDesc('created_at')
                 ->limit(5)
@@ -209,11 +181,6 @@ class AnalyticsController extends Controller
                     'type'             => $t->type,
                     'amount'           => $t->amount,
                     'description'      => $t->description,
-                    'category'         => $t->category ? [
-                        'id'   => $t->category->id,
-                        'name' => $t->category->name,
-                        'icon' => $t->category->icon,
-                    ] : null,
                     'balance_after'    => $t->balance_after,
                     'transaction_date' => $t->transaction_date?->toISOString(),
                     'status'           => $t->status,

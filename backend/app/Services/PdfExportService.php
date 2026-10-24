@@ -45,7 +45,7 @@ class PdfExportService
     {
         $query = Transaction::where('user_jid', $user->jid)
             ->active()
-            ->with(['category', 'wallet', 'toWallet']);
+            ->with(['wallet', 'toWallet']);
 
         // Date Range Filtering
         $startDate = null;
@@ -102,13 +102,7 @@ class PdfExportService
             };
         }
 
-        // Category Filtering
-        if (!empty($filters['category_id'])) {
-            $query->where('category_id', $filters['category_id']);
-            $filterLabels[] = "Kategori Terpilih";
-        }
-
-        $filterLabel = empty($filterLabels) ? 'Semua Kategori & Dompet' : implode(', ', $filterLabels);
+        $filterLabel = empty($filterLabels) ? 'Semua Dompet' : implode(', ', $filterLabels);
 
         // Retrieve transactions ordered chronologically
         $transactions = $query->orderBy('created_at', 'asc')->get();
@@ -149,15 +143,9 @@ class PdfExportService
 
         // Map transactions for view
         $mappedTransactions = $transactions->map(function ($tx) {
-            $catName = $tx->category?->name;
-            if (!$catName) {
-                $catName = $tx->type === 'TRANSFER' ? 'Transfer Antar Dompet' : 'Lainnya';
-            }
-
             return [
                 'date'        => $tx->created_at ? $tx->created_at->format('d/m/Y H:i') : '-',
                 'description' => $tx->description ?: ($tx->type === 'INCOME' ? 'Pemasukan' : 'Pengeluaran'),
-                'category'    => $catName,
                 'wallet'      => $tx->wallet?->name ?? 'Cash',
                 'to_wallet'   => $tx->toWallet?->name,
                 'type'        => $tx->type,

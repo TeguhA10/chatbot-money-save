@@ -37,7 +37,6 @@ class RecurringService
         $schedule = RecurringSchedule::create([
             'user_jid'         => $user->jid,
             'wallet_id'        => $data['wallet_id'] ?? null,
-            'category_id'      => $data['category_id'] ?? null,
             'type'             => $data['type'] ?? 'EXPENSE',
             'encrypted_amount' => $this->encryption->encryptForStorage($amount),
             'description'      => $data['description'] ?? 'Langganan',
@@ -75,7 +74,7 @@ class RecurringService
     {
         return RecurringSchedule::where('user_jid', $user->jid)
             ->where('is_active', true)
-            ->with(['wallet', 'category'])
+            ->with('wallet')
             ->orderBy('day_of_month')
             ->get();
     }

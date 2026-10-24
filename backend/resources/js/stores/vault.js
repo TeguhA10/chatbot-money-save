@@ -49,6 +49,20 @@ export const useVaultStore = defineStore('vault', {
                     this.pinStatus = res.data.data.pin_status;
                     this.isUnlocked = Boolean(res.data.data.is_unlocked);
                     this.salt = res.data.data.encryption_salt;
+
+                    if (this.pinStatus === 'ACTIVE') {
+                        // When user has an active Master PIN, mask data if vault is locked
+                        if (!this.isUnlocked) {
+                            this.isMasked = true;
+                        } else {
+                            const saved = localStorage.getItem('vault_masked');
+                            this.isMasked = saved === 'true';
+                        }
+                    } else {
+                        const saved = localStorage.getItem('vault_masked');
+                        this.isMasked = saved === 'true';
+                    }
+
                     if (this.isUnlocked) {
                         this.resetInactivityTimer();
                     }
@@ -65,6 +79,8 @@ export const useVaultStore = defineStore('vault', {
                 const res = await api.post('/vault/unlock', { pin });
                 if (res.data.success) {
                     this.isUnlocked = true;
+                    this.isMasked = false;
+                    localStorage.setItem('vault_masked', 'false');
                     this.isModalDismissed = true;
                     this.forceShowModal = false;
                     this.error = '';
@@ -97,6 +113,8 @@ export const useVaultStore = defineStore('vault', {
                 if (res.data.success) {
                     this.pinStatus = 'ACTIVE';
                     this.isUnlocked = true;
+                    this.isMasked = false;
+                    localStorage.setItem('vault_masked', 'false');
                     this.recoveryCode = res.data.data.recovery_code;
                     this.salt = res.data.data.encryption_salt;
                     this.resetInactivityTimer();
@@ -118,8 +136,10 @@ export const useVaultStore = defineStore('vault', {
                 // ignore
             } finally {
                 this.isUnlocked = false;
-                this.isModalDismissed = false;
-                this.forceShowModal = true;
+                this.isMasked = true;
+                localStorage.setItem('vault_masked', 'true');
+                this.isModalDismissed = true;
+                this.forceShowModal = false;
                 this.clearInactivityTimer();
             }
         },
@@ -135,6 +155,8 @@ export const useVaultStore = defineStore('vault', {
                 if (res.data.success) {
                     this.pinStatus = 'ACTIVE';
                     this.isUnlocked = true;
+                    this.isMasked = false;
+                    localStorage.setItem('vault_masked', 'false');
                     this.isModalDismissed = true;
                     this.forceShowModal = false;
                     this.resetInactivityTimer();
@@ -150,8 +172,13 @@ export const useVaultStore = defineStore('vault', {
         },
 
         toggleMask() {
-            this.isMasked = !this.isMasked;
-            localStorage.setItem('vault_masked', this.isMasked ? 'true' : 'false');
+            if (this.isMasked) {
+                // If currently masked, unmasking requires PIN verification / setup modal
+                this.openModal();
+            } else {
+                // Instantly sensor/mask and lock
+                this.lock();
+            }
         },
 
         startCooldown(seconds) {

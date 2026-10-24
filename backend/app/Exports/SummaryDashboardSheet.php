@@ -28,13 +28,9 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
     private int $walletStartRow = 15;
     private int $walletEndRow = 15;
 
-    private int $catHeaderRow = 18;
-    private int $catStartRow = 19;
-    private int $catEndRow = 19;
-
-    private int $budgetHeaderRow = 23;
-    private int $budgetStartRow = 24;
-    private int $budgetEndRow = 24;
+    private int $budgetHeaderRow = 18;
+    private int $budgetStartRow = 19;
+    private int $budgetEndRow = 19;
 
     private int $goalsHeaderRow = 28;
     private int $goalsStartRow = 29;
@@ -63,7 +59,7 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
         $transactions = $this->user->transactions()
             ->active()
             ->whereBetween('created_at', [$startOfYear, $endOfYear])
-            ->with(['category', 'wallet', 'toWallet'])
+            ->with(['wallet', 'toWallet'])
             ->get();
 
         $totalIncome  = (float) $transactions->where('type', 'INCOME')->sum('amount');
@@ -115,77 +111,28 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
         $this->walletEndRow = count($rows);
         $rows[] = ['', '', '', '', ''];
 
-        // 3. Category Breakdown (Expenses)
-        $categoryBreakdown = $transactions
-            ->where('type', 'EXPENSE')
-            ->groupBy('category_id')
-            ->map(function ($group) {
-                $first = $group->first();
-                return (object) [
-                    'category' => $first?->category,
-                    'total'    => (float) $group->sum('amount'),
-                ];
-            })
-            ->sortByDesc('total')
-            ->values();
-
-        $rows[] = ['DISTRIBUSI PENGELUARAN PER KATEGORI', '', '', '', ''];
-        $this->catHeaderRow = count($rows) + 1;
-        $rows[] = ['Kategori', 'Total Pengeluaran (Rp)', 'Persentase', '', ''];
-        $this->catStartRow = count($rows) + 1;
-
-        if ($categoryBreakdown->isEmpty()) {
-            $rows[] = ['Belum ada pengeluaran', 0, 0, '', ''];
-            $this->catEndRow = count($rows);
-        } else {
-            foreach ($categoryBreakdown as $item) {
-                $catName = ($item->category?->icon ? $item->category->icon . ' ' : '') . ($item->category?->name ?? 'Lainnya');
-                $currentRow = count($rows) + 1;
-                $rows[] = [
-                    $catName,
-                    (float) $item->total,
-                    "=IF(\$B\$9>0, B{$currentRow}/\$B\$9, 0)",
-                    '',
-                    '',
-                ];
-            }
-            $this->catEndRow = count($rows);
-        }
-
-        $rows[] = [
-            'TOTAL PENGELUARAN',
-            "=SUM(B{$this->catStartRow}:B{$this->catEndRow})",
-            "=SUM(C{$this->catStartRow}:C{$this->catEndRow})",
-            '',
-            '',
-        ];
-        $rows[] = ['', '', '', '', ''];
-
-        // 4. Budgets / Plafon Anggaran
-        $budgets = $this->user->budgets()->with('category')->get();
-        $rows[] = ['PLAFON ANGGARAN BULANAN (BUDGETS)', '', '', '', ''];
+        // 3. Budgets / Plafon Anggaran Bulanan
+        $budget = $this->user->budgets()->first();
+        $rows[] = ['PLAFON ANGGARAN BULANAN (BUDGET)', '', '', '', ''];
         $this->budgetHeaderRow = count($rows) + 1;
-        $rows[] = ['Kategori', 'Batas Anggaran (Rp)', 'Realisasi Tahun Berjalan (Rp)', 'Alert Threshold', 'Status'];
+        $rows[] = ['Keterangan', 'Batas Anggaran (Rp)', 'Realisasi Tahun Berjalan (Rp)', 'Alert Threshold', 'Status'];
         $this->budgetStartRow = count($rows) + 1;
 
-        if ($budgets->isEmpty()) {
-            $rows[] = ['Belum ada budget ditentukan', 0, 0, '-', 'Gunakan: budget <kategori> <nominal>'];
+        if (!$budget) {
+            $rows[] = ['Belum ada budget ditentukan', 0, 0, '-', 'Gunakan: budget <nominal>'];
             $this->budgetEndRow = count($rows);
         } else {
-            foreach ($budgets as $budget) {
-                $catName = ($budget->category?->icon ? $budget->category->icon . ' ' : '') . ($budget->category?->name ?? 'Kategori');
-                $spent = (float) $transactions->where('type', 'EXPENSE')->where('category_id', $budget->category_id)->sum('amount');
-                $limit = (float) $budget->limit_amount;
-                $status = $spent > $limit ? '⚠️ Melebihi Plafon' : '✅ Aman';
+            $spent = (float) $transactions->where('type', 'EXPENSE')->sum('amount');
+            $limit = (float) $budget->limit_amount;
+            $status = $spent > $limit ? '⚠️ Melebihi Plafon' : '✅ Aman';
 
-                $rows[] = [
-                    $catName,
-                    $limit,
-                    $spent,
-                    ($budget->alert_threshold_percent ?? 80) . '%',
-                    $status,
-                ];
-            }
+            $rows[] = [
+                'Batas Pengeluaran Bulanan',
+                $limit,
+                $spent,
+                ($budget->alert_threshold_percent ?? 80) . '%',
+                $status,
+            ];
             $this->budgetEndRow = count($rows);
         }
         $rows[] = ['', '', '', '', ''];
@@ -283,16 +230,6 @@ class SummaryDashboardSheet implements FromArray, WithTitle, WithStyles, ShouldA
         $applySection($walletSectionRow, 'E2E8F0');
         $applyTableHeader($this->walletHeaderRow, '4F46E5'); // Indigo
         $sheet->getStyle("A{$this->walletHeaderRow}:E{$this->walletEndRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-
-        // Categories
-        $catSectionRow = $this->catHeaderRow - 1;
-        $applySection($catSectionRow, 'E2E8F0');
-        $applyTableHeader($this->catHeaderRow, '0D9488'); // Teal
-        $lastCatRow = $this->catEndRow + 1;
-        $sheet->getStyle("A{$this->catHeaderRow}:E{$lastCatRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle("A{$lastCatRow}:E{$lastCatRow}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$lastCatRow}:E{$lastCatRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1F5F9');
-        $sheet->getStyle("C{$this->catStartRow}:C{$this->catEndRow}")->getNumberFormat()->setFormatCode('0.0%');
 
         // Budgets
         $budgetSectionRow = $this->budgetHeaderRow - 1;

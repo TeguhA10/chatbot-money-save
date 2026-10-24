@@ -194,81 +194,6 @@
             </table>
           </div>
         </div>
-
-        <!-- TABLE 2: CATEGORY BREAKDOWN WITH INLINE SEARCH & SORT FILTER -->
-        <div class="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
-            <div>
-              <h2 class="text-sm sm:text-base font-bold text-white">Rincian Pengeluaran per Kategori</h2>
-              <p class="text-xs text-slate-400">Analisis pos pengeluaran yang paling dominan di bulan ini</p>
-            </div>
-            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono whitespace-nowrap self-start sm:self-auto">
-              {{ filteredCategories.length }} dari {{ financeStore.categoryBreakdown.length }} Kategori
-            </span>
-          </div>
-
-          <!-- Inline Category Filter Bar -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <!-- Search Input (Uniform styling) -->
-            <div class="relative sm:col-span-2">
-              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
-              <input
-                type="text"
-                v-model="categorySearch"
-                placeholder="Cari nama kategori pengeluaran (misal: makanan, tagihan, hiburan)..."
-                class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
-              />
-            </div>
-
-            <!-- Sort dropdown -->
-            <div class="w-full sm:w-52">
-              <SelectDropdown
-                v-model="categorySort"
-                :options="categorySortOptions"
-                placeholder="Urutan Kategori"
-                icon="↕️"
-              />
-            </div>
-          </div>
-
-          <!-- Empty State (No records at all) -->
-          <div v-if="financeStore.categoryBreakdown.length === 0" class="py-12 text-center text-slate-500 text-xs">
-            Belum ada transaksi pengeluaran pada bulan yang dipilih.
-          </div>
-
-          <!-- Filter Result Empty -->
-          <div v-else-if="filteredCategories.length === 0" class="py-10 text-center rounded-xl bg-slate-950/40 border border-slate-800/60 text-slate-400 text-xs space-y-2">
-            <p>Tidak ada kategori yang cocok dengan kata kunci "{{ categorySearch }}".</p>
-            <button
-              @click="categorySearch = ''"
-              class="text-xs text-emerald-400 hover:underline font-bold"
-            >
-              Reset Pencarian
-            </button>
-          </div>
-
-          <!-- Category List Cards -->
-          <div v-else class="space-y-3">
-            <div
-              v-for="cat in filteredCategories"
-              :key="cat.category_name"
-              class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-900/50 transition"
-            >
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-xl shrink-0">
-                  {{ cat.icon || '📌' }}
-                </span>
-                <div class="min-w-0">
-                  <h3 class="text-xs font-bold text-white truncate">{{ cat.category_name }}</h3>
-                  <p class="text-[11px] text-slate-400 mt-0.5">{{ cat.percentage }}% dari total belanja bulan ini</p>
-                </div>
-              </div>
-              <div class="sm:text-right shrink-0">
-                <p class="text-sm font-black text-rose-400">{{ formatRupiah(cat.total_amount) }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </template>
   </div>
@@ -294,13 +219,6 @@ const trendStatusOptions = [
   { value: 'DEFICIT', label: 'Hanya Defisit', icon: '🔴' },
 ];
 
-const categorySortOptions = [
-  { value: 'PERCENT_DESC', label: 'Persentase Tertinggi', icon: '📈' },
-  { value: 'AMOUNT_DESC', label: 'Nominal Terbesar', icon: '💰' },
-  { value: 'AMOUNT_ASC', label: 'Nominal Terkecil', icon: '📉' },
-  { value: 'NAME_ASC', label: 'Nama Kategori (A-Z)', icon: '🔤' },
-];
-
 const selectedMonth = ref(new Date().toISOString().slice(0, 7));
 
 const isInitialLoading = ref(!financeStore.summary || financeStore.monthlyTrend.length === 0);
@@ -314,8 +232,6 @@ const exportingFormat = ref(''); // 'excel' | 'pdf' | ''
 
 // Inline table filters
 const trendStatusFilter = ref('ALL');
-const categorySearch = ref('');
-const categorySort = ref('PERCENT_DESC');
 
 function formatMonthName(monthStr) {
   if (!monthStr) return '-';
@@ -336,34 +252,6 @@ const filteredMonthlyTrend = computed(() => {
   return trend;
 });
 
-// Filtered & Sorted Categories
-const filteredCategories = computed(() => {
-  let list = [...(financeStore.categoryBreakdown || [])];
-
-  if (categorySearch.value.trim()) {
-    const q = categorySearch.value.trim().toLowerCase();
-    list = list.filter(c => (c.category_name || '').toLowerCase().includes(q));
-  }
-
-  list.sort((a, b) => {
-    if (categorySort.value === 'PERCENT_DESC') {
-      return (b.percentage || 0) - (a.percentage || 0);
-    }
-    if (categorySort.value === 'AMOUNT_DESC') {
-      return (b.total_amount || 0) - (a.total_amount || 0);
-    }
-    if (categorySort.value === 'AMOUNT_ASC') {
-      return (a.total_amount || 0) - (b.total_amount || 0);
-    }
-    if (categorySort.value === 'NAME_ASC') {
-      return (a.category_name || '').localeCompare(b.category_name || '');
-    }
-    return 0;
-  });
-
-  return list;
-});
-
 async function loadAnalytics(force = false) {
   if (!financeStore.summary || financeStore.monthlyTrend.length === 0) {
     isInitialLoading.value = true;
@@ -378,7 +266,6 @@ async function loadAnalytics(force = false) {
   try {
     await Promise.all([
       financeStore.fetchSummary(selectedMonth.value, force),
-      financeStore.fetchCategoryBreakdown(selectedMonth.value, force),
       financeStore.fetchMonthlyTrend(force),
     ]);
   } catch (err) {

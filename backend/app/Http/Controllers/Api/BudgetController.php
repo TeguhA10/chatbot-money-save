@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Budget;
-use App\Models\Category;
 use App\Services\BudgetService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -23,46 +22,37 @@ class BudgetController extends Controller
     {
         $user = $request->user();
         $now = Carbon::now();
-        $budgets = Budget::where('user_jid', $user->jid)->with('category')->get();
+        $budget = Budget::where('user_jid', $user->jid)->first();
 
-        // Single query for all expenses this month to prevent N+1 queries
-        $spentByCategory = $this->budgetService->getMonthlyExpenseTotalsByCategory(
-            $user->jid,
-            $now->year,
-            $now->month
-        );
-
-        $totalBudgeted = 0;
-        $totalSpent = 0;
-        $items = [];
-
-        foreach ($budgets as $budget) {
-            $preloadedSpent = $spentByCategory->get($budget->category_id, 0);
-            $consumption = $this->budgetService->getConsumption($budget, $now->year, $now->month, $preloadedSpent);
-            $totalBudgeted += $consumption['limit_amount'];
-            $totalSpent += $consumption['spent_amount'];
-
-            $cat = $budget->category;
-            $items[] = [
-                'id'               => $budget->id,
-                'category_id'      => $budget->category_id,
-                'category_name'    => $cat ? $cat->name : 'Unknown',
-                'category_icon'    => $cat ? $cat->icon : '📌',
-                'limit_amount'     => $consumption['limit_amount'],
-                'spent_amount'     => $consumption['spent_amount'],
-                'remaining_amount' => $consumption['remaining_amount'],
-                'percentage'       => $consumption['percentage'],
-                'is_exceeded'      => $consumption['is_exceeded'],
-            ];
+        if (!$budget) {
+            $totalSpent = $this->budgetService->getMonthlyExpenseTotal($user->jid, $now->year, $now->month);
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'month'          => $now->format('Y-m'),
+                    'total_budgeted' => 0,
+                    'total_spent'    => $totalSpent,
+                    'budget'         => null,
+                ],
+            ]);
         }
+
+        $consumption = $this->budgetService->getConsumption($budget, $now->year, $now->month);
 
         return response()->json([
             'success' => true,
             'data'    => [
                 'month'          => $now->format('Y-m'),
-                'total_budgeted' => $totalBudgeted,
-                'total_spent'    => $totalSpent,
-                'budgets'        => $items,
+                'total_budgeted' => $consumption['limit_amount'],
+                'total_spent'    => $consumption['spent_amount'],
+                'budget'         => [
+                    'id'               => $budget->id,
+                    'limit_amount'     => $consumption['limit_amount'],
+                    'spent_amount'     => $consumption['spent_amount'],
+                    'remaining_amount' => $consumption['remaining_amount'],
+                    'percentage'       => $consumption['percentage'],
+                    'is_exceeded'      => $consumption['is_exceeded'],
+                ],
             ],
         ]);
     }
@@ -73,14 +63,12 @@ class BudgetController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'category_id'  => 'required|uuid|exists:categories,id',
             'limit_amount' => 'required|integer|min:1',
         ]);
 
         $user = $request->user();
         $budget = $this->budgetService->setBudget(
             $user,
-            $validated['category_id'],
             $validated['limit_amount']
         );
 
@@ -90,7 +78,6 @@ class BudgetController extends Controller
             'success' => true,
             'data'    => [
                 'id'               => $budget->id,
-                'category_id'      => $budget->category_id,
                 'limit_amount'     => $budget->limit_amount,
                 'spent_amount'     => $consumption['spent_amount'],
                 'remaining_amount' => $consumption['remaining_amount'],

@@ -74,18 +74,6 @@
           </div>
         </div>
 
-        <!-- Category (on create) -->
-        <div v-if="!isEdit && form.type === 'EXPENSE'">
-          <label class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</label>
-          <SelectDropdown
-            v-model="form.category_id"
-            :options="categoryOptions"
-            placeholder="Pilih Kategori..."
-            icon="🏷️"
-            searchable
-          />
-        </div>
-
         <!-- Description -->
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Deskripsi / Catatan</label>
@@ -134,7 +122,6 @@
 import { ref, watch, computed } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
-import SelectDropdown from '../common/SelectDropdown.vue';
 import DatePicker from '../common/DatePicker.vue';
 
 const props = defineProps({
@@ -148,20 +135,11 @@ const financeStore = useFinanceStore();
 const toastStore = useToastStore();
 const submitting = ref(false);
 
-const categoryOptions = computed(() => {
-  return financeStore.categories.map(cat => ({
-    value: cat.id,
-    label: cat.name,
-    icon: cat.icon || '🏷️'
-  }));
-});
-
 const isEdit = computed(() => !!props.transaction?.id);
 
 const form = ref({
   type: 'EXPENSE',
   amount: null,
-  category_id: null,
   description: '',
   transaction_date: new Date().toISOString().slice(0, 10),
 });
@@ -188,7 +166,6 @@ watch(
       form.value = {
         type: val.type || 'EXPENSE',
         amount: val.amount || null,
-        category_id: val.category_id || null,
         description: val.description || '',
         transaction_date: val.transaction_date ? val.transaction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
       };
@@ -196,7 +173,6 @@ watch(
       form.value = {
         type: 'EXPENSE',
         amount: null,
-        category_id: null,
         description: '',
         transaction_date: new Date().toISOString().slice(0, 10),
       };
@@ -222,7 +198,6 @@ async function handleSubmit() {
       await financeStore.createTransaction({
         type: form.value.type,
         amount: form.value.amount,
-        category_id: form.value.category_id,
         description: form.value.description,
         transaction_date: form.value.transaction_date,
       });
