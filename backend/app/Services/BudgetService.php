@@ -34,6 +34,14 @@ class BudgetService
     }
 
     /**
+     * Delete/reset monthly budget limit for a user.
+     */
+    public function deleteBudget(User $user): bool
+    {
+        return (bool) Budget::where('user_jid', $user->jid)->delete();
+    }
+
+    /**
      * Get total expense for a user in the given month.
      */
     public function getMonthlyExpenseTotal(string $userJid, int $year, int $month): int

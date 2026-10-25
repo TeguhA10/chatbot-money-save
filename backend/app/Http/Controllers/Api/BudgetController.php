@@ -85,4 +85,18 @@ class BudgetController extends Controller
             ],
         ], 201);
     }
+
+    /**
+     * DELETE /api/v1/budgets
+     */
+    public function destroy(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $this->budgetService->deleteBudget($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Plafon anggaran bulanan berhasil dihapus.',
+        ]);
+    }
 }

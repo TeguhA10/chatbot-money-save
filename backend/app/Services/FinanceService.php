@@ -164,6 +164,140 @@ class FinanceService
     }
 
     /**
+     * Update an existing wallet's name, type, or balance.
+     */
+    public function updateWallet(User $user, string $walletId, array $data): Wallet
+    {
+        $wallet = Wallet::where('user_jid', $user->jid)
+            ->where(function ($q) use ($walletId) {
+                if (\Illuminate\Support\Str::isUuid($walletId)) {
+                    $q->where('id', $walletId);
+                } else {
+                    $q->whereRaw('LOWER(name) = ?', [strtolower(trim($walletId))]);
+                }
+            })
+            ->first();
+
+        if (!$wallet) {
+            throw new \RuntimeException("Dompet tidak ditemukan.");
+        }
+
+        return DB::transaction(function () use ($user, $wallet, $data) {
+            if (!empty($data['name'])) {
+                $newName = trim($data['name']);
+                $duplicate = Wallet::where('user_jid', $user->jid)
+                    ->where('id', '!=', $wallet->id)
+                    ->whereRaw('LOWER(name) = ?', [strtolower($newName)])
+                    ->exists();
+
+                if ($duplicate) {
+                    throw new \RuntimeException("Dompet dengan nama '{$newName}' sudah ada.");
+                }
+                $wallet->name = $newName;
+            }
+
+            if (!empty($data['type'])) {
+                $wallet->type = strtoupper($data['type']);
+            }
+
+            if (array_key_exists('balance', $data) && $data['balance'] !== null) {
+                $newBal = (int) $data['balance'];
+                $oldBal = $wallet->balance;
+                $diff = $newBal - $oldBal;
+
+                if ($diff !== 0) {
+                    $wallet->balance = $newBal;
+                    $freshUser = User::where('jid', $user->jid)->first();
+                    $newTotal = $freshUser->current_balance + $diff;
+                    $freshUser->update([
+                        'current_balance'           => 0,
+                        'encrypted_current_balance' => $this->encryption->encryptForStorage($newTotal),
+                    ]);
+                    $user->current_balance = $newTotal;
+                }
+            }
+
+            $wallet->save();
+            return $wallet;
+        });
+    }
+
+    /**
+     * Delete a wallet, transferring any remaining balance and transactions to another wallet.
+     */
+    public function deleteWallet(User $user, string $walletId, ?string $transferToWalletId = null): void
+    {
+        $wallet = Wallet::where('user_jid', $user->jid)
+            ->where(function ($q) use ($walletId) {
+                if (\Illuminate\Support\Str::isUuid($walletId)) {
+                    $q->where('id', $walletId);
+                } else {
+                    $q->whereRaw('LOWER(name) = ?', [strtolower(trim($walletId))]);
+                }
+            })
+            ->first();
+
+        if (!$wallet) {
+            throw new \RuntimeException("Dompet tidak ditemukan.");
+        }
+
+        $totalWallets = Wallet::where('user_jid', $user->jid)->count();
+        if ($totalWallets <= 1) {
+            throw new \RuntimeException("Tidak dapat menghapus satu-satunya dompet utama Anda.");
+        }
+
+        if ($wallet->balance < 0) {
+            throw new \RuntimeException("Tidak dapat menghapus dompet dengan saldo minus. Silakan lunasi saldo terlebih dahulu.");
+        }
+
+        DB::transaction(function () use ($user, $wallet, $transferToWalletId) {
+            // Find target recipient wallet
+            $targetWallet = null;
+            if ($transferToWalletId) {
+                $targetWallet = Wallet::where('user_jid', $user->jid)
+                    ->where('id', '!=', $wallet->id)
+                    ->where(function ($q) use ($transferToWalletId) {
+                        if (\Illuminate\Support\Str::isUuid($transferToWalletId)) {
+                            $q->where('id', $transferToWalletId);
+                        } else {
+                            $q->whereRaw('LOWER(name) = ?', [strtolower(trim($transferToWalletId))]);
+                        }
+                    })
+                    ->first();
+            }
+
+            if (!$targetWallet) {
+                $targetWallet = Wallet::where('user_jid', $user->jid)
+                    ->where('id', '!=', $wallet->id)
+                    ->where('is_default', true)
+                    ->first()
+                    ?? Wallet::where('user_jid', $user->jid)->where('id', '!=', $wallet->id)->first();
+            }
+
+            if (!$targetWallet) {
+                throw new \RuntimeException("Tidak ada dompet lain untuk memindahkan transaksi/saldo.");
+            }
+
+            // Transfer balance if positive
+            if ($wallet->balance > 0) {
+                $targetWallet->balance += $wallet->balance;
+                $targetWallet->save();
+            }
+
+            // Reassign default flag if this was the default wallet
+            if ($wallet->is_default) {
+                $targetWallet->is_default = true;
+                $targetWallet->save();
+            }
+
+            // Reassign linked transactions
+            Transaction::where('wallet_id', $wallet->id)->update(['wallet_id' => $targetWallet->id]);
+
+            $wallet->delete();
+        });
+    }
+
+    /**
      * Render multi-wallet balance card for "saldo" command.
      */
     public function renderWalletsCard(User $user): string
@@ -992,6 +1126,90 @@ class FinanceService
         $lines[] = "\n_Ketik \"tambah tabungan <nominal> untuk <nama>\" untuk menabung._";
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Update an existing financial goal's name, target amount, or target date.
+     */
+    public function updateGoal(User $user, string $goalId, array $data): FinancialGoal
+    {
+        $goal = $this->findGoalByNameOrId($user, $goalId);
+
+        if (!$goal) {
+            throw new \RuntimeException("Target finansial tidak ditemukan.");
+        }
+
+        if (!empty($data['name'])) {
+            $goal->name = trim($data['name']);
+        }
+
+        if (array_key_exists('target_amount', $data) && (int) $data['target_amount'] > 0) {
+            $goal->encrypted_target_amount = $this->encryption->encryptForStorage((int) $data['target_amount']);
+        }
+
+        if (array_key_exists('target_date', $data)) {
+            $goal->target_date = !empty($data['target_date']) ? \Carbon\Carbon::parse($data['target_date'])->toDateString() : null;
+        }
+
+        if ($goal->current_amount >= $goal->target_amount) {
+            $goal->status = 'COMPLETED';
+        } else {
+            $goal->status = 'ACTIVE';
+        }
+
+        $goal->save();
+        return $goal;
+    }
+
+    /**
+     * Delete a financial goal with optional refund of accumulated funds back to a wallet.
+     */
+    public function deleteGoal(User $user, string $goalId, bool $refundToWallet = true, ?string $walletIdOrName = null): array
+    {
+        $goal = $this->findGoalByNameOrId($user, $goalId);
+
+        if (!$goal) {
+            throw new \RuntimeException("Target finansial tidak ditemukan.");
+        }
+
+        return DB::transaction(function () use ($user, $goal, $refundToWallet, $walletIdOrName) {
+            $refundedAmount = 0;
+            $targetWallet = null;
+
+            if ($goal->current_amount > 0 && $refundToWallet) {
+                if ($walletIdOrName) {
+                    if (\Illuminate\Support\Str::isUuid($walletIdOrName)) {
+                        $targetWallet = Wallet::where('user_jid', $user->jid)->where('id', $walletIdOrName)->first();
+                    }
+                    if (!$targetWallet) {
+                        $targetWallet = $this->findWalletByName($user, $walletIdOrName);
+                    }
+                }
+
+                if (!$targetWallet) {
+                    $targetWallet = $this->getOrCreateDefaultWallet($user);
+                }
+
+                $this->recordTransaction($user, [
+                    'type'        => 'INCOME',
+                    'amount'      => $goal->current_amount,
+                    'description' => "Pengembalian dana target {$goal->name}",
+                    'wallet_id'   => $targetWallet->id,
+                ]);
+
+                $refundedAmount = $goal->current_amount;
+            }
+
+            $goalName = $goal->name;
+            $goal->delete();
+
+            return [
+                'success'         => true,
+                'name'            => $goalName,
+                'refunded_amount' => $refundedAmount,
+                'wallet'          => $targetWallet,
+            ];
+        });
     }
 
     // ---------------------------------------------------------------------------

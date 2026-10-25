@@ -138,4 +138,65 @@ class WalletController extends Controller
             ], 422);
         }
     }
+
+    /**
+     * PUT /api/v1/wallets/{id}
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'    => 'sometimes|required|string|max:100',
+            'type'    => 'nullable|string|in:CASH,BANK,EWALLET,OTHER',
+            'balance' => 'nullable|integer|min:0',
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $wallet = $this->financeService->updateWallet($user, $id, $validated);
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'id'            => $wallet->id,
+                    'name'          => $wallet->name,
+                    'type'          => $wallet->type,
+                    'is_default'    => $wallet->is_default,
+                    'balance'       => $wallet->balance,
+                    'total_balance' => $user->current_balance,
+                ],
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * DELETE /api/v1/wallets/{id}
+     */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'transfer_to_wallet_id' => 'nullable|uuid|exists:wallets,id',
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $this->financeService->deleteWallet($user, $id, $validated['transfer_to_wallet_id'] ?? null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Dompet berhasil dihapus.',
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
 }

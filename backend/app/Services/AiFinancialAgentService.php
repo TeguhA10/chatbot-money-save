@@ -218,6 +218,9 @@ class AiFinancialAgentService
                 case 'ubah_dompet':
                     return $this->toolUbahDompet($user, $args);
 
+                case 'hapus_dompet':
+                    return $this->toolHapusDompet($user, $args);
+
                 case 'transfer_dompet':
                     return $this->toolTransferDompet($user, $args);
 
@@ -231,6 +234,9 @@ class AiFinancialAgentService
                 case 'tabung_target':
                     return $this->toolTabungTarget($user, $args);
 
+                case 'ubah_target':
+                    return $this->toolUbahTarget($user, $args);
+
                 case 'hapus_target':
                     return $this->toolHapusTarget($user, $args);
 
@@ -240,6 +246,9 @@ class AiFinancialAgentService
 
                 case 'atur_budget':
                     return $this->toolAturBudget($user, $args);
+
+                case 'hapus_budget':
+                    return $this->toolHapusBudget($user);
 
                 default:
                     return ['status' => 'error', 'message' => "Fungsi '{$name}' tidak dikenali."];
@@ -455,35 +464,56 @@ class AiFinancialAgentService
     {
         $oldName = trim($args['old_name'] ?? '');
         $newName = trim($args['new_name'] ?? '');
+        $newBalance = isset($args['new_balance']) ? (int) $args['new_balance'] : null;
 
         if (empty($oldName)) {
             return ['status' => 'error', 'message' => 'Nama dompet yang ingin diubah harus disebutkan.'];
         }
 
-        $wallet = $user->wallets()->where('name', 'like', "%{$oldName}%")->first();
-        if (!$wallet) {
-            // Coba ambil dompet non-default terbaru jika namanya mirip typo
-            $wallet = $user->wallets()->where('is_default', false)->latest('created_at')->first();
+        try {
+            $data = [];
+            if (!empty($newName)) {
+                $data['name'] = $newName;
+            }
+            if ($newBalance !== null) {
+                $data['balance'] = $newBalance;
+            }
+
+            $wallet = $this->financeService->updateWallet($user, $oldName, $data);
+
+            return [
+                'status' => 'success',
+                'pesan'  => "Dompet '{$wallet->name}' berhasil diperbarui. Saldo saat ini: Rp" . number_format($wallet->balance, 0, ',', '.') . ".",
+                'dompet' => [
+                    'id'      => $wallet->id,
+                    'name'    => $wallet->name,
+                    'balance' => (int) $wallet->balance,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+    }
+
+    protected function toolHapusDompet(User $user, array $args): array
+    {
+        $walletName = trim($args['wallet_name'] ?? '');
+        $transferTo = !empty($args['transfer_to_wallet_name']) ? trim($args['transfer_to_wallet_name']) : null;
+
+        if (empty($walletName)) {
+            return ['status' => 'error', 'message' => 'Nama dompet yang ingin dihapus harus disebutkan.'];
         }
 
-        if (!$wallet) {
-            return ['status' => 'error', 'message' => "Dompet dengan nama '{$oldName}' tidak ditemukan."];
-        }
+        try {
+            $this->financeService->deleteWallet($user, $walletName, $transferTo);
 
-        $prevName = $wallet->name;
-        if (!empty($newName)) {
-            $wallet->update(['name' => $newName]);
+            return [
+                'status' => 'success',
+                'pesan'  => "Dompet '{$walletName}' berhasil dihapus dan saldonya telah diamankan.",
+            ];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
         }
-
-        return [
-            'status' => 'success',
-            'pesan'  => "Nama dompet '{$prevName}' berhasil diubah menjadi '{$wallet->name}'.",
-            'dompet' => [
-                'id'      => $wallet->id,
-                'name'    => $wallet->name,
-                'balance' => (int) $wallet->balance,
-            ],
-        ];
     }
 
     protected function toolTransferDompet(User $user, array $args): array
@@ -610,24 +640,69 @@ class AiFinancialAgentService
         ];
     }
 
+    protected function toolUbahTarget(User $user, array $args): array
+    {
+        $goalName = trim($args['goal_name'] ?? '');
+        $newName = trim($args['new_name'] ?? '');
+        $newAmount = isset($args['new_target_amount']) ? (int) $args['new_target_amount'] : null;
+        $newDate = $args['new_target_date'] ?? null;
+
+        if (empty($goalName)) {
+            return ['status' => 'error', 'message' => 'Nama target yang ingin diubah harus disebutkan.'];
+        }
+
+        try {
+            $data = [];
+            if (!empty($newName)) {
+                $data['name'] = $newName;
+            }
+            if ($newAmount && $newAmount > 0) {
+                $data['target_amount'] = $newAmount;
+            }
+            if ($newDate !== null) {
+                $data['target_date'] = $newDate;
+            }
+
+            $goal = $this->financeService->updateGoal($user, $goalName, $data);
+
+            return [
+                'status'         => 'success',
+                'pesan'          => "Target tabungan '{$goal->name}' berhasil diperbarui. Target nominal: Rp" . number_format($goal->target_amount, 0, ',', '.') . " (Progress: {$goal->progress_percent}%).",
+                'goal'           => [
+                    'id'               => $goal->id,
+                    'name'             => $goal->name,
+                    'target_amount'    => (int) $goal->target_amount,
+                    'current_amount'   => (int) $goal->current_amount,
+                    'progress_percent' => $goal->progress_percent,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+    }
+
     protected function toolHapusTarget(User $user, array $args): array
     {
         $goalName = trim($args['goal_name'] ?? '');
 
-        $goal = $user->financialGoals()
-            ->where('name', 'like', "%{$goalName}%")
-            ->first();
-
-        if (!$goal) {
-            return ['status' => 'error', 'message' => "Target tabungan '{$goalName}' tidak ditemukan."];
+        if (empty($goalName)) {
+            return ['status' => 'error', 'message' => 'Nama target tabungan yang ingin dihapus harus disebutkan.'];
         }
 
-        $goal->delete();
+        try {
+            $result = $this->financeService->deleteGoal($user, $goalName, true);
+            $pesan = "Target tabungan '{$result['name']}' berhasil dihapus.";
+            if (!empty($result['refunded_amount']) && $result['refunded_amount'] > 0) {
+                $pesan .= " Dana terkumpul sebesar Rp" . number_format($result['refunded_amount'], 0, ',', '.') . " telah dikembalikan ke {$result['wallet']->name}.";
+            }
 
-        return [
-            'status' => 'success',
-            'pesan'  => "Target tabungan '{$goal->name}' berhasil dihapus.",
-        ];
+            return [
+                'status' => 'success',
+                'pesan'  => $pesan,
+            ];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
     }
 
     protected function toolLihatBudget(User $user): array
@@ -669,6 +744,23 @@ class AiFinancialAgentService
             'status'       => 'success',
             'pesan'        => "Plafon budget bulanan berhasil diatur sebesar Rp" . number_format($limitAmount, 0, ',', '.') . ".",
             'limit_amount' => $limitAmount,
+        ];
+    }
+
+    protected function toolHapusBudget(User $user): array
+    {
+        $deleted = $this->budgetService->deleteBudget($user);
+
+        if ($deleted) {
+            return [
+                'status' => 'success',
+                'pesan'  => 'Plafon budget bulanan berhasil dihapus. Batas pengeluaran telah dinonaktifkan.',
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'pesan'  => 'Anda memang belum memasang batas plafon budget bulanan.',
         ];
     }
 
@@ -753,14 +845,27 @@ class AiFinancialAgentService
                     ],
                     [
                         'name'        => 'ubah_dompet',
-                        'description' => 'Mengubah atau mengoreksi nama dompet/rekening yang sudah ada (contoh: ganti nama dompet seabang jadi seabank)',
+                        'description' => 'Mengubah nama atau menyesuaikan saldo dompet/rekening yang sudah ada (contoh: ganti nama dompet seabang jadi seabank, atau atur saldo dompet Cash jadi 500rb)',
                         'parameters'  => [
                             'type'       => 'OBJECT',
                             'properties' => [
-                                'old_name' => ['type' => 'STRING', 'description' => 'Nama dompet lama yang ingin diganti'],
-                                'new_name' => ['type' => 'STRING', 'description' => 'Nama baru untuk dompet tersebut'],
+                                'old_name'    => ['type' => 'STRING', 'description' => 'Nama dompet yang ingin diubah'],
+                                'new_name'    => ['type' => 'STRING', 'description' => 'Nama baru untuk dompet (opsional)'],
+                                'new_balance' => ['type' => 'INTEGER', 'description' => 'Saldo baru jika ingin mengoreksi saldo dompet (opsional)'],
                             ],
-                            'required'   => ['old_name', 'new_name'],
+                            'required'   => ['old_name'],
+                        ],
+                    ],
+                    [
+                        'name'        => 'hapus_dompet',
+                        'description' => 'Menghapus dompet/rekening tertentu dan mengamankan sisa saldonya',
+                        'parameters'  => [
+                            'type'       => 'OBJECT',
+                            'properties' => [
+                                'wallet_name'             => ['type' => 'STRING', 'description' => 'Nama dompet yang ingin dihapus'],
+                                'transfer_to_wallet_name' => ['type' => 'STRING', 'description' => 'Nama dompet tujuan untuk menampung sisa saldo (opsional)'],
+                            ],
+                            'required'   => ['wallet_name'],
                         ],
                     ],
                     [
@@ -813,8 +918,22 @@ class AiFinancialAgentService
                         ],
                     ],
                     [
+                        'name'        => 'ubah_target',
+                        'description' => 'Mengubah nama, nominal target, atau tanggal target tabungan impian',
+                        'parameters'  => [
+                            'type'       => 'OBJECT',
+                            'properties' => [
+                                'goal_name'         => ['type' => 'STRING', 'description' => 'Nama target yang ingin diubah'],
+                                'new_name'          => ['type' => 'STRING', 'description' => 'Nama baru target (opsional)'],
+                                'new_target_amount' => ['type' => 'INTEGER', 'description' => 'Nominal target baru dalam Rupiah (opsional)'],
+                                'new_target_date'   => ['type' => 'STRING', 'description' => 'Tanggal target baru YYYY-MM-DD (opsional)'],
+                            ],
+                            'required'   => ['goal_name'],
+                        ],
+                    ],
+                    [
                         'name'        => 'hapus_target',
-                        'description' => 'Menghapus atau membatalkan target tabungan',
+                        'description' => 'Menghapus atau membatalkan target tabungan (dana yang terkumpul otomatis dikembalikan ke dompet)',
                         'parameters'  => [
                             'type'       => 'OBJECT',
                             'properties' => [
@@ -842,6 +961,14 @@ class AiFinancialAgentService
                                 'limit_amount' => ['type' => 'INTEGER', 'description' => 'Batas maksimal pengeluaran bulanan dalam Rupiah (contoh: 2000000)'],
                             ],
                             'required'   => ['limit_amount'],
+                        ],
+                    ],
+                    [
+                        'name'        => 'hapus_budget',
+                        'description' => 'Menghapus atau mereset plafon budget bulanan (menonaktifkan batas belanja)',
+                        'parameters'  => [
+                            'type'       => 'OBJECT',
+                            'properties' => (object) [],
                         ],
                     ],
                 ],

@@ -9,8 +9,8 @@
       </button>
 
       <div class="mb-4 shrink-0">
-        <h2 class="text-xl font-bold text-white mb-1">Tambah Dompet Baru</h2>
-        <p class="text-xs text-slate-400">Kelola rekening bank, e-wallet, atau uang tunai</p>
+        <h2 class="text-xl font-bold text-white mb-1">{{ isEdit ? 'Edit Dompet' : 'Tambah Dompet Baru' }}</h2>
+        <p class="text-xs text-slate-400">{{ isEdit ? 'Sesuaikan nama, kategori, atau saldo dompet Anda' : 'Kelola rekening bank, e-wallet, atau uang tunai' }}</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="space-y-4 overflow-y-auto pr-1 flex-1">
@@ -41,10 +41,10 @@
           </select>
         </div>
 
-        <!-- Initial Balance -->
+        <!-- Balance -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-xs font-medium text-slate-300">Saldo Awal (Rp)</label>
+            <label class="block text-xs font-medium text-slate-300">{{ isEdit ? 'Saldo Terkini (Rp)' : 'Saldo Awal (Rp)' }}</label>
             <span v-if="form.initial_balance" class="text-xs font-semibold text-emerald-400">
               Rp {{ Number(form.initial_balance).toLocaleString('id-ID') }}
             </span>
@@ -60,7 +60,7 @@
               class="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-semibold text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition"
             />
           </div>
-          <p class="text-[11px] text-slate-500 mt-1">Saldo saat ini yang ada di rekening/dompet Anda</p>
+          <p class="text-[11px] text-slate-500 mt-1">{{ isEdit ? 'Menyesuaikan saldo dompet ini akan otomatis memperbarui total kekayaan Anda' : 'Saldo saat ini yang ada di rekening/dompet Anda' }}</p>
         </div>
 
         <div class="pt-2 flex gap-3">
@@ -76,7 +76,7 @@
             :disabled="submitting"
             class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm transition disabled:opacity-50"
           >
-            {{ submitting ? 'Menyimpan...' : 'Simpan Dompet' }}
+            {{ submitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan Dompet') }}
           </button>
         </div>
       </form>
@@ -85,12 +85,16 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
 
 const props = defineProps({
   isOpen: Boolean,
+  wallet: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -98,11 +102,29 @@ const financeStore = useFinanceStore();
 const toastStore = useToastStore();
 
 const submitting = ref(false);
+const isEdit = computed(() => !!props.wallet);
+
 const form = ref({
   name: '',
   type: 'BANK',
   initial_balance: 0,
 });
+
+watch(
+  () => props.wallet,
+  (w) => {
+    if (w) {
+      form.value = {
+        name: w.name || '',
+        type: w.type || 'BANK',
+        initial_balance: w.balance ?? 0,
+      };
+    } else {
+      form.value = { name: '', type: 'BANK', initial_balance: 0 };
+    }
+  },
+  { immediate: true }
+);
 
 const formattedInitialBalance = computed(() => {
   if (!form.value.initial_balance && form.value.initial_balance !== 0) return '';
@@ -122,17 +144,26 @@ async function handleSubmit() {
   }
   submitting.value = true;
   try {
-    await financeStore.createWallet({
-      name: form.value.name.trim(),
-      type: form.value.type,
-      initial_balance: form.value.initial_balance || 0,
-    });
-    toastStore.success(`Dompet "${form.value.name}" berhasil ditambahkan.`);
+    if (isEdit.value) {
+      await financeStore.updateWallet(props.wallet.id, {
+        name: form.value.name.trim(),
+        type: form.value.type,
+        balance: form.value.initial_balance || 0,
+      });
+      toastStore.success(`Dompet "${form.value.name}" berhasil diperbarui.`);
+    } else {
+      await financeStore.createWallet({
+        name: form.value.name.trim(),
+        type: form.value.type,
+        initial_balance: form.value.initial_balance || 0,
+      });
+      toastStore.success(`Dompet "${form.value.name}" berhasil ditambahkan.`);
+    }
     form.value = { name: '', type: 'BANK', initial_balance: 0 };
     emit('saved');
     emit('close');
   } catch (err) {
-    toastStore.error(err.response?.data?.message || 'Gagal menambahkan dompet.');
+    toastStore.error(err.response?.data?.message || 'Gagal menyimpan dompet.');
   } finally {
     submitting.value = false;
   }

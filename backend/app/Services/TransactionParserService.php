@@ -233,6 +233,66 @@ class TransactionParserService
         return null;
     }
 
+    /**
+     * Parse delete wallet command: "hapus dompet <nama>"
+     */
+    public function parseDeleteWallet(string $message): ?string
+    {
+        if (preg_match('/^(?:hapus|delete)\s+dompet\s+([a-zA-Z0-9_\-\s]+)$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            return !empty($name) ? $name : null;
+        }
+        return null;
+    }
+
+    /**
+     * Parse rename wallet command: "ubah dompet <nama_lama> jadi <nama_baru>"
+     *
+     * @return array{old_name: string, new_name: string}|null
+     */
+    public function parseRenameWallet(string $message): ?array
+    {
+        if (preg_match('/^(?:ubah|ganti|rename)\s+dompet\s+([a-zA-Z0-9_\-]+)\s+(?:jadi|menjadi|ke)\s+([a-zA-Z0-9_\-]+)$/i', trim($message), $matches)) {
+            return [
+                'old_name' => trim($matches[1]),
+                'new_name' => trim($matches[2]),
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Parse delete financial goal command: "hapus target <nama>" or "batal target <nama>"
+     */
+    public function parseDeleteGoal(string $message): ?string
+    {
+        if (preg_match('/^(?:hapus|batal(?:kan)?|delete)\s+target\s+(.+)$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            return !empty($name) ? $name : null;
+        }
+        return null;
+    }
+
+    /**
+     * Parse update financial goal command: "ubah target <nama> jadi <nominal>"
+     *
+     * @return array{name: string, target_amount: int}|null
+     */
+    public function parseUpdateGoal(string $message): ?array
+    {
+        if (preg_match('/^(?:ubah|edit|ganti)\s+target\s+(.+?)\s+(?:jadi|menjadi|ke)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
+            $name = trim($matches[1]);
+            $amount = $this->extractAmount($matches[2]);
+            if (!empty($name) && $amount && $amount > 0) {
+                return [
+                    'name'          => $name,
+                    'target_amount' => $amount,
+                ];
+            }
+        }
+        return null;
+    }
+
     // ---------------------------------------------------------------------------
     // Private Helpers
     // ---------------------------------------------------------------------------

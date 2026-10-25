@@ -809,6 +809,42 @@ class WebhookController extends Controller
             }
         }
 
+        // Rename wallet: "ubah dompet <lama> jadi <baru>"
+        if ($renameWallet = $this->parser->parseRenameWallet($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            try {
+                $wallet = $this->financeService->updateWallet($user, $renameWallet['old_name'], ['name' => $renameWallet['new_name']]);
+                $this->consumeFinancialQuota($user, $messageId);
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "👛 *Dompet Diperbarui*\nNama dompet *{$renameWallet['old_name']}* berhasil diubah menjadi *{$wallet->name}*.\n\nKetik `saldo` untuk cek daftar dompet.",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Delete wallet: "hapus dompet <nama>"
+        if ($deleteWalletName = $this->parser->parseDeleteWallet($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            try {
+                $this->financeService->deleteWallet($user, $deleteWalletName);
+                $this->consumeFinancialQuota($user, $messageId);
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "🗑️ *Dompet Dihapus*\nDompet *{$deleteWalletName}* berhasil dihapus dan saldonya telah diamankan ke dompet utama Anda.\n\nKetik `saldo` untuk melihat saldo terbaru.",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
         // Rekap hari ini (Typo-tolerant: rekap hr ini, rekap harian)
         if (preg_match('/^rekap\s+(?:hari ini|hr ini|harii ini|harian)$/i', $messageText)) {
             if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
@@ -986,6 +1022,48 @@ class WebhookController extends Controller
             ]);
         }
 
+        // Update financial goal: "ubah target <nama> jadi <nominal>"
+        if ($updateGoalData = $this->parser->parseUpdateGoal($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            try {
+                $updatedGoal = $this->financeService->updateGoal($user, $updateGoalData['name'], [
+                    'target_amount' => $updateGoalData['target_amount'],
+                ]);
+                $this->consumeFinancialQuota($user, $messageId);
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "🎯 *Target Diperbarui*\nTarget *{$updatedGoal->name}* nominalnya berhasil diubah menjadi *" . $this->formatRupiah($updatedGoal->target_amount) . "*.\nProgress terkumpul: " . (int) round($updatedGoal->progress_percent) . "%",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Delete financial goal: "hapus target <nama>" or "batal target <nama>"
+        if ($deleteGoalName = $this->parser->parseDeleteGoal($messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            try {
+                $delResult = $this->financeService->deleteGoal($user, $deleteGoalName, true);
+                $this->consumeFinancialQuota($user, $messageId);
+                $refundMsg = '';
+                if (!empty($delResult['refunded_amount']) && $delResult['refunded_amount'] > 0) {
+                    $refundMsg = "\n💰 Dana tersimpan sebesar *" . $this->formatRupiah($delResult['refunded_amount']) . "* telah dikembalikan ke dompet *{$delResult['wallet']->name}*.";
+                }
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => "🎯 *Target Dihapus*\nTarget impian *{$delResult['name']}* berhasil dibatalkan/dihapus.{$refundMsg}",
+                ]);
+            } catch (\RuntimeException $e) {
+                return response()->json([
+                    'action'     => 'REPLY_TEXT',
+                    'reply_text' => '⚠️ ' . $e->getMessage(),
+                ]);
+            }
+        }
+
         // Daily digest preference toggle
         if (preg_match('/^(?:matikan|nonaktifkan)\s+rekap\s+harian$/i', $messageText)) {
             $this->insightsService->setDailyDigestEnabled($user, false);
@@ -1068,6 +1146,17 @@ class WebhookController extends Controller
             return response()->json([
                 'action'     => 'REPLY_TEXT',
                 'reply_text' => $this->budgetService->renderSetBudgetCard($budget),
+            ]);
+        }
+
+        // Delete/reset budget: "hapus budget", "reset budget", "batal budget"
+        if (preg_match('/^(?:hapus|reset|batal(?:kan)?)\s+budg?et$/i', $messageText)) {
+            if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
+            $this->budgetService->deleteBudget($user);
+            $this->consumeFinancialQuota($user, $messageId);
+            return response()->json([
+                'action'     => 'REPLY_TEXT',
+                'reply_text' => "🎯 *Plafon Anggaran Dihapus*\nBatas belanja bulanan Anda berhasil dinonaktifkan. Anda sekarang bebas bertransaksi tanpa batasan plafon bulanan.",
             ]);
         }
 

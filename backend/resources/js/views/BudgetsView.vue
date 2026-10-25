@@ -239,6 +239,24 @@
                 </span>
               </div>
             </div>
+
+            <!-- Action buttons: Edit and Reset/Delete -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-end gap-2">
+              <button
+                @click="showBudgetModal = true"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <span>✏️</span>
+                <span>Ubah Plafon</span>
+              </button>
+              <button
+                @click="confirmDeleteBudget"
+                class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <span>🗑️</span>
+                <span>Hapus Plafon</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -257,12 +275,27 @@
 import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
+import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah } from '../utils/formatters';
 import BudgetModal from '../components/modals/BudgetModal.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+const toastStore = useToastStore();
+
+async function confirmDeleteBudget() {
+  const confirmed = window.confirm('Apakah Anda yakin ingin menghapus plafon batas belanja bulanan?');
+  if (!confirmed) return;
+
+  try {
+    await financeStore.deleteBudget();
+    toastStore.success('Plafon anggaran bulanan berhasil dihapus.');
+    await loadBudgets(true);
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Gagal menghapus anggaran.');
+  }
+}
 
 const budgetStatusOptions = [
   { value: 'ALL', label: 'Semua Status Pemakaian', icon: '🎯' },

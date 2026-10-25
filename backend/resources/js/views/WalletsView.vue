@@ -26,7 +26,7 @@
           <span>Transfer Dana</span>
         </button>
         <button
-          @click="showWalletModal = true"
+          @click="openCreateWallet"
           class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -192,18 +192,35 @@
             class="p-6 rounded-2xl border relative overflow-hidden flex flex-col justify-between h-48 transition hover:scale-[1.01] shadow-md"
             :class="getCardStyle(wallet.type)"
           >
-            <!-- Top bar: Type and Default badge -->
+            <!-- Top bar: Type, Default badge, and Actions -->
             <div class="flex items-center justify-between relative z-10">
               <div class="flex items-center gap-2">
                 <span class="text-2xl">{{ getWalletIcon(wallet.type) }}</span>
                 <span class="text-xs font-bold uppercase tracking-wider text-slate-300">{{ wallet.type }}</span>
+                <span
+                  v-if="wallet.is_default"
+                  class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                >
+                  Utama
+                </span>
               </div>
-              <span
-                v-if="wallet.is_default"
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-              >
-                Utama
-              </span>
+              <div class="flex items-center gap-1.5">
+                <button
+                  @click.stop="openEditWallet(wallet)"
+                  title="Edit Dompet"
+                  class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+                <button
+                  v-if="!wallet.is_default && financeStore.wallets.length > 1"
+                  @click.stop="confirmDeleteWallet(wallet)"
+                  title="Hapus Dompet"
+                  class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 transition cursor-pointer"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
             </div>
 
             <!-- Middle: Wallet Name -->
@@ -280,7 +297,8 @@
 
     <WalletModal
       :isOpen="showWalletModal"
-      @close="showWalletModal = false"
+      :wallet="selectedWalletForEdit"
+      @close="showWalletModal = false; selectedWalletForEdit = null"
       @saved="loadWallets(true)"
     />
   </div>
@@ -290,6 +308,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
+import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import TransferModal from '../components/modals/TransferModal.vue';
 import WalletModal from '../components/modals/WalletModal.vue';
@@ -297,6 +316,35 @@ import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+const toastStore = useToastStore();
+const selectedWalletForEdit = ref(null);
+
+function openCreateWallet() {
+  selectedWalletForEdit.value = null;
+  showWalletModal.value = true;
+}
+
+function openEditWallet(wallet) {
+  selectedWalletForEdit.value = wallet;
+  showWalletModal.value = true;
+}
+
+async function confirmDeleteWallet(wallet) {
+  if (wallet.is_default) {
+    toastStore.warning('Dompet utama tidak dapat dihapus.');
+    return;
+  }
+  const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus dompet "${wallet.name}"? Sisa saldo akan otomatis diamankan ke dompet utama.`);
+  if (!confirmed) return;
+
+  try {
+    await financeStore.deleteWallet(wallet.id);
+    toastStore.success(`Dompet "${wallet.name}" berhasil dihapus.`);
+    await loadWallets(true);
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Gagal menghapus dompet.');
+  }
+}
 
 const walletTypeOptions = [
   { value: 'ALL', label: 'Semua Tipe Dompet', icon: '💳' },

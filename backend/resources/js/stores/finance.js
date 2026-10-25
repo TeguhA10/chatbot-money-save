@@ -217,8 +217,19 @@ export const useFinanceStore = defineStore('finance', {
 
         async createWallet(payload) {
             const res = await api.post('/wallets', payload);
-            await this.fetchWallets(true);
-            this.invalidateCache();
+            await this.invalidateAllAndRefresh();
+            return res.data;
+        },
+
+        async updateWallet(id, payload) {
+            const res = await api.put(`/wallets/${id}`, payload);
+            await this.invalidateAllAndRefresh();
+            return res.data;
+        },
+
+        async deleteWallet(id, payload = {}) {
+            const res = await api.delete(`/wallets/${id}`, { data: payload });
+            await this.invalidateAllAndRefresh();
             return res.data;
         },
 
@@ -254,8 +265,13 @@ export const useFinanceStore = defineStore('finance', {
 
         async createBudget(payload) {
             const res = await api.post('/budgets', payload);
-            await this.fetchBudgets(true);
-            this.invalidateCache();
+            await this.invalidateAllAndRefresh();
+            return res.data;
+        },
+
+        async deleteBudget() {
+            const res = await api.delete('/budgets');
+            await this.invalidateAllAndRefresh();
             return res.data;
         },
 
@@ -281,8 +297,19 @@ export const useFinanceStore = defineStore('finance', {
 
         async createGoal(payload) {
             const res = await api.post('/goals', payload);
-            await this.fetchGoals(true);
-            this.invalidateCache();
+            await this.invalidateAllAndRefresh();
+            return res.data;
+        },
+
+        async updateGoal(id, payload) {
+            const res = await api.put(`/goals/${id}`, payload);
+            await this.invalidateAllAndRefresh();
+            return res.data;
+        },
+
+        async deleteGoal(id, payload = {}) {
+            const res = await api.delete(`/goals/${id}`, { data: payload });
+            await this.invalidateAllAndRefresh();
             return res.data;
         },
 

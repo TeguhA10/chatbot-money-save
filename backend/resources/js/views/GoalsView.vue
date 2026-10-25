@@ -18,7 +18,7 @@
       </div>
 
       <button
-        @click="showGoalModal = true"
+        @click="openCreateGoal"
         class="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 cursor-pointer transition active:scale-95"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -161,18 +161,34 @@
             class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between hover:border-teal-500/40 transition group shadow-lg"
           >
             <div>
-              <!-- Title & Status -->
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate pr-2">
+              <!-- Title & Status & Actions -->
+              <div class="flex items-center justify-between mb-3 gap-2">
+                <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2 truncate pr-1">
                   <span>🎯</span>
                   <span class="truncate">{{ goal.name }}</span>
                 </h3>
-                <span
-                  class="px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0"
-                  :class="goal.status === 'ACHIEVED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'"
-                >
-                  {{ goal.status === 'ACHIEVED' ? 'Tercapai 🎉' : `${goal.progress_percent}%` }}
-                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <span
+                    class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                    :class="goal.status === 'ACHIEVED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'"
+                  >
+                    {{ goal.status === 'ACHIEVED' ? 'Tercapai 🎉' : `${goal.progress_percent}%` }}
+                  </span>
+                  <button
+                    @click.stop="openEditGoal(goal)"
+                    title="Edit Target"
+                    class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  </button>
+                  <button
+                    @click.stop="confirmDeleteGoal(goal)"
+                    title="Hapus Target"
+                    class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 transition cursor-pointer"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
               </div>
 
               <!-- Progress Bar -->
@@ -221,7 +237,8 @@
     <!-- Modals -->
     <GoalModal
       :isOpen="showGoalModal"
-      @close="showGoalModal = false"
+      :goal="selectedGoalForEdit"
+      @close="showGoalModal = false; selectedGoalForEdit = null"
       @saved="loadGoals"
     />
 
@@ -238,6 +255,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
+import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import GoalModal from '../components/modals/GoalModal.vue';
 import ContributeGoalModal from '../components/modals/ContributeGoalModal.vue';
@@ -245,6 +263,35 @@ import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
+const toastStore = useToastStore();
+const selectedGoalForEdit = ref(null);
+
+function openCreateGoal() {
+  selectedGoalForEdit.value = null;
+  showGoalModal.value = true;
+}
+
+function openEditGoal(goal) {
+  selectedGoalForEdit.value = goal;
+  showGoalModal.value = true;
+}
+
+async function confirmDeleteGoal(goal) {
+  let msg = `Apakah Anda yakin ingin membatalkan/menghapus target "${goal.name}"?`;
+  if (goal.current_amount > 0) {
+    msg += ` Dana yang telah terkumpul (${formatRupiah(goal.current_amount)}) akan otomatis dikembalikan ke dompet utama Anda.`;
+  }
+  const confirmed = window.confirm(msg);
+  if (!confirmed) return;
+
+  try {
+    await financeStore.deleteGoal(goal.id, { refund: true });
+    toastStore.success(`Target "${goal.name}" berhasil dihapus.`);
+    await loadGoals(true);
+  } catch (err) {
+    toastStore.error(err.response?.data?.message || 'Gagal menghapus target.');
+  }
+}
 
 const goalStatusOptions = [
   { value: 'ALL', label: 'Semua Status Target', icon: '🎯' },

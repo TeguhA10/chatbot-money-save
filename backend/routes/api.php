@@ -97,18 +97,23 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('api.transactions.destroy');
 
         // Budgets
-        Route::get('/budgets',  [BudgetController::class, 'index'])->name('api.budgets.index');
-        Route::post('/budgets', [BudgetController::class, 'store'])->name('api.budgets.store');
+        Route::get('/budgets',    [BudgetController::class, 'index'])->name('api.budgets.index');
+        Route::post('/budgets',   [BudgetController::class, 'store'])->name('api.budgets.store');
+        Route::delete('/budgets', [BudgetController::class, 'destroy'])->name('api.budgets.destroy');
 
         // Wallets
-        Route::get('/wallets',           [WalletController::class, 'index'])->name('api.wallets.index');
-        Route::post('/wallets',          [WalletController::class, 'store'])->name('api.wallets.store');
-        Route::post('/wallets/transfer', [WalletController::class, 'transfer'])->name('api.wallets.transfer');
+        Route::get('/wallets',              [WalletController::class, 'index'])->name('api.wallets.index');
+        Route::post('/wallets',             [WalletController::class, 'store'])->name('api.wallets.store');
+        Route::put('/wallets/{id}',         [WalletController::class, 'update'])->name('api.wallets.update');
+        Route::delete('/wallets/{id}',      [WalletController::class, 'destroy'])->name('api.wallets.destroy');
+        Route::post('/wallets/transfer',    [WalletController::class, 'transfer'])->name('api.wallets.transfer');
 
         // Financial Goals
-        Route::get('/goals',                 [GoalController::class, 'index'])->name('api.goals.index');
-        Route::post('/goals',                [GoalController::class, 'store'])->name('api.goals.store');
-        Route::post('/goals/{id}/contribute',[GoalController::class, 'contribute'])->name('api.goals.contribute');
+        Route::get('/goals',                  [GoalController::class, 'index'])->name('api.goals.index');
+        Route::post('/goals',                 [GoalController::class, 'store'])->name('api.goals.store');
+        Route::put('/goals/{id}',             [GoalController::class, 'update'])->name('api.goals.update');
+        Route::delete('/goals/{id}',          [GoalController::class, 'destroy'])->name('api.goals.destroy');
+        Route::post('/goals/{id}/contribute', [GoalController::class, 'contribute'])->name('api.goals.contribute');
 
         // Analytics Dashboard
         Route::get('/analytics/dashboard-feed',      [AnalyticsController::class, 'dashboardFeed'])->name('api.analytics.dashboard-feed');

@@ -9,8 +9,8 @@
       </button>
 
       <div class="mb-4 shrink-0">
-        <h2 class="text-xl font-bold text-white mb-1">Target Tabungan Baru</h2>
-        <p class="text-xs text-slate-400">Wujudkan impian finansial Anda secara terukur</p>
+        <h2 class="text-xl font-bold text-white mb-1">{{ isEdit ? 'Edit Target Tabungan' : 'Target Tabungan Baru' }}</h2>
+        <p class="text-xs text-slate-400">{{ isEdit ? 'Ubah nama, nominal, atau target tanggal impian Anda' : 'Wujudkan impian finansial Anda secara terukur' }}</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="space-y-4 overflow-y-auto pr-1 flex-1">
@@ -85,7 +85,7 @@
             :disabled="submitting"
             class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-sm transition disabled:opacity-50"
           >
-            {{ submitting ? 'Menyimpan...' : 'Buat Target' }}
+            {{ submitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Buat Target') }}
           </button>
         </div>
       </form>
@@ -94,13 +94,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
 import DatePicker from '../common/DatePicker.vue';
 
 const props = defineProps({
   isOpen: Boolean,
+  goal: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -108,11 +112,29 @@ const financeStore = useFinanceStore();
 const toastStore = useToastStore();
 
 const submitting = ref(false);
+const isEdit = computed(() => !!props.goal);
+
 const form = ref({
   name: '',
   target_amount: null,
   target_date: '',
 });
+
+watch(
+  () => props.goal,
+  (g) => {
+    if (g) {
+      form.value = {
+        name: g.name || '',
+        target_amount: g.target_amount ?? null,
+        target_date: g.target_date || '',
+      };
+    } else {
+      form.value = { name: '', target_amount: null, target_date: '' };
+    }
+  },
+  { immediate: true }
+);
 
 const formattedTargetAmount = computed(() => {
   if (!form.value.target_amount && form.value.target_amount !== 0) return '';
@@ -136,17 +158,26 @@ async function handleSubmit() {
   }
   submitting.value = true;
   try {
-    await financeStore.createGoal({
-      name: form.value.name.trim(),
-      target_amount: form.value.target_amount,
-      target_date: form.value.target_date || null,
-    });
-    toastStore.success(`Target tabungan "${form.value.name}" berhasil dibuat.`);
+    if (isEdit.value) {
+      await financeStore.updateGoal(props.goal.id, {
+        name: form.value.name.trim(),
+        target_amount: form.value.target_amount,
+        target_date: form.value.target_date || null,
+      });
+      toastStore.success(`Target tabungan "${form.value.name}" berhasil diperbarui.`);
+    } else {
+      await financeStore.createGoal({
+        name: form.value.name.trim(),
+        target_amount: form.value.target_amount,
+        target_date: form.value.target_date || null,
+      });
+      toastStore.success(`Target tabungan "${form.value.name}" berhasil dibuat.`);
+    }
     form.value = { name: '', target_amount: null, target_date: '' };
     emit('saved');
     emit('close');
   } catch (err) {
-    toastStore.error(err.response?.data?.message || 'Gagal membuat target tabungan.');
+    toastStore.error(err.response?.data?.message || 'Gagal menyimpan target tabungan.');
   } finally {
     submitting.value = false;
   }

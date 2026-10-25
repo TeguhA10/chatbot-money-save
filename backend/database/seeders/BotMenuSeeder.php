@@ -28,11 +28,14 @@ class BotMenuSeeder extends Seeder
             // Dompet & Saldo
             ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'saldo', 'description' => 'cek rincian saldo per dompet', 'is_quick_command' => true, 'sort_order' => 20],
             ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'tambah dompet BCA saldo 1jt', 'description' => null, 'is_quick_command' => false, 'sort_order' => 21],
-            ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'transfer 200rb dari Cash ke BCA', 'description' => null, 'is_quick_command' => false, 'sort_order' => 22],
+            ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'ubah dompet BCA jadi BluBCA', 'description' => 'ganti nama dompet', 'is_quick_command' => false, 'sort_order' => 22],
+            ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'hapus dompet GoPay', 'description' => 'hapus rekening/dompet', 'is_quick_command' => false, 'sort_order' => 23],
+            ['category' => 'Dompet & Saldo', 'category_icon' => '👛', 'command' => 'transfer 200rb dari Cash ke BCA', 'description' => null, 'is_quick_command' => false, 'sort_order' => 24],
 
             // Plafon Anggaran (Budget)
             ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'budget 1jt', 'description' => 'atur batas belanja bulanan', 'is_quick_command' => false, 'sort_order' => 30],
             ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'cek budget', 'description' => 'status plafon & bar terpakai', 'is_quick_command' => false, 'sort_order' => 31],
+            ['category' => 'Plafon Anggaran (Budget)', 'category_icon' => '🎯', 'command' => 'hapus budget', 'description' => 'reset/nonaktifkan batas belanja', 'is_quick_command' => false, 'sort_order' => 32],
 
             // Langganan & Transaksi Rutin
             ['category' => 'Langganan & Transaksi Rutin', 'category_icon' => '⏰', 'command' => 'langganan Netflix 186rb setiap tanggal 15 via dana', 'description' => null, 'is_quick_command' => false, 'sort_order' => 40],
@@ -42,7 +45,9 @@ class BotMenuSeeder extends Seeder
             // Target Tabungan (Goals)
             ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'buat target Mobil 100jt', 'description' => null, 'is_quick_command' => false, 'sort_order' => 50],
             ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'tabung 1jt untuk Mobil via bca', 'description' => null, 'is_quick_command' => false, 'sort_order' => 51],
-            ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'daftar target', 'description' => null, 'is_quick_command' => false, 'sort_order' => 52],
+            ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'ubah target Mobil jadi 120jt', 'description' => 'edit nominal target', 'is_quick_command' => false, 'sort_order' => 52],
+            ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'hapus target Mobil', 'description' => 'batalkan & kembalikan dana', 'is_quick_command' => false, 'sort_order' => 53],
+            ['category' => 'Target Tabungan (Goals)', 'category_icon' => '🎯', 'command' => 'daftar target', 'description' => null, 'is_quick_command' => false, 'sort_order' => 54],
 
             // Laporan & Analisis
             ['category' => 'Laporan & Analisis', 'category_icon' => '📊', 'command' => 'rekap hari ini', 'description' => null, 'is_quick_command' => false, 'sort_order' => 60],

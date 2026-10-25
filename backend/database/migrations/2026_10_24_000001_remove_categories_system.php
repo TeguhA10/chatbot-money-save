@@ -12,14 +12,17 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        }
         Schema::disableForeignKeyConstraints();
 
         // 1. Remove category_id from transactions
         if (Schema::hasTable('transactions') && Schema::hasColumn('transactions', 'category_id')) {
             Schema::table('transactions', function (Blueprint $table) {
-                if (DB::getDriverName() !== 'sqlite') {
+                try {
                     $table->dropForeign(['category_id']);
-                }
+                } catch (\Throwable) {}
                 $table->dropColumn('category_id');
             });
         }
@@ -27,9 +30,9 @@ return new class extends Migration
         // 2. Remove category_id from recurring_schedules
         if (Schema::hasTable('recurring_schedules') && Schema::hasColumn('recurring_schedules', 'category_id')) {
             Schema::table('recurring_schedules', function (Blueprint $table) {
-                if (DB::getDriverName() !== 'sqlite') {
+                try {
                     $table->dropForeign(['category_id']);
-                }
+                } catch (\Throwable) {}
                 $table->dropColumn('category_id');
             });
         }
@@ -38,10 +41,10 @@ return new class extends Migration
         if (Schema::hasTable('budgets')) {
             if (Schema::hasColumn('budgets', 'category_id')) {
                 Schema::table('budgets', function (Blueprint $table) {
-                    if (DB::getDriverName() !== 'sqlite') {
+                    try {
                         $table->dropForeign(['category_id']);
                         $table->dropUnique(['user_jid', 'category_id']);
-                    }
+                    } catch (\Throwable) {}
                     $table->dropColumn('category_id');
                 });
             }

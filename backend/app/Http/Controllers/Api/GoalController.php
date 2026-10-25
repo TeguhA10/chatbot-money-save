@@ -122,4 +122,73 @@ class GoalController extends Controller
             ], 422);
         }
     }
+
+    /**
+     * PUT /api/v1/goals/{id}
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'          => 'sometimes|required|string|max:100',
+            'target_amount' => 'sometimes|required|integer|min:1',
+            'target_date'   => 'nullable|date',
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $goal = $this->financeService->updateGoal($user, $id, $validated);
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'id'               => $goal->id,
+                    'name'             => $goal->name,
+                    'target_amount'    => $goal->target_amount,
+                    'current_amount'   => $goal->current_amount,
+                    'progress_percent' => $goal->progress_percent,
+                    'target_date'      => $goal->target_date?->toDateString(),
+                    'status'           => $goal->status,
+                ],
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * DELETE /api/v1/goals/{id}
+     */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'refund'           => 'nullable|boolean',
+            'refund_wallet_id' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $result = $this->financeService->deleteGoal(
+                $user,
+                $id,
+                $request->boolean('refund', true),
+                $validated['refund_wallet_id'] ?? null
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => "Target '{$result['name']}' berhasil dihapus.",
+                'data'    => $result,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
 }
