@@ -1138,10 +1138,14 @@ class WebhookController extends Controller
             ]);
         }
 
-        // Set budget: "budget <nominal>" or "anggaran <nominal>"
+        // Set budget: "budget <nominal> [deskripsi]" or "anggaran <deskripsi> <nominal>"
         if ($budgetData = $this->parser->parseBudgetSet($messageText)) {
             if ($quotaResp = $this->checkFinancialQuota($user)) return $quotaResp;
-            $budget = $this->budgetService->setBudget($user, $budgetData['amount']);
+            $budget = $this->budgetService->setBudget(
+                $user,
+                $budgetData['amount'],
+                $budgetData['description'] ?? 'Batas Pengeluaran Bulanan'
+            );
             $this->consumeFinancialQuota($user, $messageId);
             return response()->json([
                 'action'     => 'REPLY_TEXT',

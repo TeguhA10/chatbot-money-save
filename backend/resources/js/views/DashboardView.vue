@@ -465,7 +465,7 @@
               class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-1.5"
             >
               <div class="flex items-center justify-between text-xs">
-                <span class="font-medium text-slate-200">🎯 Batas Pengeluaran Bulanan</span>
+                <span class="font-medium text-slate-200 truncate pr-2">🎯 {{ b.description || 'Batas Pengeluaran Bulanan' }}</span>
                 <span
                   class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   :class="b.percentage >= 90 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (b.percentage >= 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400')"
@@ -584,8 +584,10 @@
               </div>
               <div class="min-w-0">
                 <p class="text-xs font-bold text-white truncate">{{ t.description || 'Transaksi Tanpa Keterangan' }}</p>
-                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-1 flex-wrap">
                   <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
+                  <span>•</span>
+                  <span class="text-slate-300 font-semibold">👛 {{ t.wallet_name || 'Cash' }}</span>
                 </div>
               </div>
             </div>
@@ -612,9 +614,10 @@
           <table class="w-full text-left text-xs min-w-[700px] border-collapse">
             <thead>
               <tr class="text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-800/80 bg-slate-950/40">
-                <th class="py-3.5 px-5 w-32 font-bold">Tanggal</th>
-                <th class="py-3.5 px-5 min-w-[220px] font-bold">Deskripsi</th>
-                <th class="py-3.5 px-5 w-28 text-center font-bold">Tipe</th>
+                <th class="py-3.5 px-5 w-28 font-bold">Tanggal</th>
+                <th class="py-3.5 px-5 min-w-[200px] font-bold">Deskripsi</th>
+                <th class="py-3.5 px-5 w-32 font-bold">Dompet</th>
+                <th class="py-3.5 px-5 w-24 text-center font-bold">Tipe</th>
                 <th class="py-3.5 px-5 w-36 text-right font-bold">Nominal</th>
               </tr>
             </thead>
@@ -634,6 +637,14 @@
                   <div class="flex items-center gap-2">
                     <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
                   </div>
+                </td>
+
+                <!-- Wallet -->
+                <td class="py-4 px-5 whitespace-nowrap">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/80 text-slate-200 border border-slate-700/60">
+                    <span>👛</span>
+                    <span>{{ t.wallet_name || 'Cash' }}</span>
+                  </span>
                 </td>
 
                 <!-- Type Badge -->

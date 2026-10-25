@@ -54,13 +54,55 @@ class CrudWalletBudgetGoalTest extends TestCase
         $financeService = app(FinanceService::class);
         $user = $financeService->findOrCreateUser('62822222@s.whatsapp.net', 'Budget User');
 
-        $budgetService->setBudget($user, 1500000);
+        $budgetService->setBudget($user, 1500000, 'Batas Belanja Bulanan');
         $this->assertNotNull(Budget::where('user_jid', $user->jid)->first());
 
         // Test Delete Budget via DELETE /api/v1/budgets
         $response = $this->actingAs($user)->deleteJson('/api/v1/budgets');
         $response->assertStatus(200);
         $this->assertNull(Budget::where('user_jid', $user->jid)->first());
+    }
+
+    public function test_budget_requires_description_via_api_and_whatsapp(): void
+    {
+        /** @var FinanceService $financeService */
+        $financeService = app(FinanceService::class);
+        $user = $financeService->findOrCreateUser('62866666@s.whatsapp.net', 'Budget Desc User');
+
+        // 1. POST /api/v1/budgets without description -> 422
+        $resNoDesc = $this->actingAs($user)->postJson('/api/v1/budgets', [
+            'limit_amount' => 2000000,
+        ]);
+        $resNoDesc->assertStatus(422);
+        $resNoDesc->assertJsonValidationErrors(['description']);
+
+        // 2. POST /api/v1/budgets with description -> 201
+        $resWithDesc = $this->actingAs($user)->postJson('/api/v1/budgets', [
+            'limit_amount' => 2500000,
+            'description'  => 'Plafon Belanja & Jajan',
+        ]);
+        $resWithDesc->assertStatus(201);
+        $this->assertEquals('Plafon Belanja & Jajan', $resWithDesc->json('data.description'));
+        $this->assertEquals(2500000, $resWithDesc->json('data.limit_amount'));
+
+        // 3. GET /api/v1/budgets returns description
+        $resGet = $this->actingAs($user)->getJson('/api/v1/budgets');
+        $resGet->assertStatus(200);
+        $this->assertEquals('Plafon Belanja & Jajan', $resGet->json('data.budget.description'));
+
+        // 4. WhatsApp command with description: "budget 3jt Batas Lifestyle"
+        $secret = config('app.gateway_webhook_secret', env('GATEWAY_WEBHOOK_SECRET'));
+        $headers = $secret ? ['X-Gateway-Secret' => $secret] : [];
+
+        $respWa = $this->postJson('/api/webhook/whatsapp', [
+            'message_id'   => 'msg_b_desc_1',
+            'from_jid'     => $user->jid,
+            'push_name'    => 'WA User',
+            'message_text' => 'budget 3jt Batas Lifestyle',
+        ], $headers);
+        $respWa->assertStatus(200);
+        $this->assertStringContainsString('Batas Lifestyle', $respWa->json('reply_text'));
+        $this->assertEquals('Batas Lifestyle', Budget::where('user_jid', $user->jid)->first()->description);
     }
 
     public function test_goal_update_and_delete_with_refund_via_api(): void
@@ -182,5 +224,84 @@ class CrudWalletBudgetGoalTest extends TestCase
         ], $headers);
         $respDelGoal->assertStatus(200);
         $this->assertStringContainsString('Target Dihapus', $respDelGoal->json('reply_text'));
+    }
+
+    public function test_transactions_require_wallet_and_default_to_cash(): void
+    {
+        /** @var FinanceService $financeService */
+        $financeService = app(FinanceService::class);
+        $user = $financeService->findOrCreateUser('62855555@s.whatsapp.net', 'Transaction Wallet User');
+
+        // Ensure default Cash wallet exists
+        $cash = $financeService->getOrCreateDefaultWallet($user);
+        $cash->balance = 500000;
+        $cash->save();
+        $user->current_balance = 500000;
+        $user->save();
+
+        // Create a secondary wallet (BCA)
+        $bca = $financeService->addWallet($user, 'BCA', 1000000, 'BANK');
+
+        // 1. Create transaction via API without wallet_id -> must default to Cash
+        $resDefault = $this->actingAs($user)->postJson('/api/v1/transactions', [
+            'type'        => 'EXPENSE',
+            'amount'      => 50000,
+            'description' => 'Makan siang default Cash',
+        ]);
+        $resDefault->assertStatus(201);
+        $this->assertEquals($cash->id, $resDefault->json('data.wallet_id'));
+        $this->assertEquals('Cash', $resDefault->json('data.wallet_name'));
+        $this->assertEquals(450000, $cash->fresh()->balance);
+
+        // 2. Create transaction via API with specific wallet_id (BCA)
+        $resBca = $this->actingAs($user)->postJson('/api/v1/transactions', [
+            'type'        => 'EXPENSE',
+            'amount'      => 100000,
+            'description' => 'Beli buku via BCA',
+            'wallet_id'   => $bca->id,
+        ]);
+        $resBca->assertStatus(201);
+        $this->assertEquals($bca->id, $resBca->json('data.wallet_id'));
+        $this->assertEquals('BCA', $resBca->json('data.wallet_name'));
+        $this->assertEquals(900000, $bca->fresh()->balance);
+
+        // 3. Index must include wallet info
+        $resIndex = $this->actingAs($user)->getJson('/api/v1/transactions');
+        $resIndex->assertStatus(200);
+        $items = $resIndex->json('data.items');
+        $this->assertNotEmpty($items);
+        $this->assertNotNull($items[0]['wallet_id']);
+        $this->assertNotNull($items[0]['wallet_name']);
+
+        // 4. Update transaction to switch wallet from BCA to Cash
+        $txId = $resBca->json('data.id');
+        $resUpdate = $this->actingAs($user)->putJson("/api/v1/transactions/{$txId}", [
+            'amount'      => 100000,
+            'description' => 'Beli buku dipindah ke Cash',
+            'wallet_id'   => $cash->id,
+        ]);
+        $resUpdate->assertStatus(200);
+        $this->assertEquals($cash->id, $resUpdate->json('data.transaction.wallet_id'));
+        $this->assertEquals('Cash', $resUpdate->json('data.transaction.wallet_name'));
+        // BCA balance should be reverted (+100k) to 1.000.000
+        $this->assertEquals(1000000, $bca->fresh()->balance);
+        // Cash balance should be debited (-100k) from 450.000 to 350.000
+        $this->assertEquals(350000, $cash->fresh()->balance);
+
+        // 5. WhatsApp parsing default to Cash
+        $secret = config('app.gateway_webhook_secret', env('GATEWAY_WEBHOOK_SECRET'));
+        $headers = $secret ? ['X-Gateway-Secret' => $secret] : [];
+        $user->pin_status = 'ACTIVE';
+        $user->pin_hash = bcrypt('123456');
+        $user->save();
+
+        $respWa = $this->postJson('/api/webhook/whatsapp', [
+            'message_id'   => 'msg_tx_cash_1',
+            'from_jid'     => $user->jid,
+            'push_name'    => 'WA User',
+            'message_text' => 'keluar 25rb kopi',
+        ], $headers);
+        $respWa->assertStatus(200);
+        $this->assertStringContainsString('Cash', $respWa->json('reply_text'));
     }
 }

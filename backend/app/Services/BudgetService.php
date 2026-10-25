@@ -12,19 +12,21 @@ class BudgetService
     /**
      * Upsert an overall monthly budget limit for a user.
      */
-    public function setBudget(User $user, int $limitAmount, int $thresholdPercent = 80): Budget
+    public function setBudget(User $user, int $limitAmount, string $description = 'Batas Pengeluaran Bulanan', int $thresholdPercent = 80): Budget
     {
         if ($limitAmount <= 0) {
             throw new \InvalidArgumentException('Budget limit must be a positive integer.');
         }
 
         $encryptedLimit = app(EncryptionService::class)->encryptForStorage($limitAmount);
+        $cleanDesc = !empty(trim($description)) ? trim($description) : 'Batas Pengeluaran Bulanan';
 
         $budget = Budget::updateOrCreate(
             [
                 'user_jid' => $user->jid,
             ],
             [
+                'description'             => $cleanDesc,
                 'encrypted_limit_amount'  => $encryptedLimit,
                 'alert_threshold_percent' => $thresholdPercent,
             ]
@@ -85,6 +87,7 @@ class BudgetService
 
         return [
             'budget'           => $budget,
+            'description'      => $budget->description ?? 'Batas Pengeluaran Bulanan',
             'limit_amount'     => $limitAmount,
             'spent_amount'     => $spentAmount,
             'remaining_amount' => $remainingAmount,
@@ -105,6 +108,7 @@ class BudgetService
         if (!$budget) {
             return [
                 'budget'           => null,
+                'description'      => '',
                 'limit_amount'     => 0,
                 'spent_amount'     => 0,
                 'remaining_amount' => 0,
@@ -148,8 +152,10 @@ class BudgetService
         $limitFormatted = 'Rp' . number_format($budget->limit_amount, 0, ',', '.');
         $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
         $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
+        $desc = $budget->description ?: 'Batas Pengeluaran Bulanan';
 
         return "🎯 *Plafon Anggaran Bulanan Diatur*\n\n" .
+               "• Deskripsi     : {$desc}\n" .
                "• Limit Bulanan : {$limitFormatted}\n" .
                "• Terpakai      : {$spentFormatted} (" . (int) round($consumption['percentage']) . "%)\n" .
                "• Sisa Anggaran : {$remainingFormatted}\n\n" .
@@ -171,9 +177,10 @@ class BudgetService
         $spentFormatted = 'Rp' . number_format($consumption['spent_amount'], 0, ',', '.');
         $limitFormatted = 'Rp' . number_format($consumption['limit_amount'], 0, ',', '.');
         $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
+        $desc = $budget->description ?: 'Batas Pengeluaran Bulanan';
 
         $lines = [
-            "🎯 *Status Budget Bulanan*",
+            "🎯 *Status Budget Bulanan ({$desc})*",
             "Terpakai: {$spentFormatted} / {$limitFormatted} (Sisa: {$remainingFormatted})",
             $consumption['progress_bar']
         ];
@@ -205,8 +212,10 @@ class BudgetService
         $limitFormatted = 'Rp' . number_format($consumption['limit_amount'], 0, ',', '.');
         $remainingFormatted = 'Rp' . number_format($consumption['remaining_amount'], 0, ',', '.');
         $monthName = Carbon::now()->translatedFormat('F Y');
+        $desc = $budget->description ?: 'Batas Pengeluaran Bulanan';
 
         return "📊 *Ringkasan Budget Bulan {$monthName}*\n\n" .
+               "• Deskripsi     : {$desc}\n" .
                "• Limit Anggaran: {$limitFormatted}\n" .
                "• Total Terpakai: {$spentFormatted}\n" .
                "• Sisa Anggaran : {$remainingFormatted}\n\n" .

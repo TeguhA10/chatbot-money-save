@@ -110,7 +110,7 @@ class TransactionParserService
             'amount'        => $amount,
             'description'   => $description,
             'category_hint' => null,
-            'wallet_tag'    => $walletTag,
+            'wallet_tag'    => $walletTag ?: 'Cash',
         ];
     }
 
@@ -569,20 +569,38 @@ class TransactionParserService
     }
 
     /**
-     * Parse budget set command: "budget <amount>" or "anggaran <amount>"
+     * Parse budget set command: "budget <amount> [deskripsi]" or "anggaran <deskripsi> <amount>"
      *
-     * @return array{amount: int}|null
+     * @return array{amount: int, description: string}|null
      */
     public function parseBudgetSet(string $message): ?array
     {
-        if (preg_match('/^(?:budget|anggaran)(?:\s+bulanan)?\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', trim($message), $matches)) {
+        $trim = trim($message);
+
+        // Pattern 1: "budget 2jt [untuk / ket / deskripsi] <deskripsi>" or just "budget 2jt"
+        if (preg_match('/^(?:budget|anggaran)(?:\s+bulanan)?\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)(?:\s+(?:untuk\s+|ket\s+|deskripsi\s+)?(.+))?$/i', $trim, $matches)) {
             $amount = $this->extractAmount($matches[1]);
+            $desc = !empty($matches[2]) ? trim($matches[2]) : 'Batas Pengeluaran Bulanan';
             if ($amount && $amount > 0) {
                 return [
-                    'amount' => $amount,
+                    'amount'      => $amount,
+                    'description' => $desc,
                 ];
             }
         }
+
+        // Pattern 2: "budget <deskripsi> 2jt" or "anggaran belanja 3jt"
+        if (preg_match('/^(?:budget|anggaran)(?:\s+bulanan)?\s+(.+?)\s+([0-9.,]+(?:\s*[a-zA-Z]+)?)$/i', $trim, $matches)) {
+            $amount = $this->extractAmount($matches[2]);
+            $desc = trim($matches[1]);
+            if ($amount && $amount > 0 && !empty($desc)) {
+                return [
+                    'amount'      => $amount,
+                    'description' => $desc,
+                ];
+            }
+        }
+
         return null;
     }
 

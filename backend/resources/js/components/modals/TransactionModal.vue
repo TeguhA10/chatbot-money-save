@@ -24,7 +24,7 @@
           <button
             type="button"
             @click="form.type = 'EXPENSE'"
-            class="py-2 rounded-lg text-xs font-semibold transition"
+            class="py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
             :class="form.type === 'EXPENSE' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-400 hover:text-slate-200'"
           >
             🔴 Pengeluaran
@@ -32,11 +32,40 @@
           <button
             type="button"
             @click="form.type = 'INCOME'"
-            class="py-2 rounded-lg text-xs font-semibold transition"
+            class="py-2 rounded-lg text-xs font-semibold transition cursor-pointer"
             :class="form.type === 'INCOME' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'"
           >
             🟢 Pemasukan
           </button>
+        </div>
+
+        <!-- Dompet Selection (Wajib, default Cash) -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">
+              Dompet / Sumber Dana <span class="text-rose-400 font-bold">*</span>
+            </label>
+            <span class="text-[11px] text-slate-400 font-medium">Default: Cash</span>
+          </div>
+          <div class="relative">
+            <select
+              v-model="form.wallet_id"
+              required
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition cursor-pointer"
+            >
+              <option value="" disabled>-- Pilih Dompet (Wajib) --</option>
+              <option
+                v-for="w in financeStore.wallets"
+                :key="w.id"
+                :value="w.id"
+              >
+                👛 {{ w.name }} (Saldo: Rp {{ Number(w.balance || 0).toLocaleString('id-ID') }}) {{ (w.is_default || w.name.toLowerCase() === 'cash') ? '★ Default' : '' }}
+              </option>
+            </select>
+          </div>
+          <p v-if="selectedWalletBalance !== null" class="text-[11px] text-slate-500 mt-1">
+            Saldo dompet terpilih: <span class="text-emerald-400 font-medium">Rp {{ Number(selectedWalletBalance).toLocaleString('id-ID') }}</span>
+          </p>
         </div>
 
         <!-- Amount -->
@@ -67,7 +96,7 @@
               :key="preset"
               type="button"
               @click="addPreset(preset)"
-              class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/60 transition"
+              class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer"
             >
               +{{ (preset / 1000).toLocaleString('id-ID') }}rb
             </button>
@@ -101,14 +130,14 @@
           <button
             type="button"
             @click="$emit('close')"
-            class="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition"
+            class="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition cursor-pointer"
           >
             Batal
           </button>
           <button
             type="submit"
             :disabled="submitting"
-            class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm transition disabled:opacity-50"
+            class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm transition cursor-pointer disabled:opacity-50"
           >
             {{ submitting ? 'Menyimpan...' : (isEdit ? 'Perbarui Transaksi' : 'Simpan Transaksi') }}
           </button>
@@ -119,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
 import DatePicker from '../common/DatePicker.vue';
@@ -137,11 +166,24 @@ const submitting = ref(false);
 
 const isEdit = computed(() => !!props.transaction?.id);
 
+function resolveDefaultWalletId() {
+  if (!financeStore.wallets || financeStore.wallets.length === 0) return '';
+  const defaultWallet = financeStore.wallets.find(w => w.is_default || w.name?.toLowerCase() === 'cash');
+  return defaultWallet ? defaultWallet.id : (financeStore.wallets[0]?.id || '');
+}
+
 const form = ref({
   type: 'EXPENSE',
   amount: null,
   description: '',
+  wallet_id: '',
   transaction_date: new Date().toISOString().slice(0, 10),
+});
+
+const selectedWalletBalance = computed(() => {
+  if (!form.value.wallet_id || !financeStore.wallets) return null;
+  const w = financeStore.wallets.find(x => x.id === form.value.wallet_id);
+  return w ? w.balance : null;
 });
 
 const formattedAmount = computed(() => {
@@ -160,13 +202,22 @@ function addPreset(val) {
 }
 
 watch(
-  () => props.transaction,
-  (val) => {
+  () => [props.transaction, props.isOpen],
+  async ([val, isOpen]) => {
+    if (isOpen && financeStore.wallets.length === 0) {
+      try {
+        await financeStore.fetchWallets();
+      } catch (e) {
+        // Handled silently
+      }
+    }
+
     if (val) {
       form.value = {
         type: val.type || 'EXPENSE',
         amount: val.amount || null,
         description: val.description || '',
+        wallet_id: val.wallet_id || resolveDefaultWalletId(),
         transaction_date: val.transaction_date ? val.transaction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
       };
     } else {
@@ -174,6 +225,7 @@ watch(
         type: 'EXPENSE',
         amount: null,
         description: '',
+        wallet_id: resolveDefaultWalletId(),
         transaction_date: new Date().toISOString().slice(0, 10),
       };
     }
@@ -181,9 +233,33 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => financeStore.wallets,
+  (wallets) => {
+    if (wallets.length > 0 && !form.value.wallet_id) {
+      form.value.wallet_id = resolveDefaultWalletId();
+    }
+  },
+  { deep: true }
+);
+
+onMounted(async () => {
+  if (financeStore.wallets.length === 0) {
+    try {
+      await financeStore.fetchWallets();
+    } catch (e) {
+      // Ignored
+    }
+  }
+});
+
 async function handleSubmit() {
   if (!form.value.amount || form.value.amount <= 0) {
     toastStore.warning('Masukkan nominal transaksi yang valid.');
+    return;
+  }
+  if (!form.value.wallet_id) {
+    toastStore.warning('Pilih dompet sumber dana transaksi terlebih dahulu.');
     return;
   }
   submitting.value = true;
@@ -192,6 +268,7 @@ async function handleSubmit() {
       await financeStore.updateTransaction(props.transaction.id, {
         amount: form.value.amount,
         description: form.value.description,
+        wallet_id: form.value.wallet_id,
       });
       toastStore.success('Transaksi berhasil diperbarui.');
     } else {
@@ -199,6 +276,7 @@ async function handleSubmit() {
         type: form.value.type,
         amount: form.value.amount,
         description: form.value.description,
+        wallet_id: form.value.wallet_id,
         transaction_date: form.value.transaction_date,
       });
       toastStore.success('Transaksi baru berhasil dicatat.');

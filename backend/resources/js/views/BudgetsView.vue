@@ -114,7 +114,7 @@
               <input
                 type="text"
                 v-model="budgetSearch"
-                placeholder="Cari kategori anggaran..."
+                placeholder="Cari deskripsi anggaran..."
                 class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 shadow-inner transition placeholder:text-slate-500"
               />
             </div>
@@ -197,8 +197,8 @@
               <div class="flex items-center gap-2.5">
                 <span class="text-2xl">🎯</span>
                 <div>
-                  <h3 class="text-sm font-bold text-white">Batas Pengeluaran Bulanan</h3>
-                  <p class="text-[11px] text-slate-400">Plafon Keseluruhan</p>
+                  <h3 class="text-sm font-bold text-white">{{ b.description || 'Batas Pengeluaran Bulanan' }}</h3>
+                  <p class="text-[11px] text-slate-400">Plafon Anggaran Bulanan</p>
                 </div>
               </div>
               <span
@@ -346,7 +346,7 @@ const filteredBudgets = computed(() => {
 
   if (budgetSearch.value.trim()) {
     const q = budgetSearch.value.trim().toLowerCase();
-    list = list.filter(b => (b.category_name || '').toLowerCase().includes(q));
+    list = list.filter(b => ((b.description || '') + ' ' + (b.category_name || '')).toLowerCase().includes(q));
   }
 
   if (budgetStatusFilter.value === 'SAFE') {

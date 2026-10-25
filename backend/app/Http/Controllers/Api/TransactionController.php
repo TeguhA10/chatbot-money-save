@@ -27,13 +27,17 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
-        $query = Transaction::where('user_jid', $user->jid)
+        $query = Transaction::with(['wallet', 'toWallet'])
+            ->where('user_jid', $user->jid)
             ->orderByDesc('transaction_date')
             ->orderByDesc('created_at');
 
         // Filters
         if ($request->filled('type')) {
             $query->where('type', strtoupper($request->type));
+        }
+        if ($request->filled('wallet_id')) {
+            $query->where('wallet_id', $request->wallet_id);
         }
         if ($request->filled('start_date')) {
             $query->where('transaction_date', '>=', $request->start_date);
@@ -77,21 +81,27 @@ class TransactionController extends Controller
             'type'             => 'required|in:EXPENSE,INCOME',
             'amount'           => 'required|integer|min:1',
             'description'      => 'nullable|string|max:255',
+            'wallet_id'        => 'nullable|string',
             'transaction_date' => 'nullable|date',
         ]);
+
+        if (empty($validated['wallet_id'])) {
+            $defaultWallet = $this->financeService->getOrCreateDefaultWallet($user);
+            $validated['wallet_id'] = $defaultWallet->id;
+        }
 
         $transaction = $this->financeService->recordTransaction($user, $validated);
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatTransaction($transaction),
+            'data'    => $this->formatTransaction($transaction->load(['wallet', 'toWallet'])),
             'message' => 'Transaksi berhasil dicatat.',
         ], 201);
     }
 
     /**
      * PUT /api/v1/transactions/{id}
-     * Update an active transaction's amount and description.
+     * Update an active transaction's amount, description, and wallet.
      */
     public function update(Request $request, string $id): JsonResponse
     {
@@ -100,13 +110,15 @@ class TransactionController extends Controller
         $validated = $request->validate([
             'amount'      => 'required|integer|min:1',
             'description' => 'required|string|max:255',
+            'wallet_id'   => 'nullable|string',
         ]);
 
         $result = $this->financeService->updateTransaction(
             $user,
             $id,
             $validated['amount'],
-            $validated['description']
+            $validated['description'],
+            $validated['wallet_id'] ?? null
         );
 
         if (!$result) {
@@ -122,7 +134,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'transaction' => $this->formatTransaction($result['transaction']),
+                'transaction' => $this->formatTransaction($result['transaction']->load(['wallet', 'toWallet'])),
                 'new_balance' => $result['new_balance'],
             ],
             'message' => 'Transaksi berhasil diubah.',
@@ -171,6 +183,11 @@ class TransactionController extends Controller
             'balance_after'    => $t->balance_after,
             'transaction_date' => $t->transaction_date?->toISOString(),
             'status'           => $t->status,
+            'wallet_id'        => $t->wallet_id,
+            'wallet_name'      => $t->wallet?->name ?? 'Cash',
+            'wallet_type'      => $t->wallet?->type ?? 'CASH',
+            'to_wallet_id'     => $t->to_wallet_id,
+            'to_wallet_name'   => $t->toWallet?->name,
         ];
     }
 }

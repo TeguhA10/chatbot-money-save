@@ -380,7 +380,7 @@ class FinanceService
                     'balance_after'           => $newBalance,
                     'encrypted_amount'        => $this->encryption->encryptForStorage($amount),
                     'encrypted_balance_after' => $this->encryption->encryptForStorage($newBalance),
-                    'transaction_date'        => now(),
+                    'transaction_date'        => !empty($data['transaction_date']) ? \Carbon\Carbon::parse($data['transaction_date']) : now(),
                     'status'                  => 'ACTIVE',
                 ]);
 
@@ -575,7 +575,8 @@ class FinanceService
         User $user,
         string $transactionId,
         int $amount,
-        string $description
+        string $description,
+        ?string $newWalletId = null
     ): ?array {
         if ($amount <= 0) {
             throw new \InvalidArgumentException(
@@ -587,7 +588,8 @@ class FinanceService
             $user,
             $transactionId,
             $amount,
-            $description
+            $description,
+            $newWalletId
         ) {
             User::where('jid', $user->jid)
                 ->lockForUpdate()
@@ -606,9 +608,33 @@ class FinanceService
             $oldAmount = $transaction->amount;
             $diff = $amount - $oldAmount;
 
-            $transaction->update(['amount' => $amount, 'encrypted_amount' => $this->encryption->encryptForStorage($amount), 'description' => $description]);
+            $targetWallet = null;
+            if ($newWalletId && $newWalletId !== $transaction->wallet_id) {
+                $targetWallet = Wallet::where('user_jid', $user->jid)->where('id', $newWalletId)->lockForUpdate()->first();
+            }
 
-            if ($transaction->wallet_id && $diff !== 0) {
+            if ($targetWallet) {
+                // Revert effect on previous wallet
+                if ($transaction->wallet_id) {
+                    $oldWallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+                    if ($oldWallet) {
+                        if ($transaction->type === 'INCOME') {
+                            $oldWallet->balance -= $oldAmount;
+                        } elseif ($transaction->type === 'EXPENSE') {
+                            $oldWallet->balance += $oldAmount;
+                        }
+                        $oldWallet->save();
+                    }
+                }
+                // Apply on target wallet
+                if ($transaction->type === 'INCOME') {
+                    $targetWallet->balance += $amount;
+                } elseif ($transaction->type === 'EXPENSE') {
+                    $targetWallet->balance -= $amount;
+                }
+                $targetWallet->save();
+                $transaction->wallet_id = $targetWallet->id;
+            } elseif ($transaction->wallet_id && $diff !== 0) {
                 $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
                 if ($wallet) {
                     if ($transaction->type === 'INCOME') {
@@ -619,6 +645,11 @@ class FinanceService
                     $wallet->save();
                 }
             }
+
+            $transaction->amount = $amount;
+            $transaction->encrypted_amount = $this->encryption->encryptForStorage($amount);
+            $transaction->description = $description;
+            $transaction->save();
 
             $newBalance = $this->recalculateUserLedger($user);
 

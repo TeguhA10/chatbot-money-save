@@ -25,8 +25,13 @@ class Budget extends Model
 
     protected $fillable = [
         'user_jid',
+        'description',
         'encrypted_limit_amount',
         'alert_threshold_percent',
+    ];
+
+    protected $attributes = [
+        'description' => 'Batas Pengeluaran Bulanan',
     ];
 
     protected $casts = [

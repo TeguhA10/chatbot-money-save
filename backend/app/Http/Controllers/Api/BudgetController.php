@@ -47,6 +47,7 @@ class BudgetController extends Controller
                 'total_spent'    => $consumption['spent_amount'],
                 'budget'         => [
                     'id'               => $budget->id,
+                    'description'      => $budget->description ?? 'Batas Pengeluaran Bulanan',
                     'limit_amount'     => $consumption['limit_amount'],
                     'spent_amount'     => $consumption['spent_amount'],
                     'remaining_amount' => $consumption['remaining_amount'],
@@ -64,12 +65,14 @@ class BudgetController extends Controller
     {
         $validated = $request->validate([
             'limit_amount' => 'required|integer|min:1',
+            'description'  => 'required|string|max:255',
         ]);
 
         $user = $request->user();
         $budget = $this->budgetService->setBudget(
             $user,
-            $validated['limit_amount']
+            $validated['limit_amount'],
+            $validated['description']
         );
 
         $consumption = $this->budgetService->getConsumption($budget);
@@ -78,11 +81,13 @@ class BudgetController extends Controller
             'success' => true,
             'data'    => [
                 'id'               => $budget->id,
+                'description'      => $budget->description,
                 'limit_amount'     => $budget->limit_amount,
                 'spent_amount'     => $consumption['spent_amount'],
                 'remaining_amount' => $consumption['remaining_amount'],
                 'percentage'       => $consumption['percentage'],
             ],
+            'message' => 'Plafon anggaran bulanan berhasil disimpan.',
         ], 201);
     }
 

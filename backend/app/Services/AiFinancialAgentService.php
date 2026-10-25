@@ -302,13 +302,15 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nominal transaksi harus lebih dari 0.'];
         }
 
-        $walletId = null;
-        if (!empty($walletName)) {
-            $w = $user->wallets()->where('name', 'like', "%{$walletName}%")->first();
-            if ($w) {
-                $walletId = $w->id;
-            }
+        $targetWalletName = !empty($walletName) ? trim($walletName) : 'Cash';
+        $w = $user->wallets()->whereRaw('LOWER(name) = ?', [strtolower($targetWalletName)])->first();
+        if (!$w) {
+            $w = $user->wallets()->where('name', 'like', "%{$targetWalletName}%")->first();
         }
+        if (!$w) {
+            $w = $this->financeService->getOrCreateDefaultWallet($user);
+        }
+        $walletId = $w->id;
 
         $parsed = [
             'type'        => $type,
@@ -320,11 +322,13 @@ class AiFinancialAgentService
         ];
 
         $transaction = $this->financeService->recordTransaction($user, $parsed);
+        $wName = $transaction->wallet?->name ?? $w->name;
 
         return [
             'status'         => 'success',
-            'pesan'          => "Transaksi {$type} sebesar Rp" . number_format($amount, 0, ',', '.') . " berhasil dicatat.",
+            'pesan'          => "Transaksi {$type} sebesar Rp" . number_format($amount, 0, ',', '.') . " pada dompet {$wName} berhasil dicatat.",
             'transaksi_id'   => substr((string) $transaction->id, -8),
+            'dompet'         => $wName,
             'saldo_terbaru'  => $this->financeService->getBalance($user),
         ];
     }
@@ -733,16 +737,18 @@ class AiFinancialAgentService
     protected function toolAturBudget(User $user, array $args): array
     {
         $limitAmount = (int) ($args['limit_amount'] ?? 0);
+        $desc = trim($args['description'] ?? 'Batas Pengeluaran Bulanan');
 
         if ($limitAmount <= 0) {
             return ['status' => 'error', 'message' => 'Plafon budget bulanan harus lebih dari 0.'];
         }
 
-        $budget = $this->budgetService->setBudget($user, $limitAmount);
+        $budget = $this->budgetService->setBudget($user, $limitAmount, $desc);
 
         return [
             'status'       => 'success',
-            'pesan'        => "Plafon budget bulanan berhasil diatur sebesar Rp" . number_format($limitAmount, 0, ',', '.') . ".",
+            'pesan'        => "Plafon budget '{$desc}' berhasil diatur sebesar Rp" . number_format($limitAmount, 0, ',', '.') . ".",
+            'description'  => $desc,
             'limit_amount' => $limitAmount,
         ];
     }
@@ -794,7 +800,7 @@ class AiFinancialAgentService
                                 'type'        => ['type' => 'STRING', 'enum' => ['EXPENSE', 'INCOME'], 'description' => 'Tipe transaksi: EXPENSE (pengeluaran) atau INCOME (pemasukan)'],
                                 'amount'      => ['type' => 'INTEGER', 'description' => 'Nominal uang Rupiah (contoh: 25000, 500000)'],
                                 'description' => ['type' => 'STRING', 'description' => 'Deskripsi/keterangan transaksi (contoh: makan siang padang, gaji bulanan, bensin pertalite)'],
-                                'wallet_name' => ['type' => 'STRING', 'description' => 'Nama dompet atau rekening yang digunakan (opsional, contoh: BCA, Cash, GoPay)'],
+                                'wallet_name' => ['type' => 'STRING', 'description' => 'Nama dompet atau rekening yang digunakan (default: Cash, atau pilih: BCA, GoPay, Mandiri, dll)'],
                             ],
                             'required'   => ['type', 'amount', 'description'],
                         ],
@@ -954,13 +960,14 @@ class AiFinancialAgentService
                     ],
                     [
                         'name'        => 'atur_budget',
-                        'description' => 'Mengatur batas maksimal pengeluaran bulanan (plafon budget bulanan)',
+                        'description' => 'Mengatur batas maksimal pengeluaran bulanan (plafon budget bulanan) dengan deskripsi/keterangan',
                         'parameters'  => [
                             'type'       => 'OBJECT',
                             'properties' => [
                                 'limit_amount' => ['type' => 'INTEGER', 'description' => 'Batas maksimal pengeluaran bulanan dalam Rupiah (contoh: 2000000)'],
+                                'description'  => ['type' => 'STRING', 'description' => 'Deskripsi atau nama batas anggaran (contoh: Batas Belanja Bulanan, Jajan & Hiburan)'],
                             ],
-                            'required'   => ['limit_amount'],
+                            'required'   => ['limit_amount', 'description'],
                         ],
                     ],
                     [

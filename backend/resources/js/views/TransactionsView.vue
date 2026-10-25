@@ -256,11 +256,12 @@
         <table class="w-full text-left text-xs min-w-[780px] border-collapse">
           <thead>
             <tr class="text-slate-400 uppercase text-[10px] font-bold tracking-wider bg-slate-950/60 border-b border-slate-800">
-              <th class="py-3.5 px-5 w-32 font-bold">Tanggal</th>
-              <th class="py-3.5 px-5 min-w-[220px] font-bold">Deskripsi</th>
-              <th class="py-3.5 px-5 w-32 text-center font-bold">Kanal Input</th>
+              <th class="py-3.5 px-5 w-28 font-bold">Tanggal</th>
+              <th class="py-3.5 px-5 min-w-[200px] font-bold">Deskripsi</th>
+              <th class="py-3.5 px-5 w-32 font-bold">Dompet</th>
+              <th class="py-3.5 px-5 w-28 text-center font-bold">Kanal</th>
               <th class="py-3.5 px-5 w-36 text-right font-bold">Nominal</th>
-              <th class="py-3.5 px-5 w-24 text-center font-bold">Aksi</th>
+              <th class="py-3.5 px-5 w-20 text-center font-bold">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60">
@@ -283,6 +284,14 @@
                   ></span>
                   <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
                 </div>
+              </td>
+
+              <!-- Wallet -->
+              <td class="py-4 px-5 whitespace-nowrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800/80 text-slate-200 border border-slate-700/60">
+                  <span>👛</span>
+                  <span>{{ t.wallet_name || 'Cash' }}</span>
+                </span>
               </td>
 
               <!-- Source Channel (WhatsApp vs Web) -->
@@ -349,8 +358,13 @@
             </div>
             <div class="min-w-0">
               <p class="font-bold text-xs text-white truncate">{{ t.description || 'Transaksi' }}</p>
-              <div class="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400">
+              <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-400 flex-wrap">
                 <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
+                <span>•</span>
+                <span class="inline-flex items-center gap-1 text-slate-300 font-semibold">
+                  <span>👛</span>
+                  <span>{{ t.wallet_name || 'Cash' }}</span>
+                </span>
               </div>
             </div>
           </div>
