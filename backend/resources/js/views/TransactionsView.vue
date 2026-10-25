@@ -154,7 +154,7 @@
             :options="typeOptions"
             placeholder="Semua Tipe"
             icon="🔄"
-            @change="applyFilters"
+            @change="onFilterChange"
           />
         </div>
 
@@ -165,7 +165,7 @@
             :options="walletOptions"
             placeholder="Semua Dompet"
             icon="👛"
-            @change="applyFilters"
+            @change="onFilterChange"
           />
         </div>
 
@@ -400,7 +400,7 @@
 
       <!-- PAGINATION BAR -->
       <div
-        v-if="financeStore.transactions.length > 0"
+        v-if="financeStore.pagination.total_items > 0"
         class="p-4 bg-slate-950/60 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400"
       >
         <div>
@@ -556,12 +556,18 @@ function setDatePreset(preset) {
   }
 
   filters.value.page = 1;
-  applyFilters();
+  applyFilters(true);
+}
+
+function onFilterChange() {
+  filters.value.page = 1;
+  applyFilters(true);
 }
 
 function onCustomDateChange() {
   activeDatePreset.value = 'custom';
-  applyFilters();
+  filters.value.page = 1;
+  applyFilters(true);
 }
 
 function resetFilters() {
@@ -574,7 +580,7 @@ function resetFilters() {
     page: 1,
   };
   activeDatePreset.value = 'all';
-  applyFilters();
+  applyFilters(true);
 }
 
 let debounceTimer = null;
@@ -582,8 +588,8 @@ function debounceSearch() {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     filters.value.page = 1;
-    applyFilters();
-  }, 350);
+    applyFilters(true);
+  }, 300);
 }
 
 async function applyFilters(force = false) {
@@ -629,8 +635,10 @@ async function triggerExport(format) {
 }
 
 function changePage(page) {
-  filters.value.page = page;
-  applyFilters();
+  const maxPage = financeStore.pagination.total_pages || 1;
+  const targetPage = Math.max(1, Math.min(page, maxPage));
+  filters.value.page = targetPage;
+  applyFilters(true);
 }
 
 function openCreateModal() {

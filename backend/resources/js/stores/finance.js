@@ -12,6 +12,7 @@ export const useFinanceStore = defineStore('finance', {
 
         // Data collections
         transactions: [],
+        recentTransactions: [],
         pagination: {
             page: 1,
             limit: 20,
@@ -83,7 +84,10 @@ export const useFinanceStore = defineStore('finance', {
                     this.totalBudgeted = data.budgets?.total_budgeted ?? 0;
                     this.totalSpent = data.budgets?.total_spent ?? 0;
                     this.goals = data.goals?.goals || [];
-                    this.transactions = data.recent_transactions || [];
+                    this.recentTransactions = data.recent_transactions || [];
+                    if (this.transactions.length === 0) {
+                        this.transactions = data.recent_transactions || [];
+                    }
 
                     // Mark as loaded across all modules
                     this.hasLoadedFeed = true;
@@ -146,25 +150,25 @@ export const useFinanceStore = defineStore('finance', {
         },
 
         async fetchTransactions(filters = {}, force = false) {
-            // Only use cached transactions if no custom filter/search/pagination is requested
-            const isDefaultFilter = !filters.search && !filters.type && !filters.start_date && !filters.end_date && (!filters.page || filters.page === 1);
-            if (!force && isDefaultFilter && this.hasLoadedTransactions && this.isFresh(this.lastFetchedAt.transactions)) {
-                return this.transactions;
-            }
-
             this.loadingTransactions = true;
             try {
                 const params = {
                     page: filters.page || 1,
                     limit: filters.limit || 20,
                     type: filters.type || undefined,
+                    wallet_id: filters.wallet_id || undefined,
                     start_date: filters.start_date || undefined,
                     end_date: filters.end_date || undefined,
-                    search: filters.search || undefined,
+                    search: filters.search ? filters.search.trim() : undefined,
                 };
                 const res = await api.get('/transactions', { params });
-                this.transactions = res.data.data.items;
-                this.pagination = res.data.data.pagination;
+                this.transactions = res.data.data.items || [];
+                this.pagination = res.data.data.pagination || {
+                    page: params.page,
+                    limit: params.limit,
+                    total_items: this.transactions.length,
+                    total_pages: 1,
+                };
                 this.hasLoadedTransactions = true;
                 this.lastFetchedAt.transactions = Date.now();
                 return this.transactions;

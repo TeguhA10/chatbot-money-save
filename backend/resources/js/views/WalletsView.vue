@@ -351,6 +351,7 @@ const walletTypeOptions = [
   { value: 'BANK', label: 'Rekening Bank (BCA, Mandiri, dll)', icon: '🏦' },
   { value: 'EWALLET', label: 'E-Wallet (GoPay, OVO, ShopeePay)', icon: '📱' },
   { value: 'CASH', label: 'Tunai / Kas Fisik', icon: '💵' },
+  { value: 'OTHER', label: 'Lainnya / Rekening Khusus', icon: '📁' },
 ];
 
 const walletSortOptions = [

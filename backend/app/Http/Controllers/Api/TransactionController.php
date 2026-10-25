@@ -37,23 +37,40 @@ class TransactionController extends Controller
             $query->where('type', strtoupper($request->type));
         }
         if ($request->filled('wallet_id')) {
-            $query->where('wallet_id', $request->wallet_id);
+            $wId = $request->wallet_id;
+            $query->where(function ($q) use ($wId) {
+                $q->where('wallet_id', $wId)
+                  ->orWhere('to_wallet_id', $wId);
+            });
         }
         if ($request->filled('start_date')) {
-            $query->where('transaction_date', '>=', $request->start_date);
+            $startDate = str_contains($request->start_date, ' ') ? $request->start_date : $request->start_date . ' 00:00:00';
+            $query->where('transaction_date', '>=', $startDate);
         }
         if ($request->filled('end_date')) {
-            $query->where('transaction_date', '<=', $request->end_date . ' 23:59:59');
+            $endDate = str_contains($request->end_date, ' ') ? $request->end_date : $request->end_date . ' 23:59:59';
+            $query->where('transaction_date', '<=', $endDate);
         }
         if ($request->filled('search')) {
-            $query->where('description', 'like', '%' . $request->search . '%');
+            $s = trim($request->search);
+            $query->where(function ($q) use ($s) {
+                $q->where('description', 'like', '%' . $s . '%')
+                  ->orWhereHas('wallet', function ($wq) use ($s) {
+                      $wq->where('name', 'like', '%' . $s . '%');
+                  });
+            });
         }
         if (!$request->filled('include_voided')) {
             $query->where('status', 'ACTIVE');
         }
 
-        $limit    = min((int) ($request->limit ?? 20), 100);
+        $limit     = min((int) ($request->limit ?? 20), 100);
         $paginated = $query->paginate($limit);
+
+        // Auto-clamp out-of-range page requests (e.g. when a filter narrows down total pages)
+        if ($paginated->total() > 0 && $paginated->currentPage() > $paginated->lastPage()) {
+            $paginated = $query->paginate($limit, ['*'], 'page', $paginated->lastPage());
+        }
 
         return response()->json([
             'success' => true,

@@ -348,8 +348,10 @@ const filteredGoals = computed(() => {
     list = list.filter(g => (g.name || '').toLowerCase().includes(q));
   }
 
-  if (goalStatusFilter.value !== 'ALL') {
-    list = list.filter(g => g.status === goalStatusFilter.value);
+  if (goalStatusFilter.value === 'ACHIEVED') {
+    list = list.filter(g => g.status === 'ACHIEVED' || g.status === 'COMPLETED' || (Number(g.progress_percent) || 0) >= 100);
+  } else if (goalStatusFilter.value === 'ACTIVE') {
+    list = list.filter(g => (g.status === 'ACTIVE' || !g.status) && (Number(g.progress_percent) || 0) < 100);
   }
 
   list.sort((a, b) => {

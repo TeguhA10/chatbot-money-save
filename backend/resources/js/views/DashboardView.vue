@@ -532,8 +532,8 @@
           <div>
             <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
               <span>Transaksi Terbaru</span>
-              <span v-if="financeStore.transactions.length > 0" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
-                {{ financeStore.transactions.length }}
+              <span v-if="dashboardTransactions.length > 0" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                {{ dashboardTransactions.length }}
               </span>
             </h2>
             <p class="text-[11px] sm:text-xs text-slate-400">Catatan mutasi kas terkini</p>
@@ -545,7 +545,7 @@
 
         <!-- FRIENDLY EMPTY STATE WITH CTA (When genuinely no transactions) -->
         <div
-          v-if="financeStore.transactions.length === 0"
+          v-if="dashboardTransactions.length === 0"
           class="py-12 px-4 text-center rounded-2xl bg-slate-950/40 border border-slate-800/60 space-y-3"
         >
           <div class="w-14 h-14 rounded-2xl bg-slate-800/80 text-emerald-400 flex items-center justify-center text-2xl mx-auto shadow-inner">
@@ -571,7 +571,7 @@
         <!-- MOBILE NATIVE LIST VIEW (< sm:hidden) -->
         <div v-else class="sm:hidden space-y-2">
           <div
-            v-for="t in financeStore.transactions.slice(0, 5)"
+            v-for="t in dashboardTransactions.slice(0, 5)"
             :key="t.id"
             class="p-3.5 rounded-2xl bg-slate-950/60 hover:bg-slate-800/50 border border-slate-800/80 flex items-center justify-between gap-3 active:scale-98 transition shadow-sm"
           >
@@ -610,7 +610,7 @@
         </div>
 
         <!-- DESKTOP SPACIOUS UNPRESSED TABLE VIEW (hidden sm:block) -->
-        <div v-if="financeStore.transactions.length > 0" class="hidden sm:block overflow-x-auto -mx-1">
+        <div v-if="dashboardTransactions.length > 0" class="hidden sm:block overflow-x-auto -mx-1">
           <table class="w-full text-left text-xs min-w-[700px] border-collapse">
             <thead>
               <tr class="text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-800/80 bg-slate-950/40">
@@ -623,7 +623,7 @@
             </thead>
             <tbody class="divide-y divide-slate-800/60">
               <tr
-                v-for="t in financeStore.transactions.slice(0, 5)"
+                v-for="t in dashboardTransactions.slice(0, 5)"
                 :key="t.id"
                 class="hover:bg-slate-800/40 transition group cursor-pointer"
               >
@@ -697,6 +697,13 @@ const activeAnalyticsTab = ref('trend'); // 'trend' | 'breakdown' for mobile swi
 const now = new Date();
 const localMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 const selectedMonth = ref(localMonth);
+
+const dashboardTransactions = computed(() => {
+  if (financeStore.recentTransactions && financeStore.recentTransactions.length > 0) {
+    return financeStore.recentTransactions;
+  }
+  return financeStore.transactions;
+});
 
 const botRawNumber = computed(() => {
   return typeof window !== 'undefined' && window.__BOT_CONFIG__?.bot_number
