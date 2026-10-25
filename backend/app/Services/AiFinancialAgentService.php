@@ -28,6 +28,7 @@ class AiFinancialAgentService
         protected FinanceService $financeService,
         protected BudgetService $budgetService,
         protected EncryptionService $encryptionService,
+        protected FuzzyEntityMatcherService $fuzzyMatcher,
     ) {}
 
     /**
@@ -46,11 +47,13 @@ class AiFinancialAgentService
 
         $userName = $user->display_name ?: 'Kak';
         $todayStr = now()->translatedFormat('l, d F Y');
+        $userContext = $this->fuzzyMatcher->buildUserContextPrompt($user);
 
         $systemInstruction = "Nama kamu adalah Viona, asisten perencana keuangan pribadi yang ramah, santai, cerdas, dan empatik dari HematWoy. "
             . "Kamu bisa memanggil dirimu 'Viona' dan menyapa lawan bicaramu dengan hangat. "
             . "Kamu sedang berbicara dengan {$userName}. Hari ini adalah {$todayStr}. "
-            . "Gunakan gaya bahasa Indonesia yang natural, hangat, ringkas, dan jelas. "
+            . "Gunakan gaya bahasa Indonesia yang natural, hangat, ringkas, dan jelas.\n\n"
+            . "{$userContext}\n\n"
             . "Kamu memiliki wewenang untuk melihat, mencatat, mengubah, atau menghapus data keuangan HANYA untuk pengguna ini melalui tools yang tersedia: "
             . "1) Transaksi, 2) Dompet, 3) Target Tabungan, dan 4) Plafon Budget. "
             . "Jika pengguna meminta mencatat, melihat, mengedit, mentransfer, atau menghapus data, PANGGIL fungsi tools yang sesuai. "
@@ -303,10 +306,7 @@ class AiFinancialAgentService
         }
 
         $targetWalletName = !empty($walletName) ? trim($walletName) : 'Cash';
-        $w = $user->wallets()->whereRaw('LOWER(name) = ?', [strtolower($targetWalletName)])->first();
-        if (!$w) {
-            $w = $user->wallets()->where('name', 'like', "%{$targetWalletName}%")->first();
-        }
+        $w = $this->fuzzyMatcher->resolveWallet($user, $targetWalletName);
         if (!$w) {
             $w = $this->financeService->getOrCreateDefaultWallet($user);
         }
@@ -437,9 +437,15 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama dompet wajib diisi.'];
         }
 
-        $existing = $user->wallets()->where('name', $name)->first();
-        if ($existing) {
-            return ['status' => 'error', 'message' => "Dompet dengan nama '{$name}' sudah ada."];
+        // Fuzzy guardrail: verify user doesn't already have an identical or very similar wallet (e.g. sibang vs SeaBank)
+        $similar = $this->fuzzyMatcher->checkSimilarWallet($user, $name, 0.68);
+        if ($similar) {
+            $existing = $similar['item'];
+            $simPct = (int) round($similar['score'] * 100);
+            return [
+                'status'  => 'error',
+                'message' => "Anda sudah memiliki dompet '{$existing->name}' yang sangat mirip (kemiripan {$simPct}%). Sistem mencegah duplikasi akibat typo suara. Silakan gunakan dompet '{$existing->name}'.",
+            ];
         }
 
         $wallet = $user->wallets()->create([
@@ -474,6 +480,11 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama dompet yang ingin diubah harus disebutkan.'];
         }
 
+        $targetWallet = $this->fuzzyMatcher->resolveWallet($user, $oldName);
+        if (!$targetWallet) {
+            return ['status' => 'error', 'message' => "Dompet '{$oldName}' tidak ditemukan."];
+        }
+
         try {
             $data = [];
             if (!empty($newName)) {
@@ -483,7 +494,7 @@ class AiFinancialAgentService
                 $data['balance'] = $newBalance;
             }
 
-            $wallet = $this->financeService->updateWallet($user, $oldName, $data);
+            $wallet = $this->financeService->updateWallet($user, $targetWallet->id, $data);
 
             return [
                 'status' => 'success',
@@ -508,12 +519,23 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama dompet yang ingin dihapus harus disebutkan.'];
         }
 
+        $targetWallet = $this->fuzzyMatcher->resolveWallet($user, $walletName);
+        if (!$targetWallet) {
+            return ['status' => 'error', 'message' => "Dompet '{$walletName}' tidak ditemukan."];
+        }
+
+        $targetTransferWalletId = null;
+        if ($transferTo) {
+            $tw = $this->fuzzyMatcher->resolveWallet($user, $transferTo);
+            if ($tw) $targetTransferWalletId = $tw->id;
+        }
+
         try {
-            $this->financeService->deleteWallet($user, $walletName, $transferTo);
+            $this->financeService->deleteWallet($user, $targetWallet->id, $targetTransferWalletId);
 
             return [
                 'status' => 'success',
-                'pesan'  => "Dompet '{$walletName}' berhasil dihapus dan saldonya telah diamankan.",
+                'pesan'  => "Dompet '{$targetWallet->name}' berhasil dihapus dan saldonya telah diamankan.",
             ];
         } catch (\Throwable $e) {
             return ['status' => 'error', 'message' => $e->getMessage()];
@@ -530,8 +552,8 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nominal transfer harus lebih dari 0.'];
         }
 
-        $fromWallet = $user->wallets()->where('name', 'like', "%{$fromName}%")->first();
-        $toWallet = $user->wallets()->where('name', 'like', "%{$toName}%")->first();
+        $fromWallet = $this->fuzzyMatcher->resolveWallet($user, $fromName);
+        $toWallet = $this->fuzzyMatcher->resolveWallet($user, $toName);
 
         if (!$fromWallet || !$toWallet) {
             return ['status' => 'error', 'message' => 'Dompet asal atau dompet tujuan tidak ditemukan.'];
@@ -582,6 +604,17 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama target dan nominal target harus valid.'];
         }
 
+        // Fuzzy guardrail: verify user doesn't already have an identical or very similar goal
+        $similar = $this->fuzzyMatcher->checkSimilarGoal($user, $name, 0.68);
+        if ($similar) {
+            $existing = $similar['item'];
+            $simPct = (int) round($similar['score'] * 100);
+            return [
+                'status'  => 'error',
+                'message' => "Anda sudah memiliki target tabungan '{$existing->name}' yang sangat mirip (kemiripan {$simPct}%). Silakan gunakan target yang sudah ada atau gunakan nama yang lebih spesifik.",
+            ];
+        }
+
         $goal = $user->financialGoals()->create([
             'name'                     => $name,
             'encrypted_target_amount'  => $this->encryptionService->encryptForStorage($targetAmount),
@@ -606,9 +639,7 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nominal tabungan harus lebih dari 0.'];
         }
 
-        $goal = $user->financialGoals()->where('status', 'ACTIVE')
-            ->where('name', 'like', "%{$goalName}%")
-            ->first();
+        $goal = $this->fuzzyMatcher->resolveGoal($user, $goalName);
 
         if (!$goal) {
             return ['status' => 'error', 'message' => "Target tabungan '{$goalName}' tidak ditemukan."];
@@ -617,7 +648,7 @@ class AiFinancialAgentService
         // Catat pengeluaran dari dompet (opsional jika dompet ditentukan)
         $walletId = null;
         if (!empty($walletName)) {
-            $w = $user->wallets()->where('name', 'like', "%{$walletName}%")->first();
+            $w = $this->fuzzyMatcher->resolveWallet($user, $walletName);
             if ($w) $walletId = $w->id;
         }
 
@@ -655,6 +686,11 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama target yang ingin diubah harus disebutkan.'];
         }
 
+        $goal = $this->fuzzyMatcher->resolveGoal($user, $goalName);
+        if (!$goal) {
+            return ['status' => 'error', 'message' => "Target tabungan '{$goalName}' tidak ditemukan."];
+        }
+
         try {
             $data = [];
             if (!empty($newName)) {
@@ -667,17 +703,17 @@ class AiFinancialAgentService
                 $data['target_date'] = $newDate;
             }
 
-            $goal = $this->financeService->updateGoal($user, $goalName, $data);
+            $updated = $this->financeService->updateGoal($user, $goal->id, $data);
 
             return [
                 'status'         => 'success',
-                'pesan'          => "Target tabungan '{$goal->name}' berhasil diperbarui. Target nominal: Rp" . number_format($goal->target_amount, 0, ',', '.') . " (Progress: {$goal->progress_percent}%).",
+                'pesan'          => "Target tabungan '{$updated->name}' berhasil diperbarui. Target nominal: Rp" . number_format($updated->target_amount, 0, ',', '.') . " (Progress: {$updated->progress_percent}%).",
                 'goal'           => [
-                    'id'               => $goal->id,
-                    'name'             => $goal->name,
-                    'target_amount'    => (int) $goal->target_amount,
-                    'current_amount'   => (int) $goal->current_amount,
-                    'progress_percent' => $goal->progress_percent,
+                    'id'               => $updated->id,
+                    'name'             => $updated->name,
+                    'target_amount'    => (int) $updated->target_amount,
+                    'current_amount'   => (int) $updated->current_amount,
+                    'progress_percent' => $updated->progress_percent,
                 ],
             ];
         } catch (\Throwable $e) {
@@ -693,8 +729,13 @@ class AiFinancialAgentService
             return ['status' => 'error', 'message' => 'Nama target tabungan yang ingin dihapus harus disebutkan.'];
         }
 
+        $goal = $this->fuzzyMatcher->resolveGoal($user, $goalName);
+        if (!$goal) {
+            return ['status' => 'error', 'message' => "Target tabungan '{$goalName}' tidak ditemukan."];
+        }
+
         try {
-            $result = $this->financeService->deleteGoal($user, $goalName, true);
+            $result = $this->financeService->deleteGoal($user, $goal->id, true);
             $pesan = "Target tabungan '{$result['name']}' berhasil dihapus.";
             if (!empty($result['refunded_amount']) && $result['refunded_amount'] > 0) {
                 $pesan .= " Dana terkumpul sebesar Rp" . number_format($result['refunded_amount'], 0, ',', '.') . " telah dikembalikan ke {$result['wallet']->name}.";

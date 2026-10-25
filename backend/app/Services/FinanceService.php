@@ -118,14 +118,24 @@ class FinanceService
     }
 
     /**
-     * Find a user's wallet by case-insensitive name.
+     * Find a user's wallet by case-insensitive name or fuzzy matching against existing wallets.
      */
     public function findWalletByName(User $user, string $name): ?Wallet
     {
-        $lower = strtolower(trim($name));
-        return Wallet::where('user_jid', $user->jid)
-            ->whereRaw('LOWER(name) = ?', [$lower])
+        $clean = trim($name);
+        if ($clean === '') {
+            return null;
+        }
+
+        $exact = Wallet::where('user_jid', $user->jid)
+            ->whereRaw('LOWER(name) = ?', [strtolower($clean)])
             ->first();
+
+        if ($exact) {
+            return $exact;
+        }
+
+        return app(FuzzyEntityMatcherService::class)->resolveWallet($user, $clean);
     }
 
     /**
@@ -134,9 +144,19 @@ class FinanceService
     public function addWallet(User $user, string $name, int $initialBalance = 0, string $type = 'OTHER'): Wallet
     {
         $name = trim($name);
-        $existing = $this->findWalletByName($user, $name);
+        $existing = Wallet::where('user_jid', $user->jid)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->first();
         if ($existing) {
             throw new \RuntimeException("Dompet '{$name}' sudah ada.");
+        }
+
+        // Fuzzy similarity check to guard against acoustic/voice mishearings or typo duplicates
+        $similar = app(FuzzyEntityMatcherService::class)->checkSimilarWallet($user, $name, 0.70);
+        if ($similar) {
+            $matched = $similar['item'];
+            $simPct = (int) round($similar['score'] * 100);
+            throw new \RuntimeException("Dompet '{$matched->name}' sudah ada di akun Anda (kemiripan {$simPct}%). Silakan gunakan dompet yang sudah ada.");
         }
 
         return DB::transaction(function () use ($user, $name, $initialBalance, $type) {
@@ -1010,9 +1030,19 @@ class FinanceService
             throw new \InvalidArgumentException('Target nominal harus lebih dari 0.');
         }
 
+        $cleanName = trim($name);
+
+        // Fuzzy similarity check against existing goals
+        $similar = app(FuzzyEntityMatcherService::class)->checkSimilarGoal($user, $cleanName, 0.70);
+        if ($similar) {
+            $matched = $similar['item'];
+            $simPct = (int) round($similar['score'] * 100);
+            throw new \RuntimeException("Target tabungan '{$matched->name}' sudah ada (kemiripan {$simPct}%). Silakan gunakan target yang sudah ada.");
+        }
+
         return FinancialGoal::create([
             'user_jid'                 => $user->jid,
-            'name'                     => trim($name),
+            'name'                     => $cleanName,
             'encrypted_target_amount'  => $this->encryption->encryptForStorage($targetAmount),
             'encrypted_current_amount' => $this->encryption->encryptForStorage(0),
             'target_date'              => $targetDate,
@@ -1025,7 +1055,7 @@ class FinanceService
         $clean = trim($identifier);
         $isUuid = \Illuminate\Support\Str::isUuid($clean);
 
-        return FinancialGoal::where('user_jid', $user->jid)
+        $exact = FinancialGoal::where('user_jid', $user->jid)
             ->where(function ($q) use ($clean, $isUuid) {
                 if ($isUuid) {
                     $q->where('id', $clean)
@@ -1035,6 +1065,12 @@ class FinanceService
                 }
             })
             ->first();
+
+        if ($exact) {
+            return $exact;
+        }
+
+        return app(FuzzyEntityMatcherService::class)->resolveGoal($user, $clean);
     }
 
     public function contributeToGoal(User $user, FinancialGoal $goal, int $amount, ?string $walletIdOrName = null): array

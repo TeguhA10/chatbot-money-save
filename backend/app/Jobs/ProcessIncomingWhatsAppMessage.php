@@ -163,7 +163,15 @@ class ProcessIncomingWhatsAppMessage implements ShouldQueue
     {
         $version = config('services.whatsapp.api_version', env('WHATSAPP_API_VERSION', 'v21.0'));
         $accessToken = config('services.whatsapp.access_token', env('WHATSAPP_ACCESS_TOKEN'));
-        $financialPrompt = 'Pencatatan keuangan: keluar 25000 makan siang, beli bensin 15rb, transfer 500rb, gaji 5jt, bayar pulsa 50rb.';
+        $user = \App\Models\User::where('jid', $this->fromJid)->first();
+        $userEntities = '';
+        if ($user) {
+            $wNames = $user->wallets()->pluck('name')->implode(', ');
+            $gNames = $user->financialGoals()->where('status', 'ACTIVE')->pluck('name')->implode(', ');
+            $userEntities = trim("{$wNames}, {$gNames}", ', ');
+        }
+        $entityPrompt = !empty($userEntities) ? "Dompet & Target: {$userEntities}. " : "";
+        $financialPrompt = "Catatan keuangan: {$entityPrompt}SeaBank, BCA, Mandiri, BRI, BNI, GoPay, OVO, DANA, ShopeePay, Cash, ceban, goceng, gocap, seceng, rebu, keluar 25000 makan siang, beli bensin 15rb, transfer 500rb, gaji 5jt, bayar pulsa 50rb.";
 
         if (!$accessToken) {
             Log::error("Voice STT: Missing WHATSAPP_ACCESS_TOKEN for downloading Meta media.");
