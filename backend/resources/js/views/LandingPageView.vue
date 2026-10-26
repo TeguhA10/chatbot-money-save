@@ -18,7 +18,7 @@
       </div>
 
       <!-- Main Headline -->
-      <h1 class="text-4xl sm:text-6xl font-black text-white tracking-tight leading-[1.15] max-w-4xl mx-auto">
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.18] max-w-4xl mx-auto">
         Catat Keuangan Harian Semudah
         <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
           Kirim Chat & Voice Note
@@ -26,12 +26,12 @@
       </h1>
 
       <!-- Subheadline -->
-      <p class="mt-6 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+      <p class="mt-4 sm:mt-6 text-sm sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
         Bebas ribet instal aplikasi berat. Cukup ketik pesan atau kirim rekaman suara (VN), asisten cerdas <strong class="text-white">Viona</strong> otomatis mencatat mutasi, mengelola multi-dompet real-time, dan mengawal target tabungan bebas boncos.
       </p>
 
       <!-- Primary CTAs -->
-      <div class="mt-8 sm:mt-10 max-w-lg mx-auto space-y-3">
+      <div class="mt-7 sm:mt-10 max-w-lg mx-auto space-y-3">
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
             :href="whatsappDirectUrl"
@@ -136,7 +136,7 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <!-- Feature 1: Voice Note WhatsApp (FEATURED 2-COL ON MD) -->
-        <div class="md:col-span-2 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-emerald-950/30 border border-emerald-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden group hover:border-emerald-400/60 transition shadow-xl">
+        <div class="md:col-span-2 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-emerald-950/30 border border-emerald-500/40 rounded-3xl p-5 sm:p-8 backdrop-blur-md relative overflow-hidden group hover:border-emerald-400/60 transition shadow-xl">
           <div class="flex items-center justify-between gap-3 mb-4">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
               <span>🎙️ Fitur Favorit Baru</span>
@@ -149,39 +149,57 @@
             Lagi nyetir motor, belanja di pasar, atau malas mengetik? Cukup tekan tombol rekam suara (VN) di WhatsApp dan bicara santai. AI mentranskripsi suara bahasa Indonesia dan langsung mencatatnya ke dompet yang pas!
           </p>
 
-          <!-- Interactive Voice Note Audio Mockup -->
-          <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <!-- Interactive Voice Note Audio Mockup (Responsive & Mobile-Friendly) -->
+          <div class="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 sm:p-4 space-y-3">
+            <!-- Audio Player Bar -->
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-base">
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 text-xs sm:text-sm shadow-sm shadow-emerald-500/10">
                 ▶
               </div>
-              <div>
-                <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                  <span>🎤 Voice Note (0:07)</span>
-                  <span class="text-slate-500">•</span>
-                  <span class="text-emerald-400 font-mono text-[11px]">"Viona, catat makan sate 35 ribu pakai Cash"</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                  <span class="flex items-center gap-1 font-medium text-slate-300">
+                    <span>🎤</span> Pesan Suara
+                  </span>
+                  <span class="font-mono text-emerald-400 text-[10px]">0:07</span>
                 </div>
-                <div class="flex items-center gap-1 mt-1">
-                  <div class="w-1 h-3 bg-emerald-400 rounded-full"></div>
-                  <div class="w-1 h-5 bg-emerald-400 rounded-full"></div>
-                  <div class="w-1 h-2 bg-emerald-400 rounded-full"></div>
-                  <div class="w-1 h-6 bg-emerald-400 rounded-full"></div>
+                <!-- Waveform Bars -->
+                <div class="flex items-center gap-1 h-4 sm:h-5 overflow-hidden">
+                  <div class="w-1 h-2.5 bg-emerald-400 rounded-full"></div>
                   <div class="w-1 h-4 bg-emerald-400 rounded-full"></div>
-                  <div class="w-1 h-2 bg-emerald-400/50 rounded-full"></div>
-                  <div class="w-1 h-5 bg-emerald-400/50 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-4.5 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-3 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-4 bg-emerald-400/80 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400/70 rounded-full"></div>
+                  <div class="w-1 h-4.5 bg-emerald-400/70 rounded-full"></div>
                   <div class="w-1 h-3 bg-emerald-400/50 rounded-full"></div>
-                  <div class="w-1 h-1 bg-emerald-400/30 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400/40 rounded-full"></div>
+                  <div class="w-1 h-3.5 bg-emerald-400/30 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400/20 rounded-full"></div>
+                  <div class="w-1 h-1.5 bg-emerald-400/20 rounded-full"></div>
                 </div>
               </div>
             </div>
-            <div class="text-[11px] px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold self-end sm:self-center">
-              ✓ Tercatat di Dompet Cash
+
+            <!-- Transcription & Bot Confirmation (Stacked cleanly on mobile, inline on tablet/desktop) -->
+            <div class="pt-2 border-t border-slate-900/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-start gap-1.5 min-w-0">
+                <span class="text-xs text-slate-500">💬</span>
+                <p class="text-[11px] sm:text-xs text-slate-200 font-mono italic leading-relaxed">
+                  "Viona, catat makan sate 35 ribu pakai Cash"
+                </p>
+              </div>
+              <div class="inline-flex items-center gap-1 self-start sm:self-center px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[10px] sm:text-[11px] font-semibold shrink-0">
+                <span>✓</span>
+                <span>Tercatat di Dompet Cash</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Feature 2: Asisten AI Finansial "Viona" -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
               🤖
@@ -200,7 +218,7 @@
         </div>
 
         <!-- Feature 3: Target Tabungan (Financial Goals) -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-4">
               🏆
@@ -229,7 +247,7 @@
         </div>
 
         <!-- Feature 4: Multi-Dompet & Transfer -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-4">
               👛
@@ -249,7 +267,7 @@
         </div>
 
         <!-- Feature 5: Plafon Anggaran Anti-Boncos -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
               🎯
@@ -266,7 +284,7 @@
         </div>
 
         <!-- Feature 6: Web Dashboard & Visual Analytics (FEATURED ON LG) -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-4">
               📊
@@ -289,7 +307,7 @@
         </div>
 
         <!-- Feature 7: Ekspor Laporan Excel & Rekening Koran PDF -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-4">
               📑
@@ -307,7 +325,7 @@
         </div>
 
         <!-- Feature 8: Keamanan & Enkripsi Standar Perbankan -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
               🔒
