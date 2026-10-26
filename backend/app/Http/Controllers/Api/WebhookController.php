@@ -1510,6 +1510,12 @@ class WebhookController extends Controller
         string $type,
         ?string $period
     ): JsonResponse {
+        $summary = $this->financeService->getTransactionPeriodSummary(
+            $user,
+            $type,
+            $period
+        );
+
         $transactions = $this->financeService->getTransactions(
             $user,
             $type,
@@ -1526,26 +1532,36 @@ class WebhookController extends Controller
             : '💰';
 
         if ($period === 'today') {
-            $periodTitle = 'Hari Ini';
+            $periodTitle = 'Hari Ini (' . now()->translatedFormat('d F Y') . ')';
         } elseif ($period === 'month') {
             $periodTitle = now()->translatedFormat('F Y');
         } else {
-            $periodTitle = 'Terbaru';
+            $periodTitle = '1 Bulan Terakhir';
         }
 
-        $text = "{$emoji} *{$typeTitle} - {$periodTitle}*\n";
+        $text = "{$emoji} *Daftar {$typeTitle} - {$periodTitle}*\n";
         $text .= "━━━━━━━━━━━━━━━━━\n";
 
         if ($transactions->isEmpty()) {
-            $text .= "📭 Belum ada " . strtolower($typeTitle) . ".\n";
+            $text .= "📭 Belum ada catatan " . strtolower($typeTitle) . " untuk periode ini.\n";
             $text .= "━━━━━━━━━━━━━━━━━\n";
-            $text .= "💰 Saldo: "
+            $text .= "💰 Saldo Saat Ini: "
                 . $this->formatRupiah(
                     $this->financeService->getBalance($user)
                 );
 
             return response()->json(['action' => 'REPLY_TEXT', 'reply_text' => $text]);
         }
+
+        $totalCount = $summary['total_count'];
+        $totalAmount = $this->formatRupiah($summary['total_amount']);
+        $shownCount = $transactions->count();
+
+        $text .= "📊 Total: *{$totalCount} transaksi* ({$totalAmount})\n";
+        if ($totalCount > $shownCount) {
+            $text .= "ℹ️ _Menampilkan {$shownCount} transaksi terbaru agar chat rapi dan nyaman dibaca._\n";
+        }
+        $text .= "━━━━━━━━━━━━━━━━━\n\n";
 
         foreach ($transactions as $index => $transaction) {
             $number = $index + 1;
@@ -1571,11 +1587,21 @@ class WebhookController extends Controller
         Cache::put("user_recent_tx:{$user->jid}", $transactions->pluck('id')->values()->all(), now()->addHours(2));
 
         $text .= "━━━━━━━━━━━━━━━━━\n";
-        $text .= "💰 Saldo: "
+        $text .= "💰 Saldo Saat Ini: "
             . $this->formatRupiah(
                 $this->financeService->getBalance($user)
             )
             . "\n\n";
+
+        if ($totalCount > $shownCount) {
+            $sisa = $totalCount - $shownCount;
+            $text .= "💡 *Info Batasan:*\n";
+            $text .= "• Riwayat di chat WhatsApp dibatasi maksimal rentang *1 bulan terakhir*.\n";
+            $text .= "• Masih ada *{$sisa} transaksi* lainnya di periode ini.\n";
+            $text .= "• Buka *Dashboard Web* untuk melihat seluruh catatan lengkap tanpa batasan! 🌐\n\n";
+        } else {
+            $text .= "💡 _Catatan: Riwayat di chat WhatsApp dibatasi maksimal 1 bulan terakhir. Seluruh riwayat lengkap bisa dicek di Dashboard Web ya!_\n\n";
+        }
 
         $text .= "_Pilihan Cepat:_\n";
         $text .= "• `hapus <nomor>` (contoh: *hapus 2*)\n";

@@ -58,7 +58,12 @@ class AiFinancialAgentService
             . "1) Transaksi, 2) Dompet, 3) Target Tabungan, dan 4) Plafon Budget. "
             . "Jika pengguna meminta mencatat, melihat, mengedit, mentransfer, atau menghapus data, PANGGIL fungsi tools yang sesuai. "
             . "Tampilkan angka nominal dalam format Rupiah (contoh: Rp25.000, Rp1.500.000). "
-            . "Jika ada pertanyaan umum tentang keuangan atau tips hemat, berikan jawaban bijak dan solutif.";
+            . "Jika ada pertanyaan umum tentang keuangan atau tips hemat, berikan jawaban bijak dan solutif.\n\n"
+            . "ATURAN MENAMPILKAN DAFTAR TRANSAKSI DI CHAT:\n"
+            . "1. Batasan waktu pencarian riwayat data di chat WhatsApp adalah MAKSIMAL 1 BULAN terakhir (atau bulan ini). Jika pengguna menanyakan riwayat lebih lama dari 1 bulan, jelaskan dengan ramah bahwa di chat WhatsApp batasan riwayat adalah maksimal 1 bulan terakhir, dan arahkan pengguna untuk membuka Dashboard Web.\n"
+            . "2. Saat menampilkan transaksi, sampaikan dengan jelas, jujur, dan hangat total transaksi sebenarnya dalam 1 bulan/periode tersebut beserta total nominalnya (contoh: 'Di bulan ini ada total 15 catatan pemasukan dengan total nilai Rp85.000.000'). JANGAN PERNAH menyimpulkan total transaksi hanya sejumlah item yang ditampilkan di chat!\n"
+            . "3. Jelaskan kepada pengguna bahwa demi kenyamanan membaca di WhatsApp (agar pesan tidak terlalu panjang), Viona menampilkan 5 transaksi terbaru.\n"
+            . "4. Beri tahukan batasannya dengan bahasa yang santai dan mudah dimengerti, serta arahkan bahwa sisa transaksi dan seluruh riwayat lengkap bisa dilihat di Dashboard Web.";
 
         $tools = $this->getToolDeclarations();
 
@@ -272,6 +277,8 @@ class AiFinancialAgentService
         $type = !empty($args['type']) ? strtoupper($args['type']) : null;
         $period = $args['period'] ?? null;
 
+        // Ambil ringkasan agregat periode (dibatasi maksimal 1 bulan)
+        $summary = $this->financeService->getTransactionPeriodSummary($user, $type, $period);
         $txs = $this->financeService->getTransactions($user, $type, $period, $limit);
 
         $list = [];
@@ -286,11 +293,25 @@ class AiFinancialAgentService
             ];
         }
 
+        $totalCount = $summary['total_count'];
+        $totalAmount = $summary['total_amount'];
+        $shownCount = count($list);
+        $hasMore = $totalCount > $shownCount;
+
         return [
-            'status'        => 'success',
-            'saldo_saat_ini' => $this->financeService->getBalance($user),
-            'transaksi'     => $list,
-            'count'         => count($list),
+            'status'                       => 'success',
+            'saldo_saat_ini'               => $this->financeService->getBalance($user),
+            'periode'                      => $summary['period_label'],
+            'total_transaksi_dalam_periode' => $totalCount,
+            'total_nominal_dalam_periode'  => 'Rp' . number_format($totalAmount, 0, ',', '.'),
+            'jumlah_transaksi_ditampilkan' => $shownCount,
+            'transaksi'                    => $list,
+            'ada_transaksi_lain'           => $hasMore,
+            'sisa_belum_ditampilkan'       => max(0, $totalCount - $shownCount),
+            'panduan_jawaban_viona'        => "PANDUAN MENYAMPAIKAN KE USER:\n"
+                . "1. Sebutkan total catatan sesungguhnya di periode ini: Ada {$totalCount} catatan (total Rp" . number_format($totalAmount, 0, ',', '.') . "). JANGAN PERNAH bilang hanya ada {$shownCount} catatan jika totalnya {$totalCount}!\n"
+                . "2. Jelaskan dengan santai dan ramah: 'Karena batasan tampilan di chat WhatsApp agar tetap ringkas dan nyaman dibaca (maksimal rentang 1 bulan terakhir), berikut Viona tampilkan {$shownCount} transaksi terbarunya ya.'\n"
+                . ($hasMore ? "3. Beri tahu pengguna bahwa masih ada " . ($totalCount - $shownCount) . " transaksi lainnya di periode ini, dan pengguna bisa melihat daftar selengkapnya di Dashboard Web HematWoy.\n" : "3. Beri tahu pengguna bahwa batasan riwayat di chat adalah maksimal 1 bulan terakhir.\n"),
         ];
     }
 
@@ -822,13 +843,13 @@ class AiFinancialAgentService
                     // 1. Transaksi
                     [
                         'name'        => 'lihat_transaksi',
-                        'description' => 'Melihat daftar riwayat transaksi keuangan terbaru dan saldo saat ini',
+                        'description' => 'Melihat daftar riwayat transaksi keuangan terbaru dan saldo saat ini (dibatasi rentang waktu maksimal 1 bulan)',
                         'parameters'  => [
                             'type'       => 'OBJECT',
                             'properties' => [
-                                'limit'  => ['type' => 'INTEGER', 'description' => 'Jumlah transaksi yang ingin dilihat (default 5, max 15)'],
+                                'limit'  => ['type' => 'INTEGER', 'description' => 'Jumlah transaksi yang ingin dilihat di chat (default 5, max 10)'],
                                 'type'   => ['type' => 'STRING', 'enum' => ['EXPENSE', 'INCOME'], 'description' => 'Filter tipe: EXPENSE (pengeluaran) atau INCOME (pemasukan)'],
-                                'period' => ['type' => 'STRING', 'enum' => ['today', 'month'], 'description' => 'Filter periode: today (hari ini) atau month (bulan ini)'],
+                                'period' => ['type' => 'STRING', 'enum' => ['today', 'month'], 'description' => 'Filter periode: today (hari ini) atau month (bulan ini). Riwayat chat dibatasi maksimal 1 bulan terakhir.'],
                             ],
                         ],
                     ],

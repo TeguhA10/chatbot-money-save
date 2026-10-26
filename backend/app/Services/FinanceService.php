@@ -487,20 +487,17 @@ class FinanceService
      *
      * @return Collection<int, Transaction>
      */
-    public function getTransactions(
+    /**
+     * Build base query for transactions scoped to user and period (capped at maximum 1 month).
+     */
+    public function getTransactionQuery(
         User $user,
         ?string $type = null,
-        ?string $period = null,
-        int $limit = 10
-    ): Collection {
-        $limit = max(1, min($limit, 50));
-
+        ?string $period = null
+    ): \Illuminate\Database\Eloquent\Builder {
         $query = Transaction::query()
             ->where('user_jid', $user->jid)
-            ->active()
-            ->orderByDesc('transaction_date')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            ->active();
 
         if ($type === 'EXPENSE') {
             $query->expenses();
@@ -512,9 +509,61 @@ class FinanceService
             $query->forDate(now()->toDateString());
         } elseif ($period === 'month') {
             $query->forMonth(now()->year, now()->month);
+        } else {
+            // Batasan mutlak maksimal 1 bulan terakhir (30 hari terakhir)
+            $query->where('transactions.transaction_date', '>=', now()->subDays(30)->startOfDay());
         }
 
-        return $query->limit($limit)->get();
+        return $query;
+    }
+
+    /**
+     * Get aggregate statistics (count and total amount) within the period (capped at maximum 1 month).
+     *
+     * @return array{total_count: int, total_amount: int, period_label: string}
+     */
+    public function getTransactionPeriodSummary(
+        User $user,
+        ?string $type = null,
+        ?string $period = null
+    ): array {
+        $query = $this->getTransactionQuery($user, $type, $period);
+
+        if ($period === 'today') {
+            $periodLabel = 'Hari Ini (' . now()->translatedFormat('d F Y') . ')';
+        } elseif ($period === 'month') {
+            $periodLabel = 'Bulan Ini (' . now()->translatedFormat('F Y') . ')';
+        } else {
+            $periodLabel = '1 Bulan Terakhir';
+        }
+
+        $totalCount = (clone $query)->count();
+        $totalAmount = (int) (clone $query)->sum('amount');
+        if ($totalAmount === 0 && $totalCount > 0) {
+            $totalAmount = (clone $query)->get()->sum(fn ($t) => (int) $t->amount);
+        }
+
+        return [
+            'total_count'  => $totalCount,
+            'total_amount' => $totalAmount,
+            'period_label' => $periodLabel,
+        ];
+    }
+
+    public function getTransactions(
+        User $user,
+        ?string $type = null,
+        ?string $period = null,
+        int $limit = 10
+    ): Collection {
+        $limit = max(1, min($limit, 50));
+
+        return $this->getTransactionQuery($user, $type, $period)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
     }
 
     /**
