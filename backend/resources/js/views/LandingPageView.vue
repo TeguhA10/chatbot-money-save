@@ -1,32 +1,33 @@
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white relative overflow-hidden">
     <!-- Ambient Gradients -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-emerald-500/15 via-teal-500/5 to-transparent blur-3xl pointer-events-none"></div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[550px] bg-gradient-to-b from-emerald-500/15 via-teal-500/10 to-transparent blur-3xl pointer-events-none"></div>
     <div class="absolute top-96 -left-48 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute top-[1200px] -right-48 w-96 h-96 bg-teal-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-[2200px] left-1/3 w-80 h-80 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Sticky Navigation Bar (Shared Component) -->
     <PublicNavbar activeRoute="landing" />
 
     <!-- HERO SECTION -->
-    <section class="relative pt-16 sm:pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center">
+    <section class="relative pt-14 sm:pt-20 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center">
       <!-- Top Social Proof Pill -->
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-6 animate-pulse">
-        <span class="flex h-2 w-2 rounded-full bg-emerald-400"></span>
-        <span>Asisten Keuangan Pribadi Otomatis #1 di Indonesia</span>
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-6 shadow-sm shadow-emerald-500/10">
+        <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>✨ Didukung Voice Note WhatsApp & Asisten AI Finansial Viona</span>
       </div>
 
       <!-- Main Headline -->
       <h1 class="text-4xl sm:text-6xl font-black text-white tracking-tight leading-[1.15] max-w-4xl mx-auto">
         Catat Keuangan Harian Semudah
         <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-          Kirim Pesan Chat
+          Kirim Chat & Voice Note
         </span>
       </h1>
 
       <!-- Subheadline -->
-      <p class="mt-6 text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-        Bebas ribet instal aplikasi berat. Cukup ketik pengeluaranmu dalam bahasa sehari-hari, pantau mutasi saldo multi-dompet real-time, dan capai target tabungan bebas boncos.
+      <p class="mt-6 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+        Bebas ribet instal aplikasi berat. Cukup ketik pesan atau kirim rekaman suara (VN), asisten cerdas <strong class="text-white">Viona</strong> otomatis mencatat mutasi, mengelola multi-dompet real-time, dan mengawal target tabungan bebas boncos.
       </p>
 
       <!-- Primary CTAs -->
@@ -45,58 +46,62 @@
             to="/dokumentasi"
             class="w-full sm:w-auto px-6 py-3.5 sm:py-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-md cursor-pointer"
           >
-            <span>📖 Panduan & Dokumentasi</span>
+            <span>📖 Panduan & Format Chat</span>
             <span class="text-emerald-400">➔</span>
           </router-link>
         </div>
 
         <!-- Quota reassurance note -->
         <p class="text-xs text-slate-400 text-center font-medium">
-          ✨ <span class="text-emerald-400 font-semibold">{{ freeLimit }} Chat Pertama Gratis</span> • Tanpa Registrasi Rumit • Siap Pakai
+          ✨ <span class="text-emerald-400 font-semibold">{{ freeLimit }} Percakapan Pertama Gratis</span> • Tanpa Kartu Kredit • Siap Pakai di WhatsApp
         </p>
       </div>
 
       <!-- Trust Badges -->
-      <div class="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-5 sm:gap-8 text-xs text-slate-500">
-        <div class="flex items-center gap-1.5">
-          <span class="text-emerald-400 font-bold">✓</span>
-          <span>Tanpa Install Aplikasi</span>
+      <div class="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs text-slate-400">
+        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-full">
+          <span class="text-emerald-400 font-bold">🎙️</span>
+          <span>Voice Note AI</span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-emerald-400 font-bold">✓</span>
-          <span>WhatsApp Resmi: {{ botNumberDisplay }}</span>
+        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-full">
+          <span class="text-teal-400 font-bold">✨</span>
+          <span>Asisten AI Viona</span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-emerald-400 font-bold">✓</span>
-          <span>Privasi Finansial Terenkripsi</span>
+        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-full">
+          <span class="text-cyan-400 font-bold">🏆</span>
+          <span>Target Tabungan</span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-emerald-400 font-bold">✓</span>
-          <span>Ekspor Excel 1-Klik</span>
+        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-full">
+          <span class="text-emerald-400 font-bold">📑</span>
+          <span>Excel & Rekening Koran PDF</span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-full">
+          <span class="text-emerald-400 font-bold">🔒</span>
+          <span>Enkripsi Standar Bank</span>
         </div>
       </div>
     </section>
 
     <!-- SECTION 2: INTERACTIVE DOCS & PREVIEW BANNER -->
-    <section class="py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+    <section class="py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       <div class="relative rounded-3xl p-6 sm:p-10 bg-gradient-to-r from-slate-900/95 via-slate-900 to-emerald-950/40 border border-emerald-500/30 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
         <div class="max-w-xl space-y-3 text-center md:text-left">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
             <span>⚡</span>
-            <span>Panduan Interaktif & Format Perintah</span>
+            <span>Panduan Interaktif & Format Perintah Lengkap</span>
           </div>
           <h2 class="text-xl sm:text-3xl font-black text-white tracking-tight">
             Ingin Coba Perintah Bot Langsung di Browser?
           </h2>
           <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba format chat cerdas WhatsApp secara langsung dan melihat daftar lengkap perintah (keluar, masuk, transfer dompet, budget, hingga ekspor Excel).
+            Kunjungi halaman <span class="text-emerald-400 font-semibold">Dokumentasi</span> kami untuk mencoba format chat cerdas WhatsApp secara langsung di simulator browser dan melihat daftar lengkap perintah bot.
           </p>
           <div class="pt-1 flex flex-wrap gap-2 justify-center md:justify-start">
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">🎙️ [Kirim Voice Note VN]</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-teal-950/80 border border-teal-500/40 text-teal-300 font-mono">"Halo Viona, sisa budget berapa?"</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">buat target Liburan 10jt</span>
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">keluar 25rb kopi</span>
             <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">+1.5jt freelance</span>
-            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">saldo</span>
-            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">budget makan 1jt</span>
-            <span class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 font-mono">export excel</span>
           </div>
         </div>
 
@@ -113,84 +118,208 @@
             target="_blank"
             class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs transition cursor-pointer text-center"
           >
-            <span>Mulai Catat Transaksi</span>
+            <span>Mulai Chat di WhatsApp</span>
           </a>
         </div>
       </div>
     </section>
 
-    <!-- SECTION 3: FEATURES BENTO GRID -->
+    <!-- SECTION 3: FEATURES BENTO GRID (UPGRADED WITH ALL NEW FEATURES) -->
     <section id="fitur" class="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
       <div class="text-center mb-16">
-        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Kenapa HematWoy?</span>
-        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Semua yang Kamu Butuhkan untuk Finansial Bebas Pusing</h2>
+        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Fitur Unggulan HematWoy</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Semua yang Kamu Butuhkan untuk Finansial Rapi & Terkendali</h2>
+        <p class="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto mt-2">
+          Dari pencatatan kilat via suara hingga visual analytics di web, semua dirancang agar kamu bebas boncos tanpa pusing.
+        </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <!-- Feature 1: Natural Language -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-5">
-            🧠
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Feature 1: Voice Note WhatsApp (FEATURED 2-COL ON MD) -->
+        <div class="md:col-span-2 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-emerald-950/30 border border-emerald-500/40 rounded-3xl p-6 sm:p-8 backdrop-blur-md relative overflow-hidden group hover:border-emerald-400/60 transition shadow-xl">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <span>🎙️ Fitur Favorit Baru</span>
+            </div>
+            <span class="text-[11px] text-slate-500 font-mono">Whisper AI STT</span>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Bahasa Manusiawi Fleksibel</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Mendukung kata gaul sehari-hari: <code class="text-emerald-400">keluar 25rb kopi</code>, <code class="text-emerald-400">+1.5jt freelance</code>, atau pemisah ribuan otomatis.
+
+          <h3 class="text-xl sm:text-2xl font-black text-white mb-2">Pencatatan Super Kilat via Voice Note WhatsApp</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xl mb-5">
+            Lagi nyetir motor, belanja di pasar, atau malas mengetik? Cukup tekan tombol rekam suara (VN) di WhatsApp dan bicara santai. AI mentranskripsi suara bahasa Indonesia dan langsung mencatatnya ke dompet yang pas!
           </p>
+
+          <!-- Interactive Voice Note Audio Mockup -->
+          <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-base">
+                ▶
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                  <span>🎤 Voice Note (0:07)</span>
+                  <span class="text-slate-500">•</span>
+                  <span class="text-emerald-400 font-mono text-[11px]">"Viona, catat makan sate 35 ribu pakai Cash"</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="w-1 h-3 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-5 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-6 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-4 bg-emerald-400 rounded-full"></div>
+                  <div class="w-1 h-2 bg-emerald-400/50 rounded-full"></div>
+                  <div class="w-1 h-5 bg-emerald-400/50 rounded-full"></div>
+                  <div class="w-1 h-3 bg-emerald-400/50 rounded-full"></div>
+                  <div class="w-1 h-1 bg-emerald-400/30 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+            <div class="text-[11px] px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold self-end sm:self-center">
+              ✓ Tercatat di Dompet Cash
+            </div>
+          </div>
         </div>
 
-        <!-- Feature 2: Multi-Dompet -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-5">
-            👛
+        <!-- Feature 2: Asisten AI Finansial "Viona" -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
+              🤖
+            </div>
+            <div class="inline-block px-2.5 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400 text-[10px] font-bold mb-2">
+              ✨ Gemini AI Agent
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Asisten Keuangan Pribadi "Viona"</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Ngobrol santai seputar keuangan. Sapa <code class="text-teal-400">"Halo Viona"</code> untuk tanya sisa anggaran, minta saran hemat, atau koreksi transaksi secara natural tanpa sintaks kaku.
+            </p>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Multi-Dompet Terintegrasi</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Pisahkan saldo rekening BCA, Mandiri, Cash, hingga e-Wallet (GoPay, OVO). Transfer antar dompet semudah kirim pesan teks.
-          </p>
+          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 italic">
+            "Halo Alfaruqi! Bulan ini pengeluaranmu hemat 15% dibanding bulan lalu lho, pertahankan ya! 😊"
+          </div>
         </div>
 
-        <!-- Feature 3: Anti-Boncos Budget -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-5">
-            🎯
+        <!-- Feature 3: Target Tabungan (Financial Goals) -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-4">
+              🏆
+            </div>
+            <div class="inline-block px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold mb-2">
+              🎯 Anti-Wacana
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Target Tabungan & Pos Impian</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Wujudkan beli gadget, liburan, atau dana darurat. Ketik <code class="text-cyan-400">buat target Laptop 15jt</code>, setor dana berkala, dan pantau progress bar pencapaian impianmu.
+            </p>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Plafon Anggaran & Peringatan</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Atur batas budget per kategori (cth: makan 1jt). Bot akan mengingatkan otomatis dengan progress bar sebelum kamu boncos!
-          </p>
+          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1.5">
+            <div class="flex justify-between text-[11px] text-slate-300 font-semibold">
+              <span>🎯 Laptop Idaman</span>
+              <span class="text-cyan-400">80%</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-cyan-500 to-teal-400 h-full w-[80%] rounded-full"></div>
+            </div>
+            <div class="text-[10px] text-slate-500 flex justify-between">
+              <span>Terkumpul: Rp12.000.000</span>
+              <span>Target: Rp15jt</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Feature 4: 1-Klik Excel -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-5">
-            📊
+        <!-- Feature 4: Multi-Dompet & Transfer -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-4">
+              👛
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Multi-Dompet & Transfer Instan</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Kelola saldo terpisah untuk BCA, Mandiri, SeaBank, Cash, GoPay, dan OVO. Pindah dana semudah ketik: <code class="text-emerald-400">transfer 200rb dari bca ke gopay</code>.
+            </p>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Ekspor Excel 1-Klik</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Ketik <code class="text-emerald-400">export excel</code>, file laporan rapi multi-sheet lengkap formula SUM langsung terkirim ke WhatsApp kamu.
-          </p>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">BCA</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">Mandiri</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">SeaBank</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">GoPay</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">Cash</span>
+          </div>
         </div>
 
-        <!-- Feature 5: AI Insights -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-5">
-            🤖
+        <!-- Feature 5: Plafon Anggaran Anti-Boncos -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
+              🎯
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Plafon Anggaran Anti-Boncos</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Pasang limit belanja bulanan (<code class="text-teal-400">budget 2jt</code>). Sistem otomatis memperingatkan saat pengeluaran mendekati 80% sebelum kantongmu kebobolan.
+            </p>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Evaluasi & Rekap Cerdas</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Tanyakan <code class="text-emerald-400">bulan ini boros gak?</code> dan dapatkan analisis perbandingan bulan lalu vs bulan ini secara instan.
-          </p>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-amber-500/30 text-[11px] text-amber-300 flex items-center gap-2">
+            <span>⚠️</span>
+            <span>Budget bulanan sudah terpakai 78%, jaga pengeluaran ya!</span>
+          </div>
         </div>
 
-        <!-- Feature 6: Privacy & Security -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition">
-          <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-5">
-            🔒
+        <!-- Feature 6: Web Dashboard & Visual Analytics (FEATURED ON LG) -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mb-4">
+              📊
+            </div>
+            <div class="inline-block px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold mb-2">
+              🌐 Web App
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Web Dashboard & Visual Analytics</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              WhatsApp untuk catat cepat harian (maks 1 bulan agar rapi). Buka <strong class="text-white">Web Dashboard</strong> untuk grafik interaktif, tren arus kas, dan riwayat mutasi lengkap tanpa batasan.
+            </p>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">Enkripsi Standar Perbankan</h3>
-          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Data finansial dilindungi enkripsi AES-256-GCM. Isolasi ketat berbasis nomor WhatsApp, tanpa ada pihak ketiga yang mengintip.
-          </p>
+          <button
+            @click="handleDashboardClick"
+            class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+          >
+            <span>Buka Dashboard Web</span>
+            <span>➔</span>
+          </button>
+        </div>
+
+        <!-- Feature 7: Ekspor Laporan Excel & Rekening Koran PDF -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl mb-4">
+              📑
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Ekspor Excel & Rekening Koran PDF</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Ketik <code class="text-emerald-400">export excel</code> atau <code class="text-emerald-400">export pdf</code>, laporan keuangan formal lengkap formula SUM atau Rekening Koran resmi ber-kop langsung terkirim ke WhatsApp.
+            </p>
+          </div>
+          <div class="text-[11px] text-slate-400 flex items-center gap-2">
+            <span>✓ Multi-Sheet XLSX</span>
+            <span>•</span>
+            <span>✓ PDF Siap Cetak</span>
+          </div>
+        </div>
+
+        <!-- Feature 8: Keamanan & Enkripsi Standar Perbankan -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-md hover:border-slate-700 transition flex flex-col justify-between">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-400 flex items-center justify-center text-2xl mb-4">
+              🔒
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Keamanan Enkripsi Bank Grade</h3>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed mb-4">
+              Privasi nominal uangmu dilindungi enkripsi AES-256-GCM dan sistem PIN rahasia. Data terisolasi ketat per nomor WhatsApp tanpa ada pihak ketiga yang bisa mengintip.
+            </p>
+          </div>
+          <div class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+            <span>🛡️ Zero-Knowledge Architecture</span>
+          </div>
         </div>
       </div>
     </section>
@@ -198,8 +327,8 @@
     <!-- SECTION 4: PRICING -->
     <section id="harga" class="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
       <div class="text-center mb-16">
-        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Pilihan Paket</span>
-        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Investasi Terbaik untuk Mengontrol Keuanganmu</h2>
+        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Pilihan Paket Investasi</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Investasi Murah untuk Mengontrol Keuanganmu</h2>
         <p class="text-xs sm:text-sm text-slate-400 mt-2">Mulai gratis tanpa komitmen. Upgrade kapan saja saat siap lebih rapi.</p>
       </div>
 
@@ -208,16 +337,17 @@
         <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between">
           <div>
             <h3 class="text-lg font-bold text-white mb-1">Paket Gratis</h3>
-            <p class="text-xs text-slate-400 mb-6">Cocok untuk coba-coba pertama kali</p>
+            <p class="text-xs text-slate-400 mb-6">Cocok untuk mencoba pengalaman pertama</p>
             <div class="text-3xl font-black text-white mb-6">
               Rp 0 <span class="text-xs font-normal text-slate-400">/ selamanya</span>
             </div>
 
             <ul class="space-y-3 text-xs text-slate-300">
-              <li class="flex items-center gap-2">✓ {{ freeLimit }} Kuota Transaksi Chat Gratis</li>
+              <li class="flex items-center gap-2">✓ {{ freeLimit }} Kuota Transaksi Chat & Voice Note</li>
               <li class="flex items-center gap-2">✓ 1 Dompet Kas Utama</li>
-              <li class="flex items-center gap-2">✓ Rekap Pengeluaran Harian & Bulanan</li>
-              <li class="flex items-center gap-2 text-slate-500">✕ Multi-Dompet Tanpa Batas</li>
+              <li class="flex items-center gap-2">✓ Rekap Mutasi Harian & Bulanan</li>
+              <li class="flex items-center gap-2 text-slate-500">✕ Multi-Dompet & Transfer Antar Bank</li>
+              <li class="flex items-center gap-2 text-slate-500">✕ Target Tabungan (Goals Tracking)</li>
               <li class="flex items-center gap-2 text-slate-500">✕ Plafon Budget Kategori</li>
             </ul>
           </div>
@@ -294,18 +424,19 @@
     <section id="faq" class="py-16 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
       <div class="text-center mb-12">
         <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Pertanyaan yang Sering Diajukan</h2>
+        <p class="text-xs sm:text-sm text-slate-400 mt-1">Semua jawaban yang perlu kamu ketahui sebelum mulai menggunakan HematWoy.</p>
       </div>
 
       <div class="space-y-4">
         <div
           v-for="(faq, i) in faqs"
           :key="i"
-          class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 cursor-pointer"
+          class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 cursor-pointer hover:border-slate-700 transition"
           @click="faq.open = !faq.open"
         >
           <div class="flex items-center justify-between font-bold text-sm text-white">
             <span>{{ faq.q }}</span>
-            <span class="text-emerald-400 text-lg">{{ faq.open ? '−' : '+' }}</span>
+            <span class="text-emerald-400 text-lg ml-3">{{ faq.open ? '−' : '+' }}</span>
           </div>
           <p v-if="faq.open" class="mt-3 text-xs sm:text-sm text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
             {{ typeof faq.a === 'function' ? faq.a() : faq.a }}
@@ -320,8 +451,8 @@
         <h2 class="text-2xl sm:text-4xl font-black text-white tracking-tight mb-4">
           Siap Mengatur Keuangan Lebih Rapi Tanpa Beban?
         </h2>
-        <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto mb-8">
-          Mulai dalam 10 detik. Tanpa isi form panjang, tanpa perlu kartu kredit. Langsung hubungi bot resmi kami di {{ botNumberDisplay }}!
+        <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto mb-8 leading-relaxed">
+          Mulai dalam 10 detik. Tanpa isi form panjang, tanpa perlu kartu kredit. Langsung hubungi asisten bot resmi kami di {{ botNumberDisplay }}!
         </p>
 
         <a
@@ -350,7 +481,7 @@
         <span>•</span>
         <router-link to="/privasi" class="hover:text-emerald-400 transition">Kebijakan Privasi</router-link>
       </div>
-      <p class="font-medium text-slate-400">Smart WhatsApp Personal Finance Tracker</p>
+      <p class="font-medium text-slate-400">Smart WhatsApp Personal Finance Tracker & AI Assistant</p>
       <p>&copy; {{ currentYear }} HematWoy Indonesia. Seluruh hak cipta dilindungi undang-undang.</p>
     </footer>
 
@@ -418,12 +549,13 @@ const plans = ref([
     formatted_price: 'Rp 25.000',
     badge: 'Paling Populer',
     features: [
-      'Unlimited Pencatatan Transaksi',
-      'Multi-Dompet (BCA, Mandiri, Cash, e-Wallet)',
-      'Plafon Anggaran & Anti-Boncos Alert',
-      '1-Klik Ekspor Laporan Excel Lengkap',
-      'AI Financial Spending Insights',
-      'Akses Penuh Web App Dashboard',
+      'Unlimited Catat Transaksi via Teks & Voice Note 🎙️',
+      'Asisten AI Viona & Smart Insights ✨',
+      'Multi-Dompet (BCA, Mandiri, SeaBank, Cash, e-Wallet)',
+      'Target Tabungan (Financial Goals Tracking) 🏆',
+      'Plafon Anggaran & Anti-Boncos Alert 🎯',
+      'Ekspor Laporan Excel & Rekening Koran PDF 📑',
+      'Akses Penuh Web App Dashboard & Visual Analytics 📊',
     ],
   },
   {
@@ -435,10 +567,12 @@ const plans = ref([
     formatted_price: 'Rp 199.000',
     badge: 'HEMAT 35%',
     features: [
-      'Seluruh Fitur Paket Pro',
+      'Seluruh Fitur Paket Pro Tanpa Batas',
       'Masa Aktif 365 Hari Penuh',
+      'Voice Note AI Whisper Unlimited 🎙️',
+      'Target Tabungan & Pos Impian Unlimited 🏆',
       'Hemat Rp 101.000 dibanding bulanan',
-      'Prioritas Fitur AI Baru Mendatang',
+      'Prioritas Akses Fitur AI Baru Mendatang',
     ],
   },
 ]);
@@ -474,10 +608,6 @@ async function fetchDynamicData() {
       }
       if (plansRes.data.free_limit) {
         freeLimit.value = plansRes.data.free_limit;
-        const quotaFaq = faqs.value.find(f => f.q.includes('batas penggunaan gratis'));
-        if (quotaFaq) {
-          quotaFaq.a = `Di WhatsApp, kamu mendapatkan ${freeLimit.value} kuota pencatatan percakapan finansial secara gratis! Setelah itu, kamu bisa berlangganan Paket Pro mulai Rp25.000/bulan.`;
-        }
       }
     }
   } catch (err) {
@@ -493,21 +623,35 @@ onMounted(() => {
   }
 });
 
-
 const faqs = ref([
   {
     q: 'Bagaimana cara mulai menggunakan bot ini?',
-    a: 'Cukup klik tombol "Chat WhatsApp" di atas atau simpan nomor bot WhatsApp kami di +1 (555) 671-1016. Langsung ketik pengeluaranmu, tanpa registrasi yang rumit!',
+    a: () => `Cukup klik tombol "Mulai Coba Gratis" di atas atau simpan nomor bot WhatsApp resmi kami di ${botNumberDisplay.value}. Kamu bisa langsung kirim pesan teks atau rekaman suara (Voice Note), tanpa perlu registrasi yang rumit!`,
+    open: false,
+  },
+  {
+    q: 'Apakah saya bisa mencatat keuangan menggunakan rekaman suara (Voice Note)?',
+    a: 'Bisa banget! Kamu cukup tekan dan tahan tombol rekam suara (VN) di WhatsApp, lalu bicara santai misalnya: "Viona, catat makan sate padang 35 ribu pakai Cash". AI kami langsung mentranskripsi suara dan mencatat transaksi ke dompetmu secara instan.',
+    open: false,
+  },
+  {
+    q: 'Siapa itu Asisten AI "Viona" dan apa keunggulannya?',
+    a: 'Viona adalah asisten AI perencana keuangan pribadi yang ramah dan cerdas (ditenagai Google Gemini). Kamu bisa mengobrol santai seputar tips hemat, menanyakan sisa anggaran bulan ini, atau meminta evaluasi pengeluaran tanpa perlu mengingat format sintaks kaku.',
+    open: false,
+  },
+  {
+    q: 'Mengapa di chat WhatsApp riwayat transaksi dibatasi 1 bulan terakhir?',
+    a: 'Layanan chat WhatsApp dioptimalkan untuk pencatatan cepat harian agar layar percakapan tetap rapi, bersih, dan nyaman dibaca. Untuk riwayat transaksi lengkap lebih dari 1 bulan dan grafik visual interaktif, kamu bisa mengaksesnya langsung di Web App Dashboard HematWoy.',
     open: false,
   },
   {
     q: 'Apakah data keuangan saya aman?',
-    a: 'Sangat aman. Setiap data nominal terenkripsi menggunakan AES-256-GCM. Kami mengisolasi database per nomor WhatsApp dan tidak pernah membagikan data kepada pihak ketiga.',
+    a: 'Sangat aman. Setiap data nominal terenkripsi rapat menggunakan standar perbankan AES-256-GCM. Kami mengisolasi database secara ketat per nomor WhatsApp dan tidak pernah membagikan data kepada pihak ketiga.',
     open: false,
   },
   {
     q: 'Berapa batas penggunaan gratis di WhatsApp?',
-    a: () => `Di WhatsApp, kamu mendapatkan ${freeLimit.value} kuota pencatatan percakapan finansial secara gratis! Setelah itu, kamu bisa berlangganan Paket Pro mulai Rp25.000/bulan.`,
+    a: () => `Di WhatsApp, kamu mendapatkan ${freeLimit.value} kuota percakapan pencatatan keuangan gratis! Setelah kuota habis, kamu bisa bebas melanjutkan dengan berlangganan Paket Pro mulai Rp25.000/bulan.`,
     open: false,
   },
   {
