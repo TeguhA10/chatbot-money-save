@@ -133,16 +133,16 @@
         </div>
       </div>
 
-      <!-- Uniform Inputs Grid: Live Search, Type, Category, Wallet, Date Range -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
-        <!-- Live Search (2 Cols) -->
-        <div class="relative lg:col-span-2">
+      <!-- Uniform Inputs Grid: Live Search, Type, Wallet, Target, Budget, Date Range -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        <!-- Live Search -->
+        <div class="relative sm:col-span-2 md:col-span-1 lg:col-span-2 xl:col-span-1">
           <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
           <input
             type="text"
             v-model="filters.search"
             @input="debounceSearch"
-            placeholder="Cari deskripsi (misal: kopi, bensin, gaji)..."
+            placeholder="Cari deskripsi (kopi, bensin)..."
             class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 shadow-inner transition placeholder:text-slate-500"
           />
         </div>
@@ -165,6 +165,28 @@
             :options="walletOptions"
             placeholder="Semua Dompet"
             icon="👛"
+            @change="onFilterChange"
+          />
+        </div>
+
+        <!-- Filter Target Tabungan -->
+        <div>
+          <SelectDropdown
+            v-model="filters.goal_id"
+            :options="goalFilterOptions"
+            placeholder="Semua Target"
+            icon="🎯"
+            @change="onFilterChange"
+          />
+        </div>
+
+        <!-- Filter Pos Anggaran -->
+        <div>
+          <SelectDropdown
+            v-model="filters.budget_id"
+            :options="budgetFilterOptions"
+            placeholder="Semua Anggaran"
+            icon="📊"
             @change="onFilterChange"
           />
         </div>
@@ -277,12 +299,30 @@
 
               <!-- Description -->
               <td class="py-4 px-5 font-bold text-slate-200">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2.5">
                   <span
-                    class="w-2 h-2 rounded-full shrink-0"
-                    :class="t.type === 'INCOME' ? 'bg-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-400' : 'bg-rose-400')"
+                    class="w-2.5 h-2.5 rounded-full shrink-0"
+                    :class="t.goal_id ? 'bg-cyan-400 ring-2 ring-cyan-400/20' : (t.budget_id ? 'bg-amber-400 ring-2 ring-amber-400/20' : (t.type === 'INCOME' ? 'bg-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-400' : 'bg-rose-400')))"
                   ></span>
-                  <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
+                  <div class="flex flex-col min-w-0">
+                    <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
+                    <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <span
+                        v-if="t.goal_name"
+                        class="inline-flex items-center gap-1 text-[10px] text-cyan-300 font-semibold px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25"
+                      >
+                        <span>🎯</span>
+                        <span>Target: {{ t.goal_name }}</span>
+                      </span>
+                      <span
+                        v-if="t.budget_name"
+                        class="inline-flex items-center gap-1 text-[10px] text-amber-300 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25"
+                      >
+                        <span>📊</span>
+                        <span>Pos: {{ t.budget_name }}</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </td>
 
@@ -307,10 +347,14 @@
               <!-- Amount -->
               <td
                 class="py-4 px-5 text-right font-black text-sm whitespace-nowrap"
-                :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
+                :class="vaultStore.isMasked ? 'text-slate-400' : (t.goal_id ? 'text-cyan-300' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400')))"
               >
                 <span v-if="vaultStore.isMasked">Rp ••••••••</span>
-                <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
+                <span v-else>
+                  <span>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
+                  <span v-if="t.goal_id" class="block text-[10px] font-semibold text-cyan-400/80">Tabungan</span>
+                  <span v-else-if="t.budget_name && t.type === 'EXPENSE'" class="block text-[10px] font-semibold text-amber-400/80">Anggaran</span>
+                </span>
               </td>
 
               <!-- Actions (Edit & Delete) -->
@@ -337,7 +381,7 @@
         </table>
       </div>
 
-      <!-- MOBILE NATIVE LIST VIEW (Shown on Mobile screens < md) -->
+      <!-- MOBILE NATIVE SPACIOUS CARDS (Ergonomic mobile-first layout, not squeezed desktop) -->
       <div
         v-if="financeStore.transactions.length > 0"
         class="md:hidden divide-y divide-slate-800/80"
@@ -346,50 +390,73 @@
         <div
           v-for="t in financeStore.transactions"
           :key="'mobile-' + t.id"
-          class="p-4 hover:bg-slate-800/30 transition flex items-center justify-between gap-3"
+          class="p-4 hover:bg-slate-800/30 transition space-y-3"
         >
-          <!-- Left: Icon & Details -->
-          <div class="flex items-center gap-3 min-w-0">
-            <div
-              class="w-11 h-11 rounded-2xl flex items-center justify-center text-lg shrink-0 border shadow-inner"
-              :class="t.type === 'INCOME' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' : 'bg-rose-500/15 border-rose-500/30 text-rose-400')"
-            >
-              <span>{{ t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '⇄' : '💸') }}</span>
-            </div>
-            <div class="min-w-0">
-              <p class="font-bold text-xs text-white truncate">{{ t.description || 'Transaksi' }}</p>
-              <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-400 flex-wrap">
-                <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
-                <span>•</span>
-                <span class="inline-flex items-center gap-1 text-slate-300 font-semibold">
-                  <span>👛</span>
-                  <span>{{ t.wallet_name || 'Cash' }}</span>
-                </span>
+          <!-- Top Row: Icon + Description + Amount -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div
+                class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 border shadow-inner"
+                :class="t.goal_id ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300' : (t.budget_id ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : (t.type === 'INCOME' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : (t.type === 'TRANSFER' ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' : 'bg-rose-500/15 border-rose-500/30 text-rose-400')))"
+              >
+                <span>{{ t.goal_id ? '🎯' : (t.budget_id ? '📊' : (t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '⇄' : '💸'))) }}</span>
               </div>
+              <div class="min-w-0">
+                <p class="font-bold text-xs sm:text-sm text-white truncate">{{ t.description || 'Transaksi' }}</p>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5">{{ formatDate(t.transaction_date) }}</p>
+              </div>
+            </div>
+
+            <div class="text-right shrink-0">
+              <p
+                class="font-black text-sm"
+                :class="vaultStore.isMasked ? 'text-slate-400' : (t.goal_id ? 'text-cyan-300' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400')))"
+              >
+                <span v-if="vaultStore.isMasked">Rp ••••••••</span>
+                <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
+              </p>
+              <span v-if="t.goal_id" class="inline-block text-[10px] font-bold text-cyan-400/90">Tabungan</span>
+              <span v-else-if="t.budget_name && t.type === 'EXPENSE'" class="inline-block text-[10px] font-bold text-amber-400/90">Anggaran</span>
             </div>
           </div>
 
-          <!-- Right: Nominal & Action Buttons -->
-          <div class="text-right shrink-0">
-            <p
-              class="font-black text-xs"
-              :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
-            >
-              <span v-if="vaultStore.isMasked">Rp ••••••••</span>
-              <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
-            </p>
-            <div class="flex items-center justify-end gap-2 mt-1.5">
+          <!-- Bottom Row: Metadata chips & Action buttons -->
+          <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/40 text-[11px]">
+            <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 font-medium">
+                <span>👛</span>
+                <span class="truncate max-w-[100px]">{{ t.wallet_name || 'Cash' }}</span>
+              </span>
+
+              <span
+                v-if="t.goal_name"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-semibold"
+              >
+                <span>🎯</span>
+                <span class="truncate max-w-[130px]">{{ t.goal_name }}</span>
+              </span>
+
+              <span
+                v-if="t.budget_name"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold"
+              >
+                <span>📊</span>
+                <span class="truncate max-w-[130px]">{{ t.budget_name }}</span>
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1 shrink-0">
               <button
                 @click="editTransaction(t)"
-                class="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition cursor-pointer"
-                title="Edit"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition cursor-pointer"
+                title="Edit Transaksi"
               >
                 ✏️
               </button>
               <button
                 @click="promptDelete(t)"
-                class="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
-                title="Hapus"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
+                title="Hapus Transaksi"
               >
                 🗑️
               </button>
@@ -453,9 +520,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
+
+const route = useRoute();
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import { downloadExportReport } from '../utils/exportDownloader';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
@@ -481,6 +551,28 @@ const walletOptions = computed(() => [
     label: w.name,
     icon: '👛'
   }))
+]);
+
+const goalFilterOptions = computed(() => [
+  { value: '', label: 'Semua Target', icon: '🎯' },
+  { value: 'none', label: 'Bukan Tabungan (Rutin)', icon: '🛒' },
+  { value: 'any', label: 'Semua Tabungan Target', icon: '✨' },
+  ...financeStore.goals.map(g => ({
+    value: g.id,
+    label: `Target: ${g.name}`,
+    icon: '🏆',
+  })),
+]);
+
+const budgetFilterOptions = computed(() => [
+  { value: '', label: 'Semua Anggaran', icon: '📊' },
+  { value: 'none', label: 'Bukan Pos Anggaran', icon: '⚪' },
+  { value: 'any', label: 'Semua Pos Anggaran', icon: '📈' },
+  ...financeStore.budgets.map(b => ({
+    value: b.id,
+    label: `Pos: ${b.description || 'Batas Belanja'}`,
+    icon: '📊',
+  })),
 ]);
 
 // Export states (Direct 1-click downloads)
@@ -510,6 +602,8 @@ const filters = ref({
   search: '',
   type: '',
   wallet_id: '',
+  goal_id: route?.query?.goal_id ? String(route.query.goal_id) : '',
+  budget_id: route?.query?.budget_id ? String(route.query.budget_id) : '',
   start_date: '',
   end_date: '',
   page: 1,
@@ -520,6 +614,8 @@ const hasActiveFilters = computed(() => {
     filters.value.search ||
     filters.value.type ||
     filters.value.wallet_id ||
+    filters.value.goal_id ||
+    filters.value.budget_id ||
     filters.value.start_date ||
     filters.value.end_date
   );
@@ -575,6 +671,8 @@ function resetFilters() {
     search: '',
     type: '',
     wallet_id: '',
+    goal_id: '',
+    budget_id: '',
     start_date: '',
     end_date: '',
     page: 1,
@@ -678,9 +776,13 @@ function refreshList() {
 
 onMounted(async () => {
   try {
-    await financeStore.fetchWallets();
+    await Promise.allSettled([
+      financeStore.fetchWallets(),
+      financeStore.fetchGoals(),
+      financeStore.fetchBudgets(),
+    ]);
   } catch (e) {
-    // Non-fatal if wallets fail
+    // Non-fatal
   }
   applyFilters();
 });

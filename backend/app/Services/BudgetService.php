@@ -51,6 +51,10 @@ class BudgetService
         $total = Transaction::where('user_jid', $userJid)
             ->active()
             ->expenses()
+            ->whereNull('goal_id')
+            ->where('description', 'not like', 'Tabungan untuk %')
+            ->where('description', 'not like', 'Setoran Tabungan%')
+            ->where('description', 'not like', 'Setor target %')
             ->forMonth($year, $month)
             ->sum('amount');
 

@@ -323,6 +323,11 @@ export const useFinanceStore = defineStore('finance', {
             return res.data;
         },
 
+        async fetchGoalTransactions(id) {
+            const res = await api.get(`/goals/${id}/transactions`);
+            return res.data?.data || { transactions: [] };
+        },
+
         async fetchCategories() {
             return [];
         },

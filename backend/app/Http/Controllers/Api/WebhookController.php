@@ -1577,7 +1577,14 @@ class WebhookController extends Controller
                 -8
             );
 
-            $text .= "*{$number}. {$desc}*\n";
+            $tagStr = '';
+            if ($transaction->goal) {
+                $tagStr = " [🎯 Target: {$transaction->goal->name}]";
+            } elseif ($transaction->budget) {
+                $tagStr = " [📊 Pos: " . ($transaction->budget->description ?: 'Batas Belanja') . "]";
+            }
+
+            $text .= "*{$number}. {$desc}{$tagStr}*\n";
             $text .= "   💵 " . $this->formatRupiah($transaction->amount) . " ({$walletName})\n";
             $text .= "   🕐 " . $transaction->transaction_date->format('d/m/Y H:i') . "\n";
             $text .= "   🆔 `{$shortId}`\n\n";
@@ -2031,12 +2038,38 @@ class WebhookController extends Controller
     private function handleTransaction(User $user, array $parsed, string $messageId): JsonResponse
     {
         try {
-            [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $messageId) {
+            $goalId = null;
+            $goalObj = null;
+            if ($parsed['type'] === 'EXPENSE' && !empty($parsed['goal_tag'])) {
+                $goalObj = app(\App\Services\FuzzyEntityMatcherService::class)->resolveGoal($user, $parsed['goal_tag']);
+                if ($goalObj) {
+                    $goalId = $goalObj->id;
+                    $newCurrent = (int) $goalObj->current_amount + (int) $parsed['amount'];
+                    $goalObj->encrypted_current_amount = app(\App\Services\EncryptionService::class)->encryptForStorage($newCurrent);
+                    if ($newCurrent >= (int) $goalObj->target_amount) {
+                        $goalObj->status = 'ACHIEVED';
+                    }
+                    $goalObj->save();
+                }
+            }
+
+            $budgetId = null;
+            $budgetObj = null;
+            if ($parsed['type'] === 'EXPENSE' && !$goalId && !empty($parsed['budget_tag'])) {
+                $budgetObj = app(\App\Services\FuzzyEntityMatcherService::class)->resolveBudget($user, $parsed['budget_tag']);
+                if ($budgetObj) {
+                    $budgetId = $budgetObj->id;
+                }
+            }
+
+            [$transaction, $remaining] = DB::transaction(function () use ($user, $parsed, $messageId, $goalId, $budgetId) {
                 $transaction = $this->financeService->recordTransaction($user, [
                     'type'        => $parsed['type'],
                     'amount'      => $parsed['amount'],
                     'description' => $parsed['description'],
                     'wallet_name' => $parsed['wallet_tag'] ?? null,
+                    'goal_id'     => $goalId,
+                    'budget_id'   => $budgetId,
                 ]);
                 return [$transaction, $this->subscriptions->consume($user, $messageId)];
             });
@@ -2058,9 +2091,17 @@ class WebhookController extends Controller
 
             $text .= "👛 *Dompet*: {$walletName} (Sisa: {$walletBal})\n";
             $text .= "{$typeLabel}: " . $this->formatRupiah($parsed['amount']) . "\n";
+
+            if ($goalObj) {
+                $text .= "🎯 *Target Tabungan*: {$goalObj->name} (Progress: {$goalObj->progress_percent}%)\n";
+            } elseif ($budgetObj) {
+                $bDesc = $budgetObj->description ?: 'Batas Belanja Bulanan';
+                $text .= "📊 *Pos Anggaran*: {$bDesc}\n";
+            }
+
             $text .= "━━━━━━━━━━━━━━━━━\n";
 
-            if ($parsed['type'] === 'EXPENSE') {
+            if ($parsed['type'] === 'EXPENSE' && !$goalObj) {
                 $budgetSnippet = $this->budgetService->renderExpenseBudgetSnippet($user);
                 if ($budgetSnippet) {
                     $text .= "\n" . $budgetSnippet . "\n━━━━━━━━━━━━━━━━━\n";

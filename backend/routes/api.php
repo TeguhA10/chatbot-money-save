@@ -114,6 +114,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
         Route::put('/goals/{id}',             [GoalController::class, 'update'])->name('api.goals.update');
         Route::delete('/goals/{id}',          [GoalController::class, 'destroy'])->name('api.goals.destroy');
         Route::post('/goals/{id}/contribute', [GoalController::class, 'contribute'])->name('api.goals.contribute');
+        Route::get('/goals/{id}/transactions', [GoalController::class, 'transactions'])->name('api.goals.transactions');
 
         // Analytics Dashboard
         Route::get('/analytics/dashboard-feed',      [AnalyticsController::class, 'dashboardFeed'])->name('api.analytics.dashboard-feed');

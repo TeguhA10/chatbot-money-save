@@ -191,4 +191,51 @@ class GoalController extends Controller
             ], 422);
         }
     }
+
+    /**
+     * GET /api/v1/goals/{id}/transactions
+     * Get contribution history for a specific financial goal.
+     */
+    public function transactions(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $goal = $this->financeService->findGoalByNameOrId($user, $id);
+
+        if (!$goal) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Target finansial tidak ditemukan.',
+            ], 404);
+        }
+
+        $items = \App\Models\Transaction::with(['wallet:id,name'])
+            ->where('user_jid', $user->jid)
+            ->where('goal_id', $goal->id)
+            ->active()
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($t) {
+                return [
+                    'id'               => $t->id,
+                    'amount'           => $t->amount,
+                    'description'      => $t->description,
+                    'transaction_date' => $t->transaction_date?->toISOString(),
+                    'wallet_name'      => $t->wallet?->name ?? 'Cash',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'goal'         => [
+                    'id'             => $goal->id,
+                    'name'           => $goal->name,
+                    'current_amount' => $goal->current_amount,
+                    'target_amount'  => $goal->target_amount,
+                ],
+                'transactions' => $items,
+            ],
+        ]);
+    }
 }

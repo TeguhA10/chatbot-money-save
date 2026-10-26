@@ -578,29 +578,47 @@
             <div class="flex items-center gap-3 min-w-0">
               <div
                 class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-lg shadow-inner"
-                :class="t.type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' : (t.type === 'TRANSFER' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25' : 'bg-rose-500/10 text-rose-400 border border-rose-500/25')"
+                :class="t.goal_id ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/25' : (t.type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' : (t.type === 'TRANSFER' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25' : 'bg-rose-500/10 text-rose-400 border border-rose-500/25'))"
               >
-                <span>{{ t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '↔' : '💸') }}</span>
+                <span>{{ t.goal_id ? '🎯' : (t.type === 'INCOME' ? '💰' : (t.type === 'TRANSFER' ? '↔' : '💸')) }}</span>
               </div>
               <div class="min-w-0">
                 <p class="text-xs font-bold text-white truncate">{{ t.description || 'Transaksi Tanpa Keterangan' }}</p>
-                <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-1 flex-wrap">
+                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1 flex-wrap">
                   <span class="whitespace-nowrap">{{ formatDate(t.transaction_date) }}</span>
                   <span>•</span>
                   <span class="text-slate-300 font-semibold">👛 {{ t.wallet_name || 'Cash' }}</span>
+                  <span v-if="t.goal_name" class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 font-semibold">
+                    🎯 {{ t.goal_name }}
+                  </span>
+                  <span v-else-if="t.budget_name" class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-semibold">
+                    📊 {{ t.budget_name }}
+                  </span>
                 </div>
               </div>
             </div>
             <div class="text-right shrink-0">
               <p
                 class="text-xs sm:text-sm font-black whitespace-nowrap"
-                :class="vaultStore.isMasked ? 'text-slate-400' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400'))"
+                :class="vaultStore.isMasked ? 'text-slate-400' : (t.goal_id ? 'text-cyan-300' : (t.type === 'INCOME' ? 'text-emerald-400' : (t.type === 'TRANSFER' ? 'text-blue-400' : 'text-rose-400')))"
               >
                 <span v-if="vaultStore.isMasked">Rp ••••••••</span>
                 <span v-else>{{ t.type === 'INCOME' ? '+' : (t.type === 'TRANSFER' ? '↔ ' : '-') }}{{ formatRupiah(t.amount) }}</span>
               </p>
               <span
-                v-if="t.type === 'TRANSFER'"
+                v-if="t.goal_id"
+                class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold uppercase mt-0.5 inline-block"
+              >
+                Tabungan
+              </span>
+              <span
+                v-else-if="t.budget_name && t.type === 'EXPENSE'"
+                class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold uppercase mt-0.5 inline-block"
+              >
+                Anggaran
+              </span>
+              <span
+                v-else-if="t.type === 'TRANSFER'"
                 class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 font-semibold uppercase mt-0.5 inline-block"
               >
                 Transfer
@@ -636,6 +654,12 @@
                 <td class="py-4 px-5 font-bold text-slate-200">
                   <div class="flex items-center gap-2">
                     <span class="truncate max-w-sm">{{ t.description || 'Transaksi' }}</span>
+                    <span v-if="t.goal_name" class="inline-flex items-center gap-1 text-[10px] text-cyan-300 font-semibold px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25">
+                      🎯 {{ t.goal_name }}
+                    </span>
+                    <span v-else-if="t.budget_name" class="inline-flex items-center gap-1 text-[10px] text-amber-300 font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25">
+                      📊 {{ t.budget_name }}
+                    </span>
                   </div>
                 </td>
 
@@ -650,6 +674,19 @@
                 <!-- Type Badge -->
                 <td class="py-4 px-5 text-center">
                   <span
+                    v-if="t.goal_id"
+                    class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/25"
+                  >
+                    TABUNGAN
+                  </span>
+                  <span
+                    v-else-if="t.budget_name && t.type === 'EXPENSE'"
+                    class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/25"
+                  >
+                    ANGGARAN
+                  </span>
+                  <span
+                    v-else
                     class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     :class="t.type === 'INCOME' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : (t.type === 'TRANSFER' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25' : 'bg-rose-500/15 text-rose-400 border border-rose-500/25')"
                   >

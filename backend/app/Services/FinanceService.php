@@ -394,6 +394,8 @@ class FinanceService
                 $transaction = Transaction::create([
                     'user_jid'                => $freshUser->jid,
                     'wallet_id'               => $targetWallet->id,
+                    'goal_id'                 => $data['goal_id'] ?? null,
+                    'budget_id'               => $data['budget_id'] ?? null,
                     'type'                    => $type,
                     'amount'                  => $amount,
                     'description'             => $data['description'] ?? '',
@@ -645,7 +647,11 @@ class FinanceService
         string $transactionId,
         int $amount,
         string $description,
-        ?string $newWalletId = null
+        ?string $newWalletId = null,
+        ?string $newGoalId = null,
+        bool $updateGoal = false,
+        ?string $newBudgetId = null,
+        bool $updateBudget = false
     ): ?array {
         if ($amount <= 0) {
             throw new \InvalidArgumentException(
@@ -658,7 +664,11 @@ class FinanceService
             $transactionId,
             $amount,
             $description,
-            $newWalletId
+            $newWalletId,
+            $newGoalId,
+            $updateGoal,
+            $newBudgetId,
+            $updateBudget
         ) {
             User::where('jid', $user->jid)
                 ->lockForUpdate()
@@ -718,6 +728,12 @@ class FinanceService
             $transaction->amount = $amount;
             $transaction->encrypted_amount = $this->encryption->encryptForStorage($amount);
             $transaction->description = $description;
+            if ($updateGoal) {
+                $transaction->goal_id = $newGoalId;
+            }
+            if ($updateBudget) {
+                $transaction->budget_id = $newBudgetId;
+            }
             $transaction->save();
 
             $newBalance = $this->recalculateUserLedger($user);
@@ -1149,14 +1165,15 @@ class FinanceService
             $tx = $this->recordTransaction($user, [
                 'type'        => 'EXPENSE',
                 'amount'      => $amount,
-                'description' => "Tabungan untuk {$goal->name}",
+                'description' => "Setoran Tabungan: {$goal->name}",
                 'wallet_id'   => $targetWallet->id,
+                'goal_id'     => $goal->id,
             ]);
 
             $newCurrent = $goal->current_amount + $amount;
             $goal->current_amount = $newCurrent;
             if ($newCurrent >= $goal->target_amount) {
-                $goal->status = 'COMPLETED';
+                $goal->status = 'ACHIEVED';
             }
             $goal->save();
 

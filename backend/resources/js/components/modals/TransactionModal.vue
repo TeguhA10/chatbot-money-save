@@ -103,6 +103,92 @@
           </div>
         </div>
 
+        <!-- Pilihan 1: Alokasikan ke Target Tabungan (Opsional) -->
+        <div v-if="form.type === 'EXPENSE'" class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-medium text-slate-300">
+              🎯 Target Tabungan (Opsional)
+            </label>
+            <span class="text-[10px] text-teal-400 font-semibold">Khusus Menabung</span>
+          </div>
+
+          <div v-if="financeStore.goals.length === 0" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>Belum ada target tabungan</span>
+            <span class="text-teal-400 text-[10px]">Buat di menu Target</span>
+          </div>
+
+          <select
+            v-else
+            v-model="form.goal_id"
+            @change="onGoalSelected"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/40 shadow-inner transition cursor-pointer"
+          >
+            <option :value="null">-- Bukan untuk Target Tabungan --</option>
+            <option
+              v-for="g in financeStore.goals"
+              :key="g.id"
+              :value="g.id"
+            >
+              🎯 {{ g.name }} (Terkumpul {{ g.progress_percent }}%)
+            </option>
+          </select>
+        </div>
+
+        <!-- Pilihan 2: Alokasikan ke Anggaran / Budget (Opsional) -->
+        <div v-if="form.type === 'EXPENSE'" class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-medium text-slate-300">
+              📊 Pos Anggaran / Budget (Opsional)
+            </label>
+            <span class="text-[10px] text-amber-400 font-semibold">Plafon Pengeluaran</span>
+          </div>
+
+          <div v-if="financeStore.budgets.length === 0" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>Belum ada plafon anggaran aktif</span>
+            <span class="text-amber-400 text-[10px]">Atur di menu Budget</span>
+          </div>
+
+          <select
+            v-else
+            v-model="form.budget_id"
+            @change="onBudgetSelected"
+            :disabled="!!form.goal_id"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-semibold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 shadow-inner transition cursor-pointer disabled:opacity-40"
+          >
+            <option :value="null">-- Pengeluaran Umum (Tanpa Pos Khusus) --</option>
+            <option
+              v-for="b in financeStore.budgets"
+              :key="b.id"
+              :value="b.id"
+            >
+              📊 {{ b.description || 'Batas Pengeluaran Bulanan' }} (Sisa: {{ formatRupiah(b.remaining_amount) }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Live Status Dampak ke Plafon Anggaran (Budget) -->
+        <div v-if="form.type === 'EXPENSE'" class="p-3.5 rounded-2xl border text-xs transition-all space-y-1" :class="form.goal_id ? 'bg-teal-500/10 border-teal-500/30 text-teal-300' : 'bg-slate-950/80 border-slate-800 text-slate-300'">
+          <div class="flex items-center justify-between">
+            <span class="font-bold flex items-center gap-1.5 text-[11px]">
+              <span>{{ form.goal_id ? '🛡️ Bebas dari Plafon Belanja' : (form.budget_id ? '📊 Memotong Anggaran Terpilih' : '📊 Memotong Plafon Belanja Umum') }}</span>
+            </span>
+            <span v-if="currentBudget" class="text-[10px] text-slate-400">
+              Sisa Budget: <b class="text-amber-400">{{ formatRupiah(currentBudget.remaining_amount) }}</b>
+            </span>
+          </div>
+          <p class="text-[11px] leading-relaxed" :class="form.goal_id ? 'text-teal-300/90' : 'text-slate-400'">
+            <span v-if="form.goal_id">
+              Karena dialokasikan untuk <b>Target Tabungan</b>, transaksi ini dicatat sebagai aset tabungan masa depan dan <b>tidak memotong</b> jatah anggaran belanja konsumtif Anda.
+            </span>
+            <span v-else-if="form.budget_id">
+              Transaksi belanja ini akan dicatat dan <b>memotong pos anggaran</b> yang Anda pilih di atas.
+            </span>
+            <span v-else>
+              Pengeluaran konsumtif ini akan <b>otomatis mengurangi</b> sisa plafon anggaran belanja bulanan Anda.
+            </span>
+          </p>
+        </div>
+
         <!-- Description -->
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">Deskripsi / Catatan</label>
@@ -151,6 +237,7 @@
 import { ref, watch, computed, onMounted } from 'vue';
 import { useFinanceStore } from '../../stores/finance';
 import { useToastStore } from '../../stores/toast';
+import { formatRupiah } from '../../utils/formatters';
 import DatePicker from '../common/DatePicker.vue';
 
 const props = defineProps({
@@ -165,6 +252,7 @@ const toastStore = useToastStore();
 const submitting = ref(false);
 
 const isEdit = computed(() => !!props.transaction?.id);
+const currentBudget = computed(() => financeStore.budgets?.[0] || financeStore.budget);
 
 function resolveDefaultWalletId() {
   if (!financeStore.wallets || financeStore.wallets.length === 0) return '';
@@ -177,8 +265,26 @@ const form = ref({
   amount: null,
   description: '',
   wallet_id: '',
+  goal_id: null,
+  budget_id: null,
   transaction_date: new Date().toISOString().slice(0, 10),
 });
+
+function onGoalSelected() {
+  if (form.value.goal_id) {
+    form.value.budget_id = null; // Target saving is an asset accumulation, not a spending budget deduction
+    const g = financeStore.goals.find(x => x.id === form.value.goal_id);
+    if (g && (!form.value.description || form.value.description.startsWith('Setoran Tabungan:'))) {
+      form.value.description = `Setoran Tabungan: ${g.name}`;
+    }
+  }
+}
+
+function onBudgetSelected() {
+  if (form.value.budget_id) {
+    form.value.goal_id = null;
+  }
+}
 
 const selectedWalletBalance = computed(() => {
   if (!form.value.wallet_id || !financeStore.wallets) return null;
@@ -204,12 +310,10 @@ function addPreset(val) {
 watch(
   () => [props.transaction, props.isOpen],
   async ([val, isOpen]) => {
-    if (isOpen && financeStore.wallets.length === 0) {
-      try {
-        await financeStore.fetchWallets();
-      } catch (e) {
-        // Handled silently
-      }
+    if (isOpen) {
+      if (financeStore.wallets.length === 0) financeStore.fetchWallets().catch(() => {});
+      if (financeStore.goals.length === 0) financeStore.fetchGoals().catch(() => {});
+      if (financeStore.budgets.length === 0) financeStore.fetchBudgets().catch(() => {});
     }
 
     if (val) {
@@ -218,6 +322,8 @@ watch(
         amount: val.amount || null,
         description: val.description || '',
         wallet_id: val.wallet_id || resolveDefaultWalletId(),
+        goal_id: val.goal_id || null,
+        budget_id: val.budget_id || null,
         transaction_date: val.transaction_date ? val.transaction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
       };
     } else {
@@ -226,6 +332,8 @@ watch(
         amount: null,
         description: '',
         wallet_id: resolveDefaultWalletId(),
+        goal_id: null,
+        budget_id: null,
         transaction_date: new Date().toISOString().slice(0, 10),
       };
     }
@@ -244,12 +352,14 @@ watch(
 );
 
 onMounted(async () => {
-  if (financeStore.wallets.length === 0) {
-    try {
-      await financeStore.fetchWallets();
-    } catch (e) {
-      // Ignored
-    }
+  try {
+    await Promise.allSettled([
+      financeStore.wallets.length === 0 ? financeStore.fetchWallets() : Promise.resolve(),
+      financeStore.goals.length === 0 ? financeStore.fetchGoals() : Promise.resolve(),
+      financeStore.budgets.length === 0 ? financeStore.fetchBudgets() : Promise.resolve(),
+    ]);
+  } catch (e) {
+    // Ignored
   }
 });
 
@@ -269,6 +379,8 @@ async function handleSubmit() {
         amount: form.value.amount,
         description: form.value.description,
         wallet_id: form.value.wallet_id,
+        goal_id: form.value.goal_id || null,
+        budget_id: form.value.budget_id || null,
       });
       toastStore.success('Transaksi berhasil diperbarui.');
     } else {
@@ -277,6 +389,8 @@ async function handleSubmit() {
         amount: form.value.amount,
         description: form.value.description,
         wallet_id: form.value.wallet_id,
+        goal_id: form.value.goal_id || undefined,
+        budget_id: form.value.budget_id || undefined,
         transaction_date: form.value.transaction_date,
       });
       toastStore.success('Transaksi baru berhasil dicatat.');

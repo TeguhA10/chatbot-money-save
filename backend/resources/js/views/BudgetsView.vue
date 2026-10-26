@@ -87,6 +87,19 @@
           </div>
         </div>
 
+        <!-- INFO REASSURANCE BANNER FOR ORDINARY USERS -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-teal-500/10 border border-teal-500/25 flex items-start gap-3.5 shadow-sm">
+          <div class="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center justify-center text-lg shrink-0">
+            💡
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-xs sm:text-sm font-bold text-teal-200">Setoran Tabungan Bebas dari Anggaran Belanja</h4>
+            <p class="text-xs text-teal-300/80 leading-relaxed">
+              Semua dana yang Anda sisihkan ke <b>Target Tabungan</b> tidak akan memotong batas plafon belanja bulanan Anda. Anda bebas menabung sebanyak mungkin tanpa khawatir anggaran belanja tercatat boros!
+            </p>
+          </div>
+        </div>
+
         <!-- INLINE FILTER BAR FOR BUDGETS (Standardized & UI/UX Friendly) -->
         <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
@@ -240,22 +253,31 @@
               </div>
             </div>
 
-            <!-- Action buttons: Edit and Reset/Delete -->
-            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-end gap-2">
-              <button
-                @click="showBudgetModal = true"
-                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+            <!-- Action buttons: View Mutasi, Edit, and Reset/Delete -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+              <RouterLink
+                :to="`/transactions?budget_id=${b.id}`"
+                class="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
               >
-                <span>✏️</span>
-                <span>Ubah Plafon</span>
-              </button>
-              <button
-                @click="confirmDeleteBudget"
-                class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <span>🗑️</span>
-                <span>Hapus Plafon</span>
-              </button>
+                <span>📊</span>
+                <span>Lihat Mutasi</span>
+              </RouterLink>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="showBudgetModal = true"
+                  class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>✏️</span>
+                  <span>Ubah Plafon</span>
+                </button>
+                <button
+                  @click="confirmDeleteBudget"
+                  class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>🗑️</span>
+                  <span>Hapus Plafon</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

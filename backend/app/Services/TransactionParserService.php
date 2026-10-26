@@ -102,6 +102,20 @@ class TransactionParserService
             $message = trim(preg_replace('/\b(?:via|pakai|pake|bayar\s+pake|bayar\s+pakai|menggunakan|ke)\s+[a-zA-Z0-9_-]+\b/i', '', $message));
         }
 
+        // Extract goal tag if present (e.g., "buat target laptop", "target umroh", "target motor")
+        $goalTag = null;
+        if (preg_match('/\b(?:buat\s+target|untuk\s+target|target\s+tabungan|target)\s+([a-zA-Z0-9_\-]+)\b/i', $message, $gMatch)) {
+            $goalTag = trim($gMatch[1]);
+            $message = trim(preg_replace('/\b(?:buat\s+target|untuk\s+target|target\s+tabungan|target)\s+[a-zA-Z0-9_\-]+\b/i', '', $message));
+        }
+
+        // Extract budget tag if present (e.g., "potong anggaran makan", "pos belanja", "anggaran makan")
+        $budgetTag = null;
+        if (!$goalTag && preg_match('/\b(?:potong\s+anggaran|dari\s+anggaran|pos\s+anggaran|anggaran|pos)\s+([a-zA-Z0-9_\-]+)\b/i', $message, $bMatch)) {
+            $budgetTag = trim($bMatch[1]);
+            $message = trim(preg_replace('/\b(?:potong\s+anggaran|dari\s+anggaran|pos\s+anggaran|anggaran|pos)\s+[a-zA-Z0-9_\-]+\b/i', '', $message));
+        }
+
         // 3. Extract description (words remaining after removing direction keyword + amount)
         $description = $this->extractDescription($message, $rawMatched);
 
@@ -111,6 +125,8 @@ class TransactionParserService
             'description'   => $description,
             'category_hint' => null,
             'wallet_tag'    => $walletTag ?: 'Cash',
+            'goal_tag'      => $goalTag,
+            'budget_tag'    => $budgetTag,
         ];
     }
 

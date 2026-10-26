@@ -59,6 +59,10 @@ class AiFinancialAgentService
             . "Jika pengguna meminta mencatat, melihat, mengedit, mentransfer, atau menghapus data, PANGGIL fungsi tools yang sesuai. "
             . "Tampilkan angka nominal dalam format Rupiah (contoh: Rp25.000, Rp1.500.000). "
             . "Jika ada pertanyaan umum tentang keuangan atau tips hemat, berikan jawaban bijak dan solutif.\n\n"
+            . "ATURAN PENGELUARAN DENGAN TARGET TABUNGAN ATAU POS ANGGARAN:\n"
+            . "- Saat mencatat transaksi pengeluaran (`catat_transaksi`), jika pengguna menyebut ingin menabung atau menyisihkan untuk target tabungan tertentu (contoh: 'nabung 100rb beli laptop', 'tabung 50rb target umroh'), sertakan parameter `goal_name` sesuai target aktif pengguna.\n"
+            . "- Jika pengguna menyebut pengeluaran dari pos anggaran belanja tertentu (contoh: 'beli makan 30rb potong anggaran makan', 'belanja 200rb plafon belanja bulanan'), sertakan parameter `budget_name`.\n"
+            . "- Jika hanya pengeluaran atau pemasukan rutin tanpa target/budget khusus, kosongkan `goal_name` dan `budget_name`.\n\n"
             . "ATURAN MENAMPILKAN DAFTAR TRANSAKSI DI CHAT:\n"
             . "1. Batasan waktu pencarian riwayat data di chat WhatsApp adalah MAKSIMAL 1 BULAN terakhir (atau bulan ini). Jika pengguna menanyakan riwayat lebih lama dari 1 bulan, jelaskan dengan ramah bahwa di chat WhatsApp batasan riwayat adalah maksimal 1 bulan terakhir, dan arahkan pengguna untuk membuka Dashboard Web.\n"
             . "2. Saat menampilkan transaksi, sampaikan dengan jelas, jujur, dan hangat total transaksi sebenarnya dalam 1 bulan/periode tersebut beserta total nominalnya (contoh: 'Di bulan ini ada total 15 catatan pemasukan dengan total nilai Rp85.000.000'). JANGAN PERNAH menyimpulkan total transaksi hanya sejumlah item yang ditampilkan di chat!\n"
@@ -290,6 +294,8 @@ class AiFinancialAgentService
                 'description' => $t->description,
                 'date'        => $t->transaction_date->format('d/m/Y H:i'),
                 'wallet'      => $t->wallet ? $t->wallet->name : 'Utama',
+                'target'      => $t->goal ? $t->goal->name : null,
+                'budget'      => $t->budget ? ($t->budget->description ?: 'Batas Belanja') : null,
             ];
         }
 
@@ -321,6 +327,8 @@ class AiFinancialAgentService
         $amount = (int) ($args['amount'] ?? 0);
         $desc = trim($args['description'] ?? 'Tanpa keterangan');
         $walletName = $args['wallet_name'] ?? null;
+        $goalName = !empty($args['goal_name']) ? trim($args['goal_name']) : null;
+        $budgetName = !empty($args['budget_name']) ? trim($args['budget_name']) : null;
 
         if ($amount <= 0) {
             return ['status' => 'error', 'message' => 'Nominal transaksi harus lebih dari 0.'];
@@ -333,24 +341,61 @@ class AiFinancialAgentService
         }
         $walletId = $w->id;
 
+        $goalId = null;
+        $goalObj = null;
+        if ($type === 'EXPENSE' && $goalName) {
+            $goalObj = $this->fuzzyMatcher->resolveGoal($user, $goalName);
+            if ($goalObj) {
+                $goalId = $goalObj->id;
+                // Update goal progress
+                $newCurrent = (int) $goalObj->current_amount + $amount;
+                $goalObj->encrypted_current_amount = $this->encryptionService->encryptForStorage($newCurrent);
+                if ($newCurrent >= (int) $goalObj->target_amount) {
+                    $goalObj->status = 'ACHIEVED';
+                }
+                $goalObj->save();
+            }
+        }
+
+        $budgetId = null;
+        $budgetObj = null;
+        if ($type === 'EXPENSE' && !$goalId && $budgetName) {
+            $budgetObj = $this->fuzzyMatcher->resolveBudget($user, $budgetName);
+            if ($budgetObj) {
+                $budgetId = $budgetObj->id;
+            }
+        }
+
         $parsed = [
             'type'        => $type,
             'amount'      => $amount,
             'description' => $desc,
             'category'    => $desc,
             'wallet_id'   => $walletId,
+            'goal_id'     => $goalId,
+            'budget_id'   => $budgetId,
             'is_voice'    => false,
         ];
 
         $transaction = $this->financeService->recordTransaction($user, $parsed);
         $wName = $transaction->wallet?->name ?? $w->name;
 
+        $allocationNote = '';
+        if ($goalObj) {
+            $allocationNote = " (🎯 Alokasi Target: '{$goalObj->name}', progress {$goalObj->progress_percent}%)";
+        } elseif ($budgetObj) {
+            $budgetDesc = $budgetObj->description ?: 'Batas Pengeluaran Bulanan';
+            $allocationNote = " (📊 Pos Anggaran: '{$budgetDesc}')";
+        }
+
         return [
-            'status'         => 'success',
-            'pesan'          => "Transaksi {$type} sebesar Rp" . number_format($amount, 0, ',', '.') . " pada dompet {$wName} berhasil dicatat.",
-            'transaksi_id'   => substr((string) $transaction->id, -8),
-            'dompet'         => $wName,
-            'saldo_terbaru'  => $this->financeService->getBalance($user),
+            'status'          => 'success',
+            'pesan'           => "Transaksi {$type} sebesar Rp" . number_format($amount, 0, ',', '.') . " pada dompet {$wName}{$allocationNote} berhasil dicatat.",
+            'transaksi_id'    => substr((string) $transaction->id, -8),
+            'dompet'          => $wName,
+            'target_tabungan' => $goalObj ? $goalObj->name : null,
+            'pos_anggaran'    => $budgetObj ? ($budgetObj->description ?: 'Batas Belanja') : null,
+            'saldo_terbaru'   => $this->financeService->getBalance($user),
         ];
     }
 
@@ -676,8 +721,9 @@ class AiFinancialAgentService
         $this->financeService->recordTransaction($user, [
             'type'        => 'EXPENSE',
             'amount'      => $amount,
-            'description' => "Setor target {$goal->name}",
+            'description' => "Setoran Tabungan: {$goal->name}",
             'wallet_id'   => $walletId,
+            'goal_id'     => $goal->id,
         ]);
 
         $newCurrent = (int) $goal->current_amount + $amount;
@@ -863,6 +909,8 @@ class AiFinancialAgentService
                                 'amount'      => ['type' => 'INTEGER', 'description' => 'Nominal uang Rupiah (contoh: 25000, 500000)'],
                                 'description' => ['type' => 'STRING', 'description' => 'Deskripsi/keterangan transaksi (contoh: makan siang padang, gaji bulanan, bensin pertalite)'],
                                 'wallet_name' => ['type' => 'STRING', 'description' => 'Nama dompet atau rekening yang digunakan (default: Cash, atau pilih: BCA, GoPay, Mandiri, dll)'],
+                                'goal_name'   => ['type' => 'STRING', 'description' => 'Nama target tabungan jika transaksi ini bertujuan untuk menabung ke target impian aktif (opsional, contoh: Beli Motor, Umroh, Dana Darurat)'],
+                                'budget_name' => ['type' => 'STRING', 'description' => 'Nama pos anggaran jika pengeluaran ini memotong anggaran belanja tertentu (opsional, contoh: Anggaran Makan, Plafon Belanja Bulanan)'],
                             ],
                             'required'   => ['type', 'amount', 'description'],
                         ],

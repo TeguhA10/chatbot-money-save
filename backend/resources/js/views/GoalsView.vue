@@ -218,15 +218,23 @@
               </div>
             </div>
 
-            <!-- Action Button -->
-            <div class="mt-5 pt-3 border-t border-slate-800/80">
+            <!-- Action Buttons: Riwayat & Setor Tabungan -->
+            <div class="mt-5 pt-3.5 border-t border-slate-800/80 flex items-center gap-2">
+              <button
+                @click="openHistory(goal)"
+                class="px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/40 text-slate-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                title="Lihat Rincian Riwayat Setoran"
+              >
+                <span>📜</span>
+                <span>Riwayat</span>
+              </button>
               <button
                 @click="openContribute(goal)"
                 :disabled="goal.status === 'ACHIEVED'"
-                class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-teal-300 font-bold text-xs transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md shadow-teal-500/15 active:scale-95"
               >
                 <span>💰</span>
-                <span>Setor ke Tabungan</span>
+                <span>Setor Tabungan</span>
               </button>
             </div>
           </div>
@@ -248,6 +256,12 @@
       @close="showContributeModal = false"
       @contributed="loadGoals"
     />
+
+    <GoalHistoryModal
+      :isOpen="showHistoryModal"
+      :goal="selectedGoal"
+      @close="showHistoryModal = false"
+    />
   </div>
 </template>
 
@@ -259,6 +273,7 @@ import { useToastStore } from '../stores/toast';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
 import GoalModal from '../components/modals/GoalModal.vue';
 import ContributeGoalModal from '../components/modals/ContributeGoalModal.vue';
+import GoalHistoryModal from '../components/modals/GoalHistoryModal.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
 const financeStore = useFinanceStore();
@@ -313,6 +328,7 @@ const errorMessage = ref('');
 
 const showGoalModal = ref(false);
 const showContributeModal = ref(false);
+const showHistoryModal = ref(false);
 const selectedGoal = ref(null);
 
 // Goal Filter States
@@ -328,6 +344,11 @@ function formatRupiah(val) {
 function openContribute(goal) {
   selectedGoal.value = goal;
   showContributeModal.value = true;
+}
+
+function openHistory(goal) {
+  selectedGoal.value = goal;
+  showHistoryModal.value = true;
 }
 
 const hasActiveGoalFilters = computed(() => {

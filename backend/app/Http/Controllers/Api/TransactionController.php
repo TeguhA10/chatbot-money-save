@@ -27,7 +27,7 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
-        $query = Transaction::with(['wallet', 'toWallet'])
+        $query = Transaction::with(['wallet', 'toWallet', 'goal:id,name', 'budget:id,description'])
             ->where('user_jid', $user->jid)
             ->orderByDesc('transaction_date')
             ->orderByDesc('created_at');
@@ -59,6 +59,26 @@ class TransactionController extends Controller
                       $wq->where('name', 'like', '%' . $s . '%');
                   });
             });
+        }
+        if ($request->filled('goal_id')) {
+            $gId = $request->goal_id;
+            if ($gId === 'none') {
+                $query->whereNull('goal_id');
+            } elseif ($gId === 'any') {
+                $query->whereNotNull('goal_id');
+            } else {
+                $query->where('goal_id', $gId);
+            }
+        }
+        if ($request->filled('budget_id')) {
+            $bId = $request->budget_id;
+            if ($bId === 'none') {
+                $query->whereNull('budget_id');
+            } elseif ($bId === 'any') {
+                $query->whereNotNull('budget_id');
+            } else {
+                $query->where('budget_id', $bId);
+            }
         }
         if (!$request->filled('include_voided')) {
             $query->where('status', 'ACTIVE');
@@ -99,6 +119,8 @@ class TransactionController extends Controller
             'amount'           => 'required|integer|min:1',
             'description'      => 'nullable|string|max:255',
             'wallet_id'        => 'nullable|string',
+            'goal_id'          => 'nullable|uuid|exists:financial_goals,id',
+            'budget_id'        => 'nullable|uuid|exists:budgets,id',
             'transaction_date' => 'nullable|date',
         ]);
 
@@ -111,7 +133,7 @@ class TransactionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatTransaction($transaction->load(['wallet', 'toWallet'])),
+            'data'    => $this->formatTransaction($transaction->load(['wallet', 'toWallet', 'goal:id,name', 'budget:id,description'])),
             'message' => 'Transaksi berhasil dicatat.',
         ], 201);
     }
@@ -128,6 +150,8 @@ class TransactionController extends Controller
             'amount'      => 'required|integer|min:1',
             'description' => 'required|string|max:255',
             'wallet_id'   => 'nullable|string',
+            'goal_id'     => 'nullable|uuid|exists:financial_goals,id',
+            'budget_id'   => 'nullable|uuid|exists:budgets,id',
         ]);
 
         $result = $this->financeService->updateTransaction(
@@ -135,7 +159,11 @@ class TransactionController extends Controller
             $id,
             $validated['amount'],
             $validated['description'],
-            $validated['wallet_id'] ?? null
+            $validated['wallet_id'] ?? null,
+            $validated['goal_id'] ?? null,
+            $request->has('goal_id'),
+            $validated['budget_id'] ?? null,
+            $request->has('budget_id')
         );
 
         if (!$result) {
@@ -151,7 +179,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'transaction' => $this->formatTransaction($result['transaction']->load(['wallet', 'toWallet'])),
+                'transaction' => $this->formatTransaction($result['transaction']->load(['wallet', 'toWallet', 'goal:id,name', 'budget:id,description'])),
                 'new_balance' => $result['new_balance'],
             ],
             'message' => 'Transaksi berhasil diubah.',
@@ -205,6 +233,10 @@ class TransactionController extends Controller
             'wallet_type'      => $t->wallet?->type ?? 'CASH',
             'to_wallet_id'     => $t->to_wallet_id,
             'to_wallet_name'   => $t->toWallet?->name,
+            'goal_id'          => $t->goal_id,
+            'goal_name'        => $t->goal?->name,
+            'budget_id'        => $t->budget_id,
+            'budget_name'      => $t->budget ? ($t->budget->description ?: 'Batas Pengeluaran Bulanan') : null,
         ];
     }
 }

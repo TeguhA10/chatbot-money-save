@@ -31,6 +31,8 @@ class Transaction extends Model
         'user_jid',
         'wallet_id',
         'to_wallet_id',
+        'goal_id',
+        'budget_id',
         'type',
         'amount',
         'description',
@@ -79,6 +81,22 @@ class Transaction extends Model
     public function toWallet(): BelongsTo
     {
         return $this->belongsTo(Wallet::class, 'to_wallet_id', 'id');
+    }
+
+    /**
+     * The financial goal this transaction contributes to (nullable).
+     */
+    public function goal(): BelongsTo
+    {
+        return $this->belongsTo(FinancialGoal::class, 'goal_id', 'id');
+    }
+
+    /**
+     * The budget limit this transaction draws from (nullable).
+     */
+    public function budget(): BelongsTo
+    {
+        return $this->belongsTo(Budget::class, 'budget_id', 'id');
     }
 
     // -----------------------------------------------------------------------
