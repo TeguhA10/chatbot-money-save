@@ -19,10 +19,12 @@
         <!-- Quick Action Button -->
         <button
           @click="openTransactionModal()"
-          class="w-full mb-6 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer active:scale-95"
+          class="w-full mb-6 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95"
+          :class="isPro ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-500/20' : 'bg-slate-800/90 hover:bg-slate-750 text-amber-300 border border-amber-500/40 shadow-amber-500/10'"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-          <span>Catat Transaksi</span>
+          <span v-if="!isPro">🔒</span>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>{{ isPro ? 'Catat Transaksi' : 'Catat Transaksi (Pro)' }}</span>
         </button>
 
         <!-- Navigation Links -->
@@ -180,10 +182,12 @@
         </button>
         <button
           @click="openTransactionModal()"
-          class="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 transition cursor-pointer"
-          title="Tambah Transaksi"
+          class="p-1.5 rounded-lg font-bold transition cursor-pointer flex items-center justify-center"
+          :class="isPro ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'"
+          :title="isPro ? 'Tambah Transaksi' : 'Fitur Terkunci (Khusus Pro)'"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span v-if="!isPro" class="text-xs">🔒</span>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
         <button
           @click="showDeleteAccountModal = true"
@@ -205,6 +209,53 @@
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col min-w-0 h-full pb-20 md:pb-6 overflow-y-auto">
       <div class="max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+
+        <!-- PROMO ADVERTISEMENT / UPSELL HEADER FOR FREE (READ-ONLY) USERS -->
+        <div
+          v-if="!isPro"
+          class="relative rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-teal-500/15 border border-amber-500/40 p-4 sm:p-5 shadow-2xl backdrop-blur-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300"
+        >
+          <!-- Ambient Glow Effect -->
+          <div class="absolute -top-16 -right-16 w-40 h-40 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
+          <div class="absolute -bottom-16 -left-16 w-40 h-40 bg-emerald-400/15 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex items-start gap-3 sm:gap-4">
+              <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center text-2xl sm:text-3xl font-black shrink-0 shadow-lg shadow-amber-500/30">
+                👑
+              </div>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-black border border-amber-500/40 tracking-wider uppercase">
+                    <span>👁️</span>
+                    <span>Mode Pratinjau (Lihat Saja)</span>
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/30">
+                    <span>🔒</span>
+                    <span>Aksi Mutasi Dikunci</span>
+                  </span>
+                </div>
+                <h2 class="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                  Tingkatkan ke HematWoy Pro untuk Membuka Semua Fitur!
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                  Anda saat ini dapat melihat mutasi transaksi. Upgrade ke akun Pro untuk membuka pencatatan di web, kelola multi-dompet tanpa batas, atur batas anggaran belanja bulanan, target tabungan, dan ekspor spreadsheet mutasi resmi!
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0 self-start lg:self-auto w-full lg:w-auto">
+              <button
+                @click="openPricingModal('monthly')"
+                class="flex-1 lg:flex-initial px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 hover:scale-102 active:scale-95 transition cursor-pointer"
+              >
+                <span>⭐ Langganan Sekarang</span>
+                <span class="hidden sm:inline text-[11px] font-bold opacity-80">(Mulai Rp15.000/bln)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <slot />
       </div>
     </main>
@@ -231,9 +282,9 @@
 
     <!-- In-App Subscription Upgrade Modal -->
     <PricingModal
-      :isOpen="showPricingModal"
-      :initialPlan="pricingModalPlan"
-      @close="showPricingModal = false"
+      :isOpen="authStore.showPricingModal || showPricingModal"
+      :initialPlan="authStore.pricingPlan || pricingModalPlan"
+      @close="authStore.closePricing(); showPricingModal = false"
       @upgraded="onSubscriptionUpgraded"
     />
 
@@ -259,7 +310,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
@@ -295,7 +346,7 @@ async function fetchSubscriptionStatus() {
 }
 
 const isPro = computed(() => {
-  return subscription.value?.is_pro || authStore.user?.tier === 'PREMIUM';
+  return authStore.isPro || subscription.value?.is_pro || authStore.user?.tier === 'PREMIUM';
 });
 
 const freeLimit = computed(() => {
@@ -326,7 +377,10 @@ const expiryDisplay = computed(() => {
 function openPricingModal(plan = 'monthly') {
   pricingModalPlan.value = plan;
   showPricingModal.value = true;
+  authStore.openPricing(plan);
 }
+
+provide('open-pricing-modal', openPricingModal);
 
 async function onSubscriptionUpgraded() {
   await fetchSubscriptionStatus();
@@ -387,6 +441,11 @@ function confirmLogout() {
 }
 
 function openTransactionModal() {
+  if (!isPro.value) {
+    toastStore.warning('Pencatatan mutasi di web terkunci. Silakan upgrade ke HematWoy Pro!');
+    openPricingModal('monthly');
+    return;
+  }
   emit('open-transaction-modal');
 }
 </script>

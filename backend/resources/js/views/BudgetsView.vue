@@ -18,11 +18,13 @@
       </div>
 
       <button
-        @click="showBudgetModal = true"
-        class="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition active:scale-95"
+        @click="openBudgetModal"
+        class="self-start sm:self-auto px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer transition active:scale-95"
+        :class="authStore.isPro ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-slate-950 shadow-amber-500/20' : 'bg-slate-800 text-amber-300 border border-amber-500/40 hover:bg-slate-750 shadow-amber-500/10'"
       >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-        <span>Pasang Limit Anggaran</span>
+        <span v-if="!authStore.isPro">🔒</span>
+        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>{{ authStore.isPro ? 'Pasang Limit Anggaran' : 'Pasang Limit Anggaran (Pro)' }}</span>
       </button>
     </div>
 
@@ -264,7 +266,7 @@
               </RouterLink>
               <div class="flex items-center gap-2">
                 <button
-                  @click="showBudgetModal = true"
+                  @click="openBudgetModal"
                   class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <span>✏️</span>
@@ -295,6 +297,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
@@ -302,11 +305,26 @@ import { formatRupiah as rawFormatRupiah } from '../utils/formatters';
 import BudgetModal from '../components/modals/BudgetModal.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 
+function openBudgetModal() {
+  if (!authStore.isPro) {
+    toastStore.warning('Pemasangan limit anggaran belanja bulanan eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
+  showBudgetModal.value = true;
+}
+
 async function confirmDeleteBudget() {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur hapus plafon anggaran eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   const confirmed = window.confirm('Apakah Anda yakin ingin menghapus plafon batas belanja bulanan?');
   if (!confirmed) return;
 

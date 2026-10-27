@@ -19,18 +19,20 @@
 
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
         <button
-          @click="showTransferModal = true"
+          @click="openTransfer"
           class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 text-blue-300 font-bold text-xs flex items-center gap-2 cursor-pointer transition active:scale-95"
         >
-          <span>⇄</span>
+          <span>{{ authStore.isPro ? '⇄' : '🔒' }}</span>
           <span>Transfer Dana</span>
         </button>
         <button
           @click="openCreateWallet"
-          class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer transition active:scale-95"
+          :class="authStore.isPro ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/20' : 'bg-slate-800 text-amber-300 border border-amber-500/40 hover:bg-slate-750 shadow-amber-500/10'"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-          <span class="whitespace-nowrap">Dompet Baru</span>
+          <span v-if="!authStore.isPro">🔒</span>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span class="whitespace-nowrap">{{ authStore.isPro ? 'Dompet Baru' : 'Dompet Baru (Pro)' }}</span>
         </button>
       </div>
     </div>
@@ -306,6 +308,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
@@ -314,22 +317,47 @@ import TransferModal from '../components/modals/TransferModal.vue';
 import WalletModal from '../components/modals/WalletModal.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 const selectedWalletForEdit = ref(null);
 
+function openTransfer() {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur transfer saldo multi-dompet eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
+  showTransferModal.value = true;
+}
+
 function openCreateWallet() {
+  if (!authStore.isPro) {
+    toastStore.warning('Penambahan multi-dompet eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedWalletForEdit.value = null;
   showWalletModal.value = true;
 }
 
 function openEditWallet(wallet) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur edit dompet eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedWalletForEdit.value = wallet;
   showWalletModal.value = true;
 }
 
 async function confirmDeleteWallet(wallet) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur hapus dompet eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   if (wallet.is_default) {
     toastStore.warning('Dompet utama tidak dapat dihapus.');
     return;

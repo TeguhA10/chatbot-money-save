@@ -20,10 +20,12 @@
       <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
         <button
           @click="openCreateModal"
-          class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg cursor-pointer transition active:scale-95"
+          :class="authStore.isPro ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/20' : 'bg-slate-800 text-amber-300 border border-amber-500/40 hover:bg-slate-750 shadow-amber-500/10'"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-          <span>Catat Transaksi Baru</span>
+          <span v-if="!authStore.isPro">🔒</span>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span>{{ authStore.isPro ? 'Catat Transaksi Baru' : 'Catat Transaksi Baru (Pro)' }}</span>
         </button>
       </div>
     </div>
@@ -103,7 +105,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span v-else>📊</span>
+            <span v-else>{{ authStore.isPro ? '📊' : '🔒' }}</span>
             <span>{{ exportingFormat === 'excel' ? 'Mengunduh...' : 'Excel' }}</span>
           </button>
 
@@ -118,7 +120,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span v-else>📑</span>
+            <span v-else>{{ authStore.isPro ? '📑' : '🔒' }}</span>
             <span>{{ exportingFormat === 'pdf' ? 'Mencetak...' : 'PDF Resmi' }}</span>
           </button>
 
@@ -521,6 +523,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
@@ -533,6 +536,7 @@ import DatePicker from '../components/common/DatePicker.vue';
 import TransactionModal from '../components/modals/TransactionModal.vue';
 import ConfirmModal from '../components/common/ConfirmModal.vue';
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
@@ -718,6 +722,11 @@ async function applyFilters(force = false) {
  * Direct 1-Click Export Execution without modal popup
  */
 async function triggerExport(format) {
+  if (!authStore.isPro) {
+    toastStore.warning('Ekspor laporan resmi eksklusif untuk pelanggan HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   if (isExporting.value) return;
   isExporting.value = true;
   exportingFormat.value = format;
@@ -740,16 +749,31 @@ function changePage(page) {
 }
 
 function openCreateModal() {
+  if (!authStore.isPro) {
+    toastStore.warning('Pencatatan mutasi di web terkunci. Silakan upgrade ke HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedTransaction.value = null;
   showModal.value = true;
 }
 
 function editTransaction(item) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur edit transaksi terkunci. Silakan upgrade ke HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedTransaction.value = item;
   showModal.value = true;
 }
 
 function promptDelete(item) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur hapus transaksi terkunci. Silakan upgrade ke HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   transactionToDelete.value = item;
   showDeleteModal.value = true;
 }

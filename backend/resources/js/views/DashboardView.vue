@@ -29,10 +29,12 @@
 
         <button
           @click="$emit('open-transaction-modal')"
-          class="hidden sm:inline-flex px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-bold text-xs items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition active:scale-95"
+          class="hidden sm:inline-flex px-4 py-2.5 rounded-xl font-bold text-xs items-center justify-center gap-2 shadow-lg cursor-pointer transition active:scale-95"
+          :class="authStore.isPro ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/20' : 'bg-slate-800/90 text-amber-300 border border-amber-500/40 hover:bg-slate-750 shadow-amber-500/10'"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-          <span class="whitespace-nowrap">Catat Transaksi</span>
+          <span v-if="!authStore.isPro">🔒</span>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+          <span class="whitespace-nowrap">{{ authStore.isPro ? 'Catat Transaksi' : 'Catat Transaksi (Pro)' }}</span>
         </button>
       </div>
     </div>
@@ -177,10 +179,12 @@
         <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2">
           <button
             @click="$emit('open-transaction-modal')"
-            class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition cursor-pointer"
+            class="py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition cursor-pointer"
+            :class="authStore.isPro ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-emerald-500/20' : 'bg-slate-800/90 text-amber-300 border border-amber-500/40'"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-            <span>Catat Transaksi</span>
+            <span v-if="!authStore.isPro">🔒</span>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>{{ authStore.isPro ? 'Catat Transaksi' : 'Catat Transaksi (Pro)' }}</span>
           </button>
           <RouterLink
             to="/analytics"
@@ -714,6 +718,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { formatRupiah as rawFormatRupiah, formatDate } from '../utils/formatters';
@@ -721,6 +726,7 @@ import MonthPicker from '../components/common/MonthPicker.vue';
 
 defineEmits(['open-transaction-modal']);
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 

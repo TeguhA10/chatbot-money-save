@@ -19,10 +19,12 @@
 
       <button
         @click="openCreateGoal"
-        class="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 cursor-pointer transition active:scale-95"
+        class="self-start sm:self-auto px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg cursor-pointer transition active:scale-95"
+        :class="authStore.isPro ? 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 text-slate-950 shadow-teal-500/20' : 'bg-slate-800 text-amber-300 border border-amber-500/40 hover:bg-slate-750 shadow-amber-500/10'"
       >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-        <span>Target Baru</span>
+        <span v-if="!authStore.isPro">🔒</span>
+        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>{{ authStore.isPro ? 'Target Baru' : 'Target Baru (Pro)' }}</span>
       </button>
     </div>
 
@@ -267,6 +269,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
@@ -276,22 +279,38 @@ import ContributeGoalModal from '../components/modals/ContributeGoalModal.vue';
 import GoalHistoryModal from '../components/modals/GoalHistoryModal.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
 const selectedGoalForEdit = ref(null);
 
 function openCreateGoal() {
+  if (!authStore.isPro) {
+    toastStore.warning('Pembuatan target tabungan impian eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedGoalForEdit.value = null;
   showGoalModal.value = true;
 }
 
 function openEditGoal(goal) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur edit target tabungan eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedGoalForEdit.value = goal;
   showGoalModal.value = true;
 }
 
 async function confirmDeleteGoal(goal) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur hapus target tabungan eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   let msg = `Apakah Anda yakin ingin membatalkan/menghapus target "${goal.name}"?`;
   if (goal.current_amount > 0) {
     msg += ` Dana yang telah terkumpul (${formatRupiah(goal.current_amount)}) akan otomatis dikembalikan ke dompet utama Anda.`;
@@ -342,6 +361,11 @@ function formatRupiah(val) {
 }
 
 function openContribute(goal) {
+  if (!authStore.isPro) {
+    toastStore.warning('Fitur setor tabungan target impian eksklusif untuk HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   selectedGoal.value = goal;
   showContributeModal.value = true;
 }

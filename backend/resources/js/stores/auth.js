@@ -13,6 +13,8 @@ export const useAuthStore = defineStore('auth', {
             }
         })(),
         subscription: null,
+        showPricingModal: false,
+        pricingPlan: 'monthly',
         loading: false,
         error: null,
     }),
@@ -85,6 +87,15 @@ export const useAuthStore = defineStore('auth', {
                 console.error('Failed to fetch subscription status', err);
                 return null;
             }
+        },
+
+        openPricing(plan = 'monthly') {
+            this.pricingPlan = plan;
+            this.showPricingModal = true;
+        },
+
+        closePricing() {
+            this.showPricingModal = false;
         },
 
         async logout() {

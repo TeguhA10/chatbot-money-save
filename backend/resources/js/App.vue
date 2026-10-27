@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen bg-slate-950 font-sans">
-    <component :is="isAppLayout ? AppLayout : 'div'" @open-transaction-modal="showTransactionModal = true">
-      <RouterView @open-transaction-modal="showTransactionModal = true" />
+    <component :is="isAppLayout ? AppLayout : 'div'" @open-transaction-modal="handleOpenTransactionModal">
+      <RouterView @open-transaction-modal="handleOpenTransactionModal" />
     </component>
 
-    <!-- Global Transaction Modal (Only for Authenticated Dashboard) -->
+    <!-- Global Transaction Modal (Only for Authenticated Dashboard & Pro Users) -->
     <TransactionModal
       v-if="authStore.isAuthenticated"
-      :isOpen="showTransactionModal"
+      :isOpen="showTransactionModal && authStore.isPro"
       :transaction="modalTransaction"
       @close="closeTransactionModal"
       @saved="handleTransactionSaved"
@@ -42,6 +42,15 @@ const isAppLayout = computed(() => {
   return !isPublicPage.value && authStore.isAuthenticated;
 });
 
+function handleOpenTransactionModal(transaction = null) {
+  if (!authStore.isPro) {
+    authStore.openPricing('monthly');
+    return;
+  }
+  modalTransaction.value = transaction || null;
+  showTransactionModal.value = true;
+}
+
 function closeTransactionModal() {
   showTransactionModal.value = false;
   modalTransaction.value = null;
@@ -54,6 +63,7 @@ function handleTransactionSaved() {
 onMounted(() => {
   if (authStore.isAuthenticated) {
     authStore.fetchProfile();
+    authStore.fetchSubscription();
     financeStore.fetchCategories();
   }
 });

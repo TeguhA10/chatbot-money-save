@@ -39,7 +39,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span v-else>📊</span>
+          <span v-else>{{ authStore.isPro ? '📊' : '🔒' }}</span>
           <span>{{ exportingFormat === 'excel' ? 'Mengunduh...' : 'Unduh Excel' }}</span>
         </button>
 
@@ -54,7 +54,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span v-else>📑</span>
+          <span v-else>{{ authStore.isPro ? '📑' : '🔒' }}</span>
           <span>{{ exportingFormat === 'pdf' ? 'Mencetak...' : 'PDF Resmi' }}</span>
         </button>
       </div>
@@ -201,6 +201,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useFinanceStore } from '../stores/finance';
 import { useVaultStore } from '../stores/vault';
 import { useToastStore } from '../stores/toast';
@@ -209,6 +210,7 @@ import { downloadExportReport } from '../utils/exportDownloader';
 import MonthPicker from '../components/common/MonthPicker.vue';
 import SelectDropdown from '../components/common/SelectDropdown.vue';
 
+const authStore = useAuthStore();
 const financeStore = useFinanceStore();
 const vaultStore = useVaultStore();
 const toastStore = useToastStore();
@@ -283,6 +285,11 @@ async function loadAnalytics(force = false) {
  * Direct 1-Click Export Execution without Popups
  */
 async function triggerExport(format) {
+  if (!authStore.isPro) {
+    toastStore.warning('Ekspor laporan resmi eksklusif untuk pelanggan HematWoy Pro!');
+    authStore.openPricing('monthly');
+    return;
+  }
   if (isExporting.value) return;
   isExporting.value = true;
   exportingFormat.value = format;
