@@ -30,15 +30,15 @@ if [ -n "$PORT" ] && [ "$PORT" != "8000" ]; then
 fi
 
 # Start Laravel scheduler daemon in background if enabled
-if [ "$ENABLE_SCHEDULER" = "true" ]; then
+if [ "$ENABLE_SCHEDULER" = "true" ] || ( [ -f .env ] && grep -Eq '^ENABLE_SCHEDULER=true' .env ); then
     echo "Starting Laravel background scheduler daemon (schedule:work)..."
     php artisan schedule:work &
 fi
 
 # Start Laravel queue worker daemon in background if enabled
-if [ "$ENABLE_QUEUE_WORKER" = "true" ]; then
+if [ "$ENABLE_QUEUE_WORKER" = "true" ] || ( [ -f .env ] && grep -Eq '^ENABLE_QUEUE_WORKER=true' .env ); then
     echo "Starting Laravel background queue worker (queue:work)..."
-    php artisan queue:work --tries=3 --timeout=90 &
+    php artisan queue:work --sleep=1 --tries=3 --timeout=90 &
 fi
 
 # Execute passed command (defaults to Octane FrankenPHP)
