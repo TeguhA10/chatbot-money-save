@@ -35,5 +35,11 @@ if [ "$ENABLE_SCHEDULER" = "true" ]; then
     php artisan schedule:work &
 fi
 
+# Start Laravel queue worker daemon in background if enabled
+if [ "$ENABLE_QUEUE_WORKER" = "true" ]; then
+    echo "Starting Laravel background queue worker (queue:work)..."
+    php artisan queue:work --tries=3 --timeout=90 &
+fi
+
 # Execute passed command (defaults to Octane FrankenPHP)
 exec "$@"
